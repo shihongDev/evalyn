@@ -24,7 +24,7 @@ class CostModel:
     output_cost_per_1k: float
     currency: str = "USD"
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "model_name": self.model_name,
             "input_cost_per_1k": self.input_cost_per_1k,
@@ -33,7 +33,7 @@ class CostModel:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> CostModel:
+    def from_dict(cls, data: dict[str, Any]) -> CostModel:
         return cls(
             model_name=data["model_name"],
             input_cost_per_1k=data["input_cost_per_1k"],
@@ -50,10 +50,10 @@ class CostEstimate:
     total_cost: float
     input_tokens: int
     output_tokens: int
-    breakdown: List[Dict[str, Any]]
+    breakdown: list[dict[str, Any]]
     currency: str = "USD"
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "total_tokens": self.total_tokens,
             "total_cost": self.total_cost,
@@ -64,7 +64,7 @@ class CostEstimate:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> CostEstimate:
+    def from_dict(cls, data: dict[str, Any]) -> CostEstimate:
         return cls(
             total_tokens=data.get("total_tokens", 0),
             total_cost=data.get("total_cost", 0.0),
@@ -84,7 +84,7 @@ class CostReport:
     item_count: int
     is_dry_run: bool = True
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "estimate": self.estimate.as_dict(),
             "model": self.model.as_dict(),
@@ -93,7 +93,7 @@ class CostReport:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> CostReport:
+    def from_dict(cls, data: dict[str, Any]) -> CostReport:
         return cls(
             estimate=CostEstimate.from_dict(data["estimate"]),
             model=CostModel.from_dict(data["model"]),
@@ -106,7 +106,7 @@ class CostReport:
 # Default Cost Models
 # ---------------------------------------------------------------------------
 
-DEFAULT_COST_MODELS: Dict[str, CostModel] = {
+DEFAULT_COST_MODELS: dict[str, CostModel] = {
     "gemini-2.0-flash": CostModel(
         model_name="gemini-2.0-flash",
         input_cost_per_1k=0.075,
@@ -146,8 +146,8 @@ def estimate_simulation_cost(
     item_count: int,
     avg_input_tokens: int = 200,
     avg_output_tokens: int = 300,
-    model: Optional[CostModel] = None,
-    modes: Optional[Dict[str, int]] = None,
+    model: CostModel | None = None,
+    modes: dict[str, int] | None = None,
 ) -> CostEstimate:
     """Estimate total cost for a simulation run.
 
@@ -168,7 +168,7 @@ def estimate_simulation_cost(
     if model is None:
         model = DEFAULT_COST_MODELS["gemini-2.0-flash"]
 
-    breakdown: List[Dict[str, Any]] = []
+    breakdown: list[dict[str, Any]] = []
 
     if modes:
         total_input = 0
@@ -212,7 +212,7 @@ def estimate_simulation_cost(
 def build_cost_report(
     item_count: int,
     model_name: str = "gemini-2.0-flash",
-    modes: Optional[Dict[str, int]] = None,
+    modes: dict[str, int] | None = None,
 ) -> CostReport:
     """Build a full cost report for a simulation.
 
@@ -237,7 +237,7 @@ def build_cost_report(
 
 def format_cost_report(report: CostReport) -> str:
     """Format a cost report as a human-readable string."""
-    lines: List[str] = []
+    lines: list[str] = []
     est = report.estimate
     lines.append("Cost Estimation Report")
     lines.append("=" * 40)
@@ -265,7 +265,7 @@ def format_cost_report(report: CostReport) -> str:
 
 def compare_model_costs(
     item_count: int,
-    models: Optional[List[str]] = None,
+    models: list[str] | None = None,
 ) -> str:
     """Compare costs across models in a table format.
 
@@ -276,7 +276,7 @@ def compare_model_costs(
     else:
         model_names = list(models)
 
-    lines: List[str] = []
+    lines: list[str] = []
     header = f"{'Model':<20} {'Input/1K':>10} {'Output/1K':>10} {'Est. Cost':>12}"
     lines.append("Model Cost Comparison")
     lines.append("=" * 56)

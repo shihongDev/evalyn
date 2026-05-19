@@ -23,10 +23,10 @@ class MetricBundle:
     bundle_id: str
     name: str
     description: str
-    metric_ids: List[str] = field(default_factory=list)
-    tags: List[str] = field(default_factory=list)
+    metric_ids: list[str] = field(default_factory=list)
+    tags: list[str] = field(default_factory=list)
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "bundle_id": self.bundle_id,
             "name": self.name,
@@ -36,7 +36,7 @@ class MetricBundle:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> MetricBundle:
+    def from_dict(cls, data: dict[str, Any]) -> MetricBundle:
         return cls(
             bundle_id=data["bundle_id"],
             name=data["name"],
@@ -55,7 +55,7 @@ class BundleRegistry:
     """Registry for managing metric bundles."""
 
     def __init__(self) -> None:
-        self._bundles: Dict[str, MetricBundle] = {}
+        self._bundles: dict[str, MetricBundle] = {}
 
     def register(self, bundle: MetricBundle) -> None:
         """Add or replace a bundle in the registry."""
@@ -68,18 +68,18 @@ class BundleRegistry:
             return True
         return False
 
-    def get(self, bundle_id: str) -> Optional[MetricBundle]:
+    def get(self, bundle_id: str) -> MetricBundle | None:
         """Look up a bundle by ID, or return None."""
         return self._bundles.get(bundle_id)
 
-    def list_bundles(self) -> List[MetricBundle]:
+    def list_bundles(self) -> list[MetricBundle]:
         """Return all registered bundles, sorted by bundle_id."""
         return sorted(self._bundles.values(), key=lambda b: b.bundle_id)
 
-    def search(self, query: str) -> List[MetricBundle]:
+    def search(self, query: str) -> list[MetricBundle]:
         """Search bundles by name, description, and tags (case-insensitive)."""
         q = query.lower()
-        results: List[MetricBundle] = []
+        results: list[MetricBundle] = []
         for bundle in self._bundles.values():
             searchable = " ".join(
                 [bundle.name, bundle.description] + bundle.tags
@@ -88,22 +88,22 @@ class BundleRegistry:
                 results.append(bundle)
         return sorted(results, key=lambda b: b.bundle_id)
 
-    def get_metrics(self, bundle_id: str) -> List[str]:
+    def get_metrics(self, bundle_id: str) -> list[str]:
         """Return metric IDs for a bundle, or empty list if not found."""
         bundle = self._bundles.get(bundle_id)
         if bundle is None:
             return []
         return list(bundle.metric_ids)
 
-    def compose(self, bundle_ids: List[str]) -> MetricBundle:
+    def compose(self, bundle_ids: list[str]) -> MetricBundle:
         """Combine multiple bundles into a new composite bundle.
 
         Metric IDs are deduplicated while preserving order. Tags are
         merged and deduplicated similarly.
         """
-        metric_ids: List[str] = []
-        tags: List[str] = []
-        names: List[str] = []
+        metric_ids: list[str] = []
+        tags: list[str] = []
+        names: list[str] = []
         seen_metrics: set[str] = set()
         seen_tags: set[str] = set()
 
@@ -131,14 +131,14 @@ class BundleRegistry:
             tags=tags,
         )
 
-    def recommend(self, trace_patterns: List[str]) -> List[MetricBundle]:
+    def recommend(self, trace_patterns: list[str]) -> list[MetricBundle]:
         """Suggest bundles whose tags overlap with the given trace patterns.
 
         Matching is case-insensitive. Results are sorted by the number
         of matching tags (descending), then by bundle_id.
         """
         patterns_lower = {p.lower() for p in trace_patterns}
-        scored: List[tuple[int, MetricBundle]] = []
+        scored: list[tuple[int, MetricBundle]] = []
         for bundle in self._bundles.values():
             matches = sum(1 for t in bundle.tags if t.lower() in patterns_lower)
             if matches > 0:
@@ -152,7 +152,7 @@ class BundleRegistry:
 # ---------------------------------------------------------------------------
 
 
-def load_bundles_from_config(config: Dict[str, Any]) -> BundleRegistry:
+def load_bundles_from_config(config: dict[str, Any]) -> BundleRegistry:
     """Load a BundleRegistry from a config dict.
 
     Expects a ``"bundles"`` key containing a list of bundle dicts.
@@ -218,11 +218,11 @@ BUILTIN_BUNDLES: BundleRegistry = _create_builtin_bundles()
 # ---------------------------------------------------------------------------
 
 
-def format_bundle_list(bundles: List[MetricBundle]) -> str:
+def format_bundle_list(bundles: list[MetricBundle]) -> str:
     """Format a list of bundles as a human-readable summary."""
     if not bundles:
         return "No bundles found."
-    lines: List[str] = []
+    lines: list[str] = []
     for b in bundles:
         tag_str = ", ".join(b.tags) if b.tags else "none"
         lines.append(f"  [{b.bundle_id}] {b.name} - {b.description}")
@@ -233,7 +233,7 @@ def format_bundle_list(bundles: List[MetricBundle]) -> str:
 
 def format_bundle_detail(bundle: MetricBundle) -> str:
     """Format a single bundle as a detailed view."""
-    lines: List[str] = [
+    lines: list[str] = [
         f"Bundle: {bundle.name} ({bundle.bundle_id})",
         f"Description: {bundle.description}",
         f"Metrics ({len(bundle.metric_ids)}):",

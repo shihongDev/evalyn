@@ -13,7 +13,7 @@ class SpanTypeInfo:
     color: str = ""
     description: str = ""
 
-    def as_dict(self) -> Dict[str, str]:
+    def as_dict(self) -> dict[str, str]:
         return {
             "name": self.name,
             "icon": self.icon,
@@ -22,7 +22,7 @@ class SpanTypeInfo:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, str]) -> SpanTypeInfo:
+    def from_dict(cls, data: dict[str, str]) -> SpanTypeInfo:
         return cls(
             name=data["name"],
             icon=data.get("icon", ""),
@@ -31,7 +31,7 @@ class SpanTypeInfo:
         )
 
 
-_BUILTIN_TYPES: Dict[str, SpanTypeInfo] = {
+_BUILTIN_TYPES: dict[str, SpanTypeInfo] = {
     "llm_call": SpanTypeInfo(
         name="llm_call", description="LLM API call",
     ),
@@ -55,7 +55,7 @@ _BUILTIN_TYPES: Dict[str, SpanTypeInfo] = {
     ),
 }
 
-_REGISTRY: Dict[str, SpanTypeInfo] = dict(_BUILTIN_TYPES)
+_REGISTRY: dict[str, SpanTypeInfo] = dict(_BUILTIN_TYPES)
 
 
 def register_span_type(
@@ -75,12 +75,12 @@ def register_span_type(
     return info
 
 
-def get_span_type(name: str) -> Optional[SpanTypeInfo]:
+def get_span_type(name: str) -> SpanTypeInfo | None:
     """Look up a span type by name. Returns None if not found."""
     return _REGISTRY.get(name)
 
 
-def list_span_types() -> List[SpanTypeInfo]:
+def list_span_types() -> list[SpanTypeInfo]:
     """Return all registered span types sorted by name."""
     return sorted(_REGISTRY.values(), key=lambda t: t.name)
 

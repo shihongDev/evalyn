@@ -30,7 +30,7 @@ class CollectorStats:
     def has_warning(self) -> bool:
         return self.loss_rate > self.warning_threshold
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "collected": self.collected,
             "expected": self.expected,
@@ -43,7 +43,7 @@ class CollectorStats:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> CollectorStats:
+    def from_dict(cls, data: dict[str, Any]) -> CollectorStats:
         return cls(
             collected=data.get("collected", 0),
             expected=data.get("expected", 0),
@@ -54,7 +54,7 @@ class CollectorStats:
         )
 
     def format_text(self) -> str:
-        lines: List[str] = []
+        lines: list[str] = []
         lines.append("Collector Stats")
         lines.append("-" * 30)
         lines.append(f"  Collected:  {self.collected}")
@@ -73,7 +73,7 @@ class SpanCollector:
 
     def __init__(self) -> None:
         self._stats = CollectorStats()
-        self._seen_ids: Set[str] = set()
+        self._seen_ids: set[str] = set()
 
     def record_collected(self, span_id: str) -> None:
         """Record a collected span. Detects duplicates."""
@@ -108,10 +108,10 @@ class SpanCollector:
         self._stats = CollectorStats()
         self._seen_ids = set()
 
-    def check_health(self) -> List[str]:
+    def check_health(self) -> list[str]:
         """Return list of warning messages. Empty if healthy."""
         stats = self.get_stats()
-        warnings: List[str] = []
+        warnings: list[str] = []
         if stats.has_warning:
             warnings.append(
                 f"High loss rate: {stats.loss_rate:.2%} "

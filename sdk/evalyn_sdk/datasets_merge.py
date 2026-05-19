@@ -16,9 +16,9 @@ from .datasets import hash_inputs
 class DatasetDiff:
     """Difference between two datasets."""
 
-    added: List = field(default_factory=list)      # items in B but not A
-    removed: List = field(default_factory=list)     # items in A but not B
-    modified: List = field(default_factory=list)    # items with same ID but different content
+    added: list = field(default_factory=list)      # items in B but not A
+    removed: list = field(default_factory=list)     # items in A but not B
+    modified: list = field(default_factory=list)    # items with same ID but different content
     unchanged: int = 0
 
     @property
@@ -26,7 +26,7 @@ class DatasetDiff:
         return len(self.added) > 0 or len(self.removed) > 0 or len(self.modified) > 0
 
     @property
-    def summary(self) -> Dict[str, int]:
+    def summary(self) -> dict[str, int]:
         return {
             "added": len(self.added),
             "removed": len(self.removed),
@@ -58,8 +58,8 @@ class DatasetDiff:
 
 
 def diff_datasets(
-    dataset_a: List,
-    dataset_b: List,
+    dataset_a: list,
+    dataset_b: list,
 ) -> DatasetDiff:
     """Compare two datasets and return the differences.
 
@@ -101,11 +101,11 @@ def diff_datasets(
 
 
 def merge_datasets(
-    dataset_a: List,
-    dataset_b: List,
+    dataset_a: list,
+    dataset_b: list,
     deduplicate: bool = True,
     prefer: str = "b",
-) -> Tuple[List, int]:
+) -> tuple[list, int]:
     """Merge two datasets.
 
     Args:
@@ -123,7 +123,7 @@ def merge_datasets(
         primary, secondary = dataset_b, dataset_a
 
     # Build ID map: primary items take precedence
-    merged_by_id: Dict[str, Any] = {}
+    merged_by_id: dict[str, Any] = {}
     for item in secondary:
         merged_by_id[item.id] = item
     for item in primary:
@@ -133,7 +133,7 @@ def merge_datasets(
 
     duplicate_count = 0
     if deduplicate:
-        seen_hashes: Set[str] = set()
+        seen_hashes: set[str] = set()
         deduped = []
         for item in merged:
             h = _input_hash(item)

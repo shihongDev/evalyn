@@ -27,7 +27,7 @@ class DistributionStats:
     median: float
     count: int
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "mean": self.mean,
             "std_dev": self.std_dev,
@@ -38,7 +38,7 @@ class DistributionStats:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> DistributionStats:
+    def from_dict(cls, data: dict[str, Any]) -> DistributionStats:
         return cls(
             mean=data["mean"],
             std_dev=data["std_dev"],
@@ -59,7 +59,7 @@ class ValidationResult:
     details: str
     threshold: float
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "check_name": self.check_name,
             "passed": self.passed,
@@ -69,7 +69,7 @@ class ValidationResult:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> ValidationResult:
+    def from_dict(cls, data: dict[str, Any]) -> ValidationResult:
         return cls(
             check_name=data["check_name"],
             passed=data["passed"],
@@ -83,12 +83,12 @@ class ValidationResult:
 class ValidationReport:
     """Aggregated report of all validation checks."""
 
-    results: List[ValidationResult] = field(default_factory=list)
+    results: list[ValidationResult] = field(default_factory=list)
     overall_passed: bool = True
     total_checks: int = 0
     passed_checks: int = 0
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "results": [r.as_dict() for r in self.results],
             "overall_passed": self.overall_passed,
@@ -97,7 +97,7 @@ class ValidationReport:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> ValidationReport:
+    def from_dict(cls, data: dict[str, Any]) -> ValidationReport:
         results = [ValidationResult.from_dict(r) for r in data.get("results", [])]
         return cls(
             results=results,
@@ -112,14 +112,14 @@ class ValidationReport:
 # ---------------------------------------------------------------------------
 
 
-def _compute_mean(values: List[float]) -> float:
+def _compute_mean(values: list[float]) -> float:
     """Compute arithmetic mean."""
     if not values:
         return 0.0
     return sum(values) / len(values)
 
 
-def _compute_std_dev(values: List[float], mean: float) -> float:
+def _compute_std_dev(values: list[float], mean: float) -> float:
     """Compute population standard deviation."""
     if len(values) < 2:
         return 0.0
@@ -127,7 +127,7 @@ def _compute_std_dev(values: List[float], mean: float) -> float:
     return math.sqrt(variance)
 
 
-def _compute_median(values: List[float]) -> float:
+def _compute_median(values: list[float]) -> float:
     """Compute median of sorted values."""
     if not values:
         return 0.0
@@ -143,7 +143,7 @@ def _compute_median(values: List[float]) -> float:
 # ---------------------------------------------------------------------------
 
 
-def compute_length_distribution(texts: List[str]) -> DistributionStats:
+def compute_length_distribution(texts: list[str]) -> DistributionStats:
     """Compute character-length statistics for a list of texts."""
     if not texts:
         return DistributionStats(
@@ -210,7 +210,7 @@ def _word_set(text: str) -> set:
 
 
 def compute_vocabulary_overlap(
-    seed_texts: List[str], gen_texts: List[str]
+    seed_texts: list[str], gen_texts: list[str]
 ) -> float:
     """Compute Jaccard coefficient of word sets between seed and generated texts."""
     seed_words: set = set()
@@ -231,8 +231,8 @@ def compute_vocabulary_overlap(
 
 
 def check_vocabulary_overlap(
-    seed_texts: List[str],
-    gen_texts: List[str],
+    seed_texts: list[str],
+    gen_texts: list[str],
     min_overlap: float = 0.1,
 ) -> ValidationResult:
     """Check that vocabulary overlap meets a minimum threshold."""
@@ -247,10 +247,10 @@ def check_vocabulary_overlap(
     )
 
 
-def find_duplicates(texts: List[str]) -> List[Tuple[int, int]]:
+def find_duplicates(texts: list[str]) -> list[tuple[int, int]]:
     """Return pairs of indices that are exact duplicates."""
-    pairs: List[Tuple[int, int]] = []
-    seen: Dict[str, int] = {}
+    pairs: list[tuple[int, int]] = []
+    seen: dict[str, int] = {}
     for i, t in enumerate(texts):
         if t in seen:
             pairs.append((seen[t], i))
@@ -260,10 +260,10 @@ def find_duplicates(texts: List[str]) -> List[Tuple[int, int]]:
 
 
 def find_near_duplicates(
-    texts: List[str], threshold: float = 0.9
-) -> List[Tuple[int, int, float]]:
+    texts: list[str], threshold: float = 0.9
+) -> list[tuple[int, int, float]]:
     """Return pairs with Jaccard word similarity >= threshold."""
-    results: List[Tuple[int, int, float]] = []
+    results: list[tuple[int, int, float]] = []
     word_sets = [_word_set(t) for t in texts]
     for i in range(len(texts)):
         for j in range(i + 1, len(texts)):
@@ -279,8 +279,8 @@ def find_near_duplicates(
 
 
 def check_deduplication(
-    gen_texts: List[str],
-    seed_texts: List[str],
+    gen_texts: list[str],
+    seed_texts: list[str],
     max_dup_rate: float = 0.1,
 ) -> ValidationResult:
     """Check duplicate rate between generated and seed texts.
@@ -309,10 +309,10 @@ def check_deduplication(
 
 
 def validate_simulation(
-    seed_texts: List[str], gen_texts: List[str]
+    seed_texts: list[str], gen_texts: list[str]
 ) -> ValidationReport:
     """Run all validation checks on seed vs generated texts."""
-    results: List[ValidationResult] = []
+    results: list[ValidationResult] = []
 
     # 1. Distribution comparison
     seed_stats = compute_length_distribution(seed_texts)
@@ -336,7 +336,7 @@ def validate_simulation(
 
 def format_validation_report(report: ValidationReport) -> str:
     """Format a human-readable validation report."""
-    lines: List[str] = []
+    lines: list[str] = []
     lines.append("Simulation Validation Report")
     lines.append("=" * 40)
     status = "PASSED" if report.overall_passed else "FAILED"

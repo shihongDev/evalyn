@@ -13,7 +13,8 @@ import threading
 from abc import ABC, abstractmethod
 from collections import defaultdict
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from typing import Callable, Dict, List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple
+from collections.abc import Callable
 
 from ..models import DatasetItem, FunctionCall, Metric, MetricResult
 
@@ -29,7 +30,7 @@ class ExecutionStrategy(ABC):
     def __init__(
         self,
         evaluate_fn: Callable[[Metric, FunctionCall, DatasetItem], MetricResult],
-        checkpoint_fn: Optional[Callable[[List[MetricResult], set, str], bool]] = None,
+        checkpoint_fn: Callable[[list[MetricResult], set, str], bool] | None = None,
         checkpoint_interval: int = 5,
     ):
         """Initialize strategy.
@@ -46,12 +47,12 @@ class ExecutionStrategy(ABC):
     @abstractmethod
     def execute(
         self,
-        prepared: List[Tuple[DatasetItem, FunctionCall]],
-        metrics: List[Metric],
-        progress_callback: Optional[ProgressCallback],
+        prepared: list[tuple[DatasetItem, FunctionCall]],
+        metrics: list[Metric],
+        progress_callback: ProgressCallback | None,
         run_id: str,
         completed_items: set,
-    ) -> List[MetricResult]:
+    ) -> list[MetricResult]:
         """Execute evaluation on prepared items.
 
         Args:
@@ -72,14 +73,14 @@ class SequentialStrategy(ExecutionStrategy):
 
     def execute(
         self,
-        prepared: List[Tuple[DatasetItem, FunctionCall]],
-        metrics: List[Metric],
-        progress_callback: Optional[ProgressCallback],
+        prepared: list[tuple[DatasetItem, FunctionCall]],
+        metrics: list[Metric],
+        progress_callback: ProgressCallback | None,
         run_id: str,
         completed_items: set,
-    ) -> List[MetricResult]:
+    ) -> list[MetricResult]:
         """Execute items sequentially with periodic checkpointing."""
-        results: List[MetricResult] = []
+        results: list[MetricResult] = []
         total_evals = len(prepared) * len(metrics)
         current_eval = 0
         items_since_checkpoint = 0
@@ -128,7 +129,7 @@ class ParallelStrategy(ExecutionStrategy):
     def __init__(
         self,
         evaluate_fn: Callable[[Metric, FunctionCall, DatasetItem], MetricResult],
-        checkpoint_fn: Optional[Callable[[List[MetricResult], set, str], bool]] = None,
+        checkpoint_fn: Callable[[list[MetricResult], set, str], bool] | None = None,
         checkpoint_interval: int = 5,
         max_workers: int = 4,
     ):
@@ -137,12 +138,12 @@ class ParallelStrategy(ExecutionStrategy):
 
     def execute(
         self,
-        prepared: List[Tuple[DatasetItem, FunctionCall]],
-        metrics: List[Metric],
-        progress_callback: Optional[ProgressCallback],
+        prepared: list[tuple[DatasetItem, FunctionCall]],
+        metrics: list[Metric],
+        progress_callback: ProgressCallback | None,
         run_id: str,
         completed_items: set,
-    ) -> List[MetricResult]:
+    ) -> list[MetricResult]:
         """Execute items in parallel using ThreadPoolExecutor."""
         progress_lock = threading.Lock()
         eval_counter = itertools.count(1)
@@ -150,7 +151,7 @@ class ParallelStrategy(ExecutionStrategy):
 
         def eval_task(
             metric: Metric, call: FunctionCall, item: DatasetItem
-        ) -> Tuple[str, MetricResult]:
+        ) -> tuple[str, MetricResult]:
             """Task for parallel execution."""
             result = self._evaluate(metric, call, item)
             return (item.id, result)
@@ -161,7 +162,7 @@ class ParallelStrategy(ExecutionStrategy):
         objective_metrics = [m for m in metrics if m.spec.type == "objective"]
         subjective_metrics = [m for m in metrics if m.spec.type != "objective"]
 
-        results_by_item: Dict[str, List[MetricResult]] = defaultdict(list)
+        results_by_item: dict[str, list[MetricResult]] = defaultdict(list)
         interrupted = False
 
         # Phase 1: objective metrics - sequential, no threading overhead
@@ -179,7 +180,7 @@ class ParallelStrategy(ExecutionStrategy):
         if not subjective_metrics:
             # All objective - skip thread pool entirely
             num_metrics = len(metrics)
-            results: List[MetricResult] = []
+            results: list[MetricResult] = []
             for item, call in prepared:
                 item_results = results_by_item.get(item.id, [])
                 results.extend(item_results)
@@ -240,7 +241,7 @@ class ParallelStrategy(ExecutionStrategy):
         # could mark a partially-evaluated item as completed, and on resume
         # the missing metrics would never be evaluated (silent data loss).
         num_metrics = len(metrics)
-        results: List[MetricResult] = []
+        results: list[MetricResult] = []
         for item, call in prepared:
             item_results = results_by_item.get(item.id)
             if not item_results:
@@ -262,7 +263,7 @@ class ParallelStrategy(ExecutionStrategy):
 def create_strategy(
     max_workers: int,
     evaluate_fn: Callable[[Metric, FunctionCall, DatasetItem], MetricResult],
-    checkpoint_fn: Optional[Callable[[List[MetricResult], set, str], bool]] = None,
+    checkpoint_fn: Callable[[list[MetricResult], set, str], bool] | None = None,
     checkpoint_interval: int = 5,
 ) -> ExecutionStrategy:
     """Factory function to create appropriate strategy.

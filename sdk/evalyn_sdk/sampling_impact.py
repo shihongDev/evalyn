@@ -15,7 +15,7 @@ from typing import Any, Dict, List, Optional
 # Z-score lookup (normal distribution critical values)
 # ---------------------------------------------------------------------------
 
-_Z_SCORES: Dict[float, float] = {
+_Z_SCORES: dict[float, float] = {
     0.90: 1.645,
     0.95: 1.96,
     0.99: 2.576,
@@ -44,7 +44,7 @@ class ImpactEstimate:
     precision_level: str  # "high", "medium", "low"
     estimated_cost: float = 0.0
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "sample_size": self.sample_size,
             "expected_ci_width": self.expected_ci_width,
@@ -53,7 +53,7 @@ class ImpactEstimate:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> ImpactEstimate:
+    def from_dict(cls, data: dict[str, Any]) -> ImpactEstimate:
         return cls(
             sample_size=data["sample_size"],
             expected_ci_width=data["expected_ci_width"],
@@ -66,12 +66,12 @@ class ImpactEstimate:
 class ImpactReport:
     """Full impact report with estimates across sample sizes."""
 
-    estimates: List[ImpactEstimate] = field(default_factory=list)
+    estimates: list[ImpactEstimate] = field(default_factory=list)
     metric_std: float = 0.0
     recommended_size: int = 0
     target_ci_width: float = 0.05
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "estimates": [e.as_dict() for e in self.estimates],
             "metric_std": self.metric_std,
@@ -80,7 +80,7 @@ class ImpactReport:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> ImpactReport:
+    def from_dict(cls, data: dict[str, Any]) -> ImpactReport:
         return cls(
             estimates=[ImpactEstimate.from_dict(e) for e in data.get("estimates", [])],
             metric_std=data.get("metric_std", 0.0),
@@ -93,7 +93,7 @@ class ImpactReport:
 # Core Functions
 # ---------------------------------------------------------------------------
 
-_DEFAULT_SIZES: List[int] = [20, 50, 100, 200, 500, 1000]
+_DEFAULT_SIZES: list[int] = [20, 50, 100, 200, 500, 1000]
 
 
 def estimate_ci_width(
@@ -127,11 +127,11 @@ def _precision_level(ci_width: float) -> str:
 
 
 def compute_impact_curve(
-    scores: List[float],
-    sizes: List[int],
+    scores: list[float],
+    sizes: list[int],
     confidence: float = 0.95,
     cost_per_item: float = 0.0,
-) -> List[ImpactEstimate]:
+) -> list[ImpactEstimate]:
     """Compute CI width estimates for each sample size.
 
     Args:
@@ -144,7 +144,7 @@ def compute_impact_curve(
         List of ImpactEstimate, one per size.
     """
     std = _std_dev(scores)
-    results: List[ImpactEstimate] = []
+    results: list[ImpactEstimate] = []
     for n in sizes:
         width = estimate_ci_width(std, n, confidence)
         results.append(
@@ -186,8 +186,8 @@ def recommend_sample_size(
 
 
 def build_impact_report(
-    scores: List[float],
-    sizes: Optional[List[int]] = None,
+    scores: list[float],
+    sizes: list[int] | None = None,
     target_width: float = 0.05,
     cost_per_item: float = 0.0,
 ) -> ImpactReport:
@@ -224,7 +224,7 @@ def format_impact_report(report: ImpactReport) -> str:
     Returns:
         Multi-line string with header, separator, and rows.
     """
-    lines: List[str] = []
+    lines: list[str] = []
     lines.append(f"Metric std dev: {report.metric_std:.4f}")
     lines.append(f"Target CI width: {report.target_ci_width:.4f}")
     lines.append(f"Recommended sample size: {report.recommended_size}")
@@ -249,7 +249,7 @@ def format_impact_report(report: ImpactReport) -> str:
 # ---------------------------------------------------------------------------
 
 
-def _std_dev(scores: List[float]) -> float:
+def _std_dev(scores: list[float]) -> float:
     """Population standard deviation of a list of scores."""
     if len(scores) < 2:
         return 0.0

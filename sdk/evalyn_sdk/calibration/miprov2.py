@@ -94,8 +94,8 @@ class MIPROv2Optimizer(BaseOptimizer):
 
     def __init__(
         self,
-        config: Optional[MIPROv2Config] = None,
-        api_key: Optional[str] = None,
+        config: MIPROv2Config | None = None,
+        api_key: str | None = None,
     ):
         """Initialize MIPROv2 optimizer.
 
@@ -104,7 +104,7 @@ class MIPROv2Optimizer(BaseOptimizer):
             api_key: Optional API key for Gemini (default: from env)
         """
         super().__init__(config=config or MIPROv2Config(), api_key=api_key)
-        self._task_client_instance: Optional[GeminiClient] = None
+        self._task_client_instance: GeminiClient | None = None
 
     @property
     def _task_client(self) -> GeminiClient:
@@ -125,10 +125,10 @@ class MIPROv2Optimizer(BaseOptimizer):
     def _generate_instructions(
         self,
         current_preamble: str,
-        disagreements: Optional[DisagreementAnalysis],
-        rubric: List[str],
-        accumulator: Optional[TokenAccumulator] = None,
-    ) -> List[str]:
+        disagreements: DisagreementAnalysis | None,
+        rubric: list[str],
+        accumulator: TokenAccumulator | None = None,
+    ) -> list[str]:
         """Generate diverse preamble candidates from disagreement patterns.
 
         Args:
@@ -194,8 +194,8 @@ class MIPROv2Optimizer(BaseOptimizer):
 
     def _bootstrap_demos(
         self,
-        train_examples: List[Dict[str, Any]],
-    ) -> List[str]:
+        train_examples: list[dict[str, Any]],
+    ) -> list[str]:
         """Select diverse demonstrations from correct evaluations.
 
         Diversity heuristic: bucket by (label=PASS/FAIL) x (input length < median / >= median),
@@ -219,7 +219,7 @@ class MIPROv2Optimizer(BaseOptimizer):
         med_length = median(input_lengths) if input_lengths else 0
 
         # Create 4 buckets: (PASS/FAIL) x (short/long)
-        buckets: Dict[str, List[Dict[str, Any]]] = {
+        buckets: dict[str, list[dict[str, Any]]] = {
             "PASS_short": [],
             "PASS_long": [],
             "FAIL_short": [],
@@ -238,7 +238,7 @@ class MIPROv2Optimizer(BaseOptimizer):
         if not non_empty_buckets:
             return []
 
-        selected: List[Dict[str, Any]] = []
+        selected: list[dict[str, Any]] = []
         remaining = self.config.num_demos
         bucket_keys = list(non_empty_buckets.keys())
         random.shuffle(bucket_keys)
@@ -275,11 +275,11 @@ class MIPROv2Optimizer(BaseOptimizer):
 
     def _select_best_instructions(
         self,
-        instructions: List[str],
-        rubric: List[str],
-        train_examples: List[Dict[str, Any]],
-        accumulator: Optional[TokenAccumulator] = None,
-    ) -> List[str]:
+        instructions: list[str],
+        rubric: list[str],
+        train_examples: list[dict[str, Any]],
+        accumulator: TokenAccumulator | None = None,
+    ) -> list[str]:
         """Score each instruction on the training set and return the top 3.
 
         Args:
@@ -291,7 +291,7 @@ class MIPROv2Optimizer(BaseOptimizer):
         Returns:
             Top 3 instructions sorted by F1 score (descending)
         """
-        scored: List[tuple[str, float]] = []
+        scored: list[tuple[str, float]] = []
         for instruction in instructions:
             f1 = self.score_preamble(instruction, rubric, train_examples, accumulator, max_samples=self.config.eval_samples)
             scored.append((instruction, f1))
@@ -302,11 +302,11 @@ class MIPROv2Optimizer(BaseOptimizer):
     def _greedy_demo_selection(
         self,
         instruction: str,
-        demos: List[str],
-        rubric: List[str],
-        train_examples: List[Dict[str, Any]],
-        accumulator: Optional[TokenAccumulator] = None,
-    ) -> List[str]:
+        demos: list[str],
+        rubric: list[str],
+        train_examples: list[dict[str, Any]],
+        accumulator: TokenAccumulator | None = None,
+    ) -> list[str]:
         """Greedily add demos to the instruction, keeping only those that improve F1.
 
         Args:
@@ -324,7 +324,7 @@ class MIPROv2Optimizer(BaseOptimizer):
             base_preamble, rubric, train_examples, accumulator, max_samples=self.config.eval_samples
         )
 
-        selected_demos: List[str] = []
+        selected_demos: list[str] = []
         remaining_demos = list(demos)
 
         for _ in range(len(demos)):
@@ -355,7 +355,7 @@ class MIPROv2Optimizer(BaseOptimizer):
 
         return selected_demos
 
-    def _embed_demos(self, instruction: str, selected_demos: List[str]) -> str:
+    def _embed_demos(self, instruction: str, selected_demos: list[str]) -> str:
         """Concatenate instruction with selected demo text.
 
         Args:
@@ -383,13 +383,13 @@ class MIPROv2Optimizer(BaseOptimizer):
         self,
         *,
         metric_id: str,
-        current_rubric: List[str],
-        metric_results: List[MetricResult],
-        annotations: List[Annotation],
-        disagreements: Optional[DisagreementAnalysis] = None,
-        dataset_items: Optional[List[DatasetItem]] = None,
+        current_rubric: list[str],
+        metric_results: list[MetricResult],
+        annotations: list[Annotation],
+        disagreements: DisagreementAnalysis | None = None,
+        dataset_items: list[DatasetItem] | None = None,
         current_preamble: str = "",
-        accumulator: Optional[TokenAccumulator] = None,
+        accumulator: TokenAccumulator | None = None,
         **kwargs: Any,
     ) -> PromptOptimizationResult:
         """Run MIPROv2 optimization.

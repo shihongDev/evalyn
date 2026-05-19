@@ -15,7 +15,7 @@ class HeatmapCell:
     count: int
     value: float  # can be count, cost, or error rate
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "day": self.day,
             "hour": self.hour,
@@ -28,11 +28,11 @@ class HeatmapCell:
 class HeatmapData:
     """Full heatmap dataset."""
 
-    cells: List[HeatmapCell] = field(default_factory=list)
+    cells: list[HeatmapCell] = field(default_factory=list)
     total_traces: int = 0
     metric: str = "count"  # "count", "cost", "error_rate"
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "cells": [c.as_dict() for c in self.cells],
             "total_traces": self.total_traces,
@@ -40,7 +40,7 @@ class HeatmapData:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> HeatmapData:
+    def from_dict(cls, data: dict[str, Any]) -> HeatmapData:
         return cls(
             cells=[
                 HeatmapCell(
@@ -56,7 +56,7 @@ class HeatmapData:
         )
 
 
-def build_heatmap(spans: List[Span], metric: str = "count") -> HeatmapData:
+def build_heatmap(spans: list[Span], metric: str = "count") -> HeatmapData:
     """Group root spans by (day_of_week, hour_of_day).
 
     Only considers root spans (parent_id is None).
@@ -69,14 +69,14 @@ def build_heatmap(spans: List[Span], metric: str = "count") -> HeatmapData:
     root_spans = [s for s in spans if s.parent_id is None]
 
     # Buckets keyed by (day, hour)
-    buckets: Dict[tuple, List[Span]] = {}
+    buckets: dict[tuple, list[Span]] = {}
     for s in root_spans:
         day = s.start_time.weekday()  # Monday=0
         hour = s.start_time.hour
         key = (day, hour)
         buckets.setdefault(key, []).append(s)
 
-    cells: List[HeatmapCell] = []
+    cells: list[HeatmapCell] = []
     for (day, hour), bucket in sorted(buckets.items()):
         count = len(bucket)
         if metric == "cost":
@@ -99,7 +99,7 @@ _DAY_LABELS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
 _CHARS = " .oO#"
 
 
-def _intensity_char(value: float, thresholds: List[float]) -> str:
+def _intensity_char(value: float, thresholds: list[float]) -> str:
     """Pick a character based on percentile thresholds.
 
     thresholds has 4 values (p25, p50, p75, p90).
@@ -117,7 +117,7 @@ def _intensity_char(value: float, thresholds: List[float]) -> str:
     return _CHARS[4]
 
 
-def _percentile_thresholds(values: List[float]) -> List[float]:
+def _percentile_thresholds(values: list[float]) -> list[float]:
     """Return [p25, p50, p75, p90] from nonzero values."""
     nonzero = sorted(v for v in values if v > 0)
     if not nonzero:
@@ -138,14 +138,14 @@ def render_ascii_heatmap(data: HeatmapData, width: int = 80) -> str:
     Characters: " " (zero), "." (low), "o" (medium), "O" (high), "#" (very high).
     """
     # Build lookup
-    lookup: Dict[tuple, float] = {}
+    lookup: dict[tuple, float] = {}
     for cell in data.cells:
         lookup[(cell.day, cell.hour)] = cell.value
 
     all_values = [cell.value for cell in data.cells]
     thresholds = _percentile_thresholds(all_values)
 
-    lines: List[str] = []
+    lines: list[str] = []
     # Header
     header = "     " + "".join(f"{h:>3}" for h in range(24))
     lines.append(header)
@@ -168,7 +168,7 @@ def render_ascii_heatmap(data: HeatmapData, width: int = 80) -> str:
 
 def render_html_heatmap(data: HeatmapData) -> str:
     """Render a simple HTML table with background-color intensity."""
-    lookup: Dict[tuple, float] = {}
+    lookup: dict[tuple, float] = {}
     for cell in data.cells:
         lookup[(cell.day, cell.hour)] = cell.value
 
@@ -177,7 +177,7 @@ def render_html_heatmap(data: HeatmapData) -> str:
     if max_val <= 0:
         max_val = 1.0
 
-    rows: List[str] = []
+    rows: list[str] = []
     rows.append("<table style='border-collapse:collapse;font-family:monospace'>")
     # Header row
     rows.append("<tr><th></th>")

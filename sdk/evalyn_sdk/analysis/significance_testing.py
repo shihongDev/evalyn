@@ -26,10 +26,10 @@ class SignificanceResult:
     delta: float
     p_value: float
     significant: bool
-    confidence_interval: Tuple[float, float] = (0.0, 0.0)
+    confidence_interval: tuple[float, float] = (0.0, 0.0)
     method: str = "welch_t"
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "metric_id": self.metric_id,
             "mean_a": self.mean_a,
@@ -42,7 +42,7 @@ class SignificanceResult:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> SignificanceResult:
+    def from_dict(cls, data: dict[str, Any]) -> SignificanceResult:
         ci = data.get("confidence_interval", [0.0, 0.0])
         return cls(
             metric_id=data["metric_id"],
@@ -60,12 +60,12 @@ class SignificanceResult:
 class SignificanceReport:
     """Report summarizing significance tests across metrics."""
 
-    results: List[SignificanceResult] = field(default_factory=list)
+    results: list[SignificanceResult] = field(default_factory=list)
     alpha: float = 0.05
     significant_count: int = 0
     total_tests: int = 0
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "results": [r.as_dict() for r in self.results],
             "alpha": self.alpha,
@@ -74,7 +74,7 @@ class SignificanceReport:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> SignificanceReport:
+    def from_dict(cls, data: dict[str, Any]) -> SignificanceReport:
         results = [SignificanceResult.from_dict(r) for r in data.get("results", [])]
         return cls(
             results=results,
@@ -84,7 +84,7 @@ class SignificanceReport:
         )
 
     def format_text(self) -> str:
-        lines: List[str] = []
+        lines: list[str] = []
         lines.append(f"Significance Report (alpha={self.alpha})")
         lines.append(f"  {self.significant_count}/{self.total_tests} metrics significant")
         lines.append("")
@@ -102,11 +102,11 @@ class SignificanceReport:
 # ---------------------------------------------------------------------------
 
 
-def _mean(values: List[float]) -> float:
+def _mean(values: list[float]) -> float:
     return sum(values) / len(values)
 
 
-def _variance(values: List[float]) -> float:
+def _variance(values: list[float]) -> float:
     """Sample variance (Bessel's correction)."""
     n = len(values)
     if n < 2:
@@ -115,7 +115,7 @@ def _variance(values: List[float]) -> float:
     return sum((x - m) ** 2 for x in values) / (n - 1)
 
 
-def welch_t_test(scores_a: List[float], scores_b: List[float]) -> Tuple[float, float]:
+def welch_t_test(scores_a: list[float], scores_b: list[float]) -> tuple[float, float]:
     """Welch's t-test for unequal variances.
 
     Returns (t_statistic, p_value). Computed manually without scipy.
@@ -180,8 +180,8 @@ def _normal_sf(x: float) -> float:
 
 
 def compute_confidence_interval(
-    scores: List[float], confidence: float = 0.95
-) -> Tuple[float, float]:
+    scores: list[float], confidence: float = 0.95
+) -> tuple[float, float]:
     """Confidence interval using z-score approximation.
 
     Uses z=1.96 for 95% confidence, scaled proportionally for other levels.
@@ -231,8 +231,8 @@ def _approx_z(p: float) -> float:
 
 def run_significance_test(
     metric_id: str,
-    scores_a: List[float],
-    scores_b: List[float],
+    scores_a: list[float],
+    scores_b: list[float],
     alpha: float = 0.05,
 ) -> SignificanceResult:
     """Full significance test for a single metric between two runs."""
@@ -272,7 +272,7 @@ def run_significance_test(
 
 
 def run_all_significance_tests(
-    metrics: Dict[str, Tuple[List[float], List[float]]],
+    metrics: dict[str, tuple[list[float], list[float]]],
     alpha: float = 0.05,
 ) -> SignificanceReport:
     """Test significance for all metrics.
@@ -281,7 +281,7 @@ def run_all_significance_tests(
         metrics: {metric_id: (scores_a, scores_b)}
         alpha: significance threshold
     """
-    results: List[SignificanceResult] = []
+    results: list[SignificanceResult] = []
     for metric_id, (scores_a, scores_b) in sorted(metrics.items()):
         result = run_significance_test(metric_id, scores_a, scores_b, alpha)
         results.append(result)
@@ -296,8 +296,8 @@ def run_all_significance_tests(
 
 
 def apply_bonferroni_correction(
-    results: List[SignificanceResult], alpha: float = 0.05
-) -> List[SignificanceResult]:
+    results: list[SignificanceResult], alpha: float = 0.05
+) -> list[SignificanceResult]:
     """Adjust significance for multiple comparisons using Bonferroni correction.
 
     New threshold = alpha / num_tests. Re-evaluates significance for each result.
@@ -307,7 +307,7 @@ def apply_bonferroni_correction(
         return []
 
     corrected_alpha = alpha / n
-    corrected: List[SignificanceResult] = []
+    corrected: list[SignificanceResult] = []
     for r in results:
         corrected.append(
             SignificanceResult(
@@ -324,7 +324,7 @@ def apply_bonferroni_correction(
     return corrected
 
 
-def compute_effect_size(scores_a: List[float], scores_b: List[float]) -> float:
+def compute_effect_size(scores_a: list[float], scores_b: list[float]) -> float:
     """Cohen's d effect size.
 
     Uses pooled standard deviation. Returns 0.0 for degenerate cases.

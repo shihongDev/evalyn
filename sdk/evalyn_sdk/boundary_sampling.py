@@ -21,7 +21,7 @@ class BoundaryScore:
     cluster_id: int
     is_boundary: bool
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "item_id": self.item_id,
             "boundary_distance": self.boundary_distance,
@@ -30,7 +30,7 @@ class BoundaryScore:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> BoundaryScore:
+    def from_dict(cls, data: dict[str, Any]) -> BoundaryScore:
         return cls(
             item_id=data["item_id"],
             boundary_distance=data["boundary_distance"],
@@ -46,9 +46,9 @@ class BoundaryConfig:
     n_clusters: int = 3
     sample_size: int = 50
     boundary_threshold: float = 0.3  # items below this are "boundary"
-    seed: Optional[int] = None
+    seed: int | None = None
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "n_clusters": self.n_clusters,
             "sample_size": self.sample_size,
@@ -57,7 +57,7 @@ class BoundaryConfig:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> BoundaryConfig:
+    def from_dict(cls, data: dict[str, Any]) -> BoundaryConfig:
         return cls(
             n_clusters=data.get("n_clusters", 3),
             sample_size=data.get("sample_size", 50),
@@ -70,13 +70,13 @@ class BoundaryConfig:
 class BoundaryResult:
     """Result of a boundary sampling run."""
 
-    selected_ids: List[str] = field(default_factory=list)
-    scores: List[BoundaryScore] = field(default_factory=list)
+    selected_ids: list[str] = field(default_factory=list)
+    scores: list[BoundaryScore] = field(default_factory=list)
     boundary_count: int = 0
     centroid_count: int = 0
     total_pool: int = 0
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "selected_ids": self.selected_ids,
             "scores": [s.as_dict() for s in self.scores],
@@ -86,7 +86,7 @@ class BoundaryResult:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> BoundaryResult:
+    def from_dict(cls, data: dict[str, Any]) -> BoundaryResult:
         return cls(
             selected_ids=data.get("selected_ids", []),
             scores=[
@@ -153,7 +153,7 @@ def _compute_centroid(texts: list[str]) -> set[str]:
     if not texts:
         return set()
 
-    word_counts: Dict[str, int] = {}
+    word_counts: dict[str, int] = {}
     for text in texts:
         for word in _tokenize(text):
             word_counts[word] = word_counts.get(word, 0) + 1
@@ -185,7 +185,7 @@ def assign_clusters(
         return [], {}
 
     # Step 1: initial even split
-    assignment: Dict[str, int] = {}
+    assignment: dict[str, int] = {}
     for i, item_id in enumerate(sorted_ids):
         assignment[item_id] = i % k
 
@@ -327,7 +327,7 @@ def run_boundary_sampling(
 
 def format_boundary_report(result: BoundaryResult) -> str:
     """Format a human-readable boundary sampling report."""
-    lines: List[str] = []
+    lines: list[str] = []
     lines.append("Boundary Sampling Report")
     lines.append("=" * 40)
     lines.append(f"Total pool size: {result.total_pool}")

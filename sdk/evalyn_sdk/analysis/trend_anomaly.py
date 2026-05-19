@@ -26,7 +26,7 @@ class AnomalyPoint:
     z_score: float
     is_anomaly: bool = False
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "index": self.index,
             "value": self.value,
@@ -44,7 +44,7 @@ class AnomalyConfig:
     min_data_points: int = 5
     window_size: int = 5
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "z_threshold": self.z_threshold,
             "min_data_points": self.min_data_points,
@@ -52,7 +52,7 @@ class AnomalyConfig:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> AnomalyConfig:
+    def from_dict(cls, data: dict[str, Any]) -> AnomalyConfig:
         return cls(
             z_threshold=data.get("z_threshold", 2.0),
             min_data_points=data.get("min_data_points", 5),
@@ -64,13 +64,13 @@ class AnomalyConfig:
 class AnomalyReport:
     """Full anomaly detection report for a metric."""
 
-    anomalies: List[AnomalyPoint] = field(default_factory=list)
+    anomalies: list[AnomalyPoint] = field(default_factory=list)
     total_points: int = 0
     anomaly_count: int = 0
     anomaly_rate: float = 0.0
     metric_id: str = ""
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "anomalies": [a.as_dict() for a in self.anomalies],
             "total_points": self.total_points,
@@ -80,7 +80,7 @@ class AnomalyReport:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> AnomalyReport:
+    def from_dict(cls, data: dict[str, Any]) -> AnomalyReport:
         return cls(
             anomalies=[
                 AnomalyPoint(**a) for a in data.get("anomalies", [])
@@ -114,7 +114,7 @@ class AnomalyReport:
 # ---------------------------------------------------------------------------
 
 
-def compute_z_scores(values: List[float], window_size: int = 5) -> List[float]:
+def compute_z_scores(values: list[float], window_size: int = 5) -> list[float]:
     """Compute z-score for each value relative to the moving window average.
 
     Requires at least 2 points in the window to compute a meaningful z-score.
@@ -126,7 +126,7 @@ def compute_z_scores(values: List[float], window_size: int = 5) -> List[float]:
     if n < 2:
         return [0.0] * n
 
-    z_scores: List[float] = []
+    z_scores: list[float] = []
     for i in range(n):
         # Window: up to window_size points before index i
         start = max(0, i - window_size)
@@ -150,8 +150,8 @@ def compute_z_scores(values: List[float], window_size: int = 5) -> List[float]:
 
 
 def detect_anomalies(
-    values: List[float], config: Optional[AnomalyConfig] = None
-) -> List[AnomalyPoint]:
+    values: list[float], config: AnomalyConfig | None = None
+) -> list[AnomalyPoint]:
     """Find values where |z_score| > z_threshold.
 
     Returns a list of AnomalyPoint for every data point, with is_anomaly
@@ -165,7 +165,7 @@ def detect_anomalies(
         return []
 
     z_scores = compute_z_scores(values, window_size=config.window_size)
-    points: List[AnomalyPoint] = []
+    points: list[AnomalyPoint] = []
     for i, (val, z) in enumerate(zip(values, z_scores)):
         # Compute expected (window mean)
         start = max(0, i - config.window_size)
@@ -181,7 +181,7 @@ def detect_anomalies(
     return points
 
 
-def detect_trend_break(values: List[float], window_size: int = 5) -> Optional[int]:
+def detect_trend_break(values: list[float], window_size: int = 5) -> int | None:
     """Find the index where the trend reverses (slope sign change).
 
     Computes a simple moving average slope over the given window. Returns
@@ -193,7 +193,7 @@ def detect_trend_break(values: List[float], window_size: int = 5) -> Optional[in
         return None
 
     # Compute slopes between consecutive moving averages
-    slopes: List[float] = []
+    slopes: list[float] = []
     for i in range(n - window_size + 1):
         window = values[i : i + window_size]
         avg = sum(window) / len(window)
@@ -210,14 +210,14 @@ def detect_trend_break(values: List[float], window_size: int = 5) -> Optional[in
 
 
 def detect_sudden_drop(
-    values: List[float], threshold_pct: float = 0.2
-) -> List[int]:
+    values: list[float], threshold_pct: float = 0.2
+) -> list[int]:
     """Find indices where value drops > threshold% from previous.
 
     A drop is defined as (previous - current) / |previous| > threshold_pct,
     where previous is nonzero. Returns list of indices where drops occur.
     """
-    drops: List[int] = []
+    drops: list[int] = []
     for i in range(1, len(values)):
         prev = values[i - 1]
         if prev == 0:
@@ -230,8 +230,8 @@ def detect_sudden_drop(
 
 def build_anomaly_report(
     metric_id: str,
-    values: List[float],
-    config: Optional[AnomalyConfig] = None,
+    values: list[float],
+    config: AnomalyConfig | None = None,
 ) -> AnomalyReport:
     """Full anomaly analysis for a metric time series."""
     if config is None:
@@ -252,8 +252,8 @@ def build_anomaly_report(
 
 
 def render_anomaly_chart(
-    values: List[float],
-    anomaly_indices: List[int],
+    values: list[float],
+    anomaly_indices: list[int],
     width: int = 60,
 ) -> str:
     """ASCII chart highlighting anomalies with markers.
@@ -271,7 +271,7 @@ def render_anomaly_chart(
         val_range = 1.0
 
     anomaly_set = set(anomaly_indices)
-    lines: List[str] = []
+    lines: list[str] = []
 
     for i, v in enumerate(values):
         pos = int((v - min_val) / val_range * (width - 1))

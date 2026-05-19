@@ -10,7 +10,8 @@ from __future__ import annotations
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass, field
-from typing import Any, Callable, Dict, List
+from typing import Any, Dict, List
+from collections.abc import Callable
 
 # ---------------------------------------------------------------------------
 # Data Models
@@ -26,7 +27,7 @@ class ParallelConfig:
     total_target: int = 100
     timeout_seconds: float = 300.0
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "workers": self.workers,
             "batch_size": self.batch_size,
@@ -35,7 +36,7 @@ class ParallelConfig:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> ParallelConfig:
+    def from_dict(cls, data: dict[str, Any]) -> ParallelConfig:
         return cls(
             workers=data.get("workers", 4),
             batch_size=data.get("batch_size", 10),
@@ -54,7 +55,7 @@ class GenerationProgress:
     elapsed_seconds: float
     items_per_second: float
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "generated": self.generated,
             "failed": self.failed,
@@ -64,7 +65,7 @@ class GenerationProgress:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> GenerationProgress:
+    def from_dict(cls, data: dict[str, Any]) -> GenerationProgress:
         return cls(
             generated=data["generated"],
             failed=data["failed"],
@@ -78,13 +79,13 @@ class GenerationProgress:
 class ParallelResult:
     """Result of a parallel generation run."""
 
-    items: List[Dict[str, Any]] = field(default_factory=list)
+    items: list[dict[str, Any]] = field(default_factory=list)
     progress: GenerationProgress = field(
         default_factory=lambda: GenerationProgress(0, 0, 0, 0.0, 0.0)
     )
-    errors: List[str] = field(default_factory=list)
+    errors: list[str] = field(default_factory=list)
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "items": list(self.items),
             "progress": self.progress.as_dict(),
@@ -92,7 +93,7 @@ class ParallelResult:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> ParallelResult:
+    def from_dict(cls, data: dict[str, Any]) -> ParallelResult:
         return cls(
             items=data.get("items", []),
             progress=GenerationProgress.from_dict(data["progress"]),
@@ -105,11 +106,11 @@ class ParallelResult:
 # ---------------------------------------------------------------------------
 
 
-def create_batches(total: int, batch_size: int) -> List[int]:
+def create_batches(total: int, batch_size: int) -> list[int]:
     """Split total into batch sizes. Last batch may be smaller."""
     if total <= 0 or batch_size <= 0:
         return []
-    batches: List[int] = []
+    batches: list[int] = []
     remaining = total
     while remaining > 0:
         size = min(batch_size, remaining)
@@ -124,7 +125,7 @@ def create_batches(total: int, batch_size: int) -> List[int]:
 
 
 def generate_parallel(
-    generate_fn: Callable[[int], List[Dict[str, Any]]],
+    generate_fn: Callable[[int], list[dict[str, Any]]],
     config: ParallelConfig,
 ) -> ParallelResult:
     """Run generate_fn in parallel using ThreadPoolExecutor.
@@ -133,8 +134,8 @@ def generate_parallel(
     Collects results, handles exceptions per batch, and tracks progress.
     """
     batches = create_batches(config.total_target, config.batch_size)
-    all_items: List[Dict[str, Any]] = []
-    errors: List[str] = []
+    all_items: list[dict[str, Any]] = []
+    errors: list[str] = []
     failed = 0
 
     start = time.monotonic()
@@ -179,7 +180,7 @@ def generate_parallel(
 
 
 def generate_sequential(
-    generate_fn: Callable[[int], List[Dict[str, Any]]],
+    generate_fn: Callable[[int], list[dict[str, Any]]],
     config: ParallelConfig,
 ) -> ParallelResult:
     """Run generate_fn sequentially - same interface as generate_parallel.
@@ -187,8 +188,8 @@ def generate_sequential(
     Useful for comparison, debugging, and deterministic reproduction.
     """
     batches = create_batches(config.total_target, config.batch_size)
-    all_items: List[Dict[str, Any]] = []
-    errors: List[str] = []
+    all_items: list[dict[str, Any]] = []
+    errors: list[str] = []
     failed = 0
 
     start = time.monotonic()
@@ -221,13 +222,13 @@ def generate_sequential(
 # ---------------------------------------------------------------------------
 
 
-def merge_results(results: List[ParallelResult]) -> ParallelResult:
+def merge_results(results: list[ParallelResult]) -> ParallelResult:
     """Merge multiple ParallelResults into one."""
     if not results:
         return ParallelResult()
 
-    all_items: List[Dict[str, Any]] = []
-    all_errors: List[str] = []
+    all_items: list[dict[str, Any]] = []
+    all_errors: list[str] = []
     total_generated = 0
     total_failed = 0
     total_target = 0

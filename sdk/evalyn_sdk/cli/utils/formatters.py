@@ -41,15 +41,15 @@ def print_error_if_table(args, message: str) -> None:
         print(message, file=sys.stderr)
 
 
-def output_json(data: Dict[str, Any]) -> None:
+def output_json(data: dict[str, Any]) -> None:
     """Output JSON data."""
     print(json.dumps(data, indent=2, default=str))
 
 
 def print_table(
-    headers: List[str],
-    rows: List[List[str]],
-    col_widths: Optional[List[int]] = None,
+    headers: list[str],
+    rows: list[list[str]],
+    col_widths: list[int] | None = None,
 ) -> None:
     """Print a simple table."""
     # Calculate column widths if not provided
@@ -82,7 +82,7 @@ def format_cost(cost: float) -> str:
     return f"${cost:.2f}"
 
 
-def print_token_usage_summary(usage: Dict[str, Any], verbose: bool = False) -> None:
+def print_token_usage_summary(usage: dict[str, Any], verbose: bool = False) -> None:
     """Print token usage and cost summary from a usage_summary dict.
 
     Args:

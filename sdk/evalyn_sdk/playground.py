@@ -30,11 +30,11 @@ def _now_iso() -> str:
 class PlaygroundConfig:
     """Configuration for a playground session."""
 
-    metrics: List[str] = field(default_factory=list)
+    metrics: list[str] = field(default_factory=list)
     show_scores: bool = True
     history_limit: int = 50
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "metrics": list(self.metrics),
             "show_scores": self.show_scores,
@@ -42,7 +42,7 @@ class PlaygroundConfig:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> PlaygroundConfig:
+    def from_dict(cls, data: dict[str, Any]) -> PlaygroundConfig:
         return cls(
             metrics=list(data.get("metrics", [])),
             show_scores=data.get("show_scores", True),
@@ -57,14 +57,14 @@ class PlaygroundTurn:
     turn_id: int
     input_text: str
     output_text: str
-    scores: Dict[str, float] = field(default_factory=dict)
+    scores: dict[str, float] = field(default_factory=dict)
     timestamp: str = ""
 
     def __post_init__(self) -> None:
         if not self.timestamp:
             self.timestamp = _now_iso()
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "turn_id": self.turn_id,
             "input_text": self.input_text,
@@ -74,7 +74,7 @@ class PlaygroundTurn:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> PlaygroundTurn:
+    def from_dict(cls, data: dict[str, Any]) -> PlaygroundTurn:
         return cls(
             turn_id=data["turn_id"],
             input_text=data["input_text"],
@@ -89,7 +89,7 @@ class PlaygroundSession:
     """A playground session containing turns and configuration."""
 
     session_id: str
-    turns: List[PlaygroundTurn] = field(default_factory=list)
+    turns: list[PlaygroundTurn] = field(default_factory=list)
     config: PlaygroundConfig = field(default_factory=PlaygroundConfig)
     created_at: str = ""
 
@@ -97,7 +97,7 @@ class PlaygroundSession:
         if not self.created_at:
             self.created_at = _now_iso()
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "session_id": self.session_id,
             "turns": [t.as_dict() for t in self.turns],
@@ -106,7 +106,7 @@ class PlaygroundSession:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> PlaygroundSession:
+    def from_dict(cls, data: dict[str, Any]) -> PlaygroundSession:
         config_data = data.get("config", {})
         config = PlaygroundConfig.from_dict(config_data) if config_data else PlaygroundConfig()
         return cls(
@@ -122,7 +122,7 @@ class PlaygroundSession:
 # ---------------------------------------------------------------------------
 
 
-def create_session(config: Optional[PlaygroundConfig] = None) -> PlaygroundSession:
+def create_session(config: PlaygroundConfig | None = None) -> PlaygroundSession:
     """Create a new playground session with a UUID and timestamp."""
     return PlaygroundSession(
         session_id=str(uuid.uuid4()),
@@ -134,7 +134,7 @@ def add_turn(
     session: PlaygroundSession,
     input_text: str,
     output_text: str,
-    scores: Dict[str, float],
+    scores: dict[str, float],
 ) -> PlaygroundSession:
     """Return a new session with the turn appended (immutable)."""
     new_turn = PlaygroundTurn(
@@ -155,7 +155,7 @@ def add_turn(
 def get_turn_history(
     session: PlaygroundSession,
     limit: int = 0,
-) -> List[PlaygroundTurn]:
+) -> list[PlaygroundTurn]:
     """Get recent turns from the session.
 
     If limit is 0, return all turns. Otherwise return the last *limit* turns.
@@ -170,7 +170,7 @@ def get_turn_history(
 # ---------------------------------------------------------------------------
 
 
-def compute_session_stats(session: PlaygroundSession) -> Dict[str, Any]:
+def compute_session_stats(session: PlaygroundSession) -> dict[str, Any]:
     """Compute aggregate statistics for a session.
 
     Returns a dict with:
@@ -189,8 +189,8 @@ def compute_session_stats(session: PlaygroundSession) -> Dict[str, Any]:
         }
 
     # Accumulate scores per metric
-    metric_sums: Dict[str, float] = {}
-    metric_counts: Dict[str, int] = {}
+    metric_sums: dict[str, float] = {}
+    metric_counts: dict[str, int] = {}
     for turn in session.turns:
         for metric, score in turn.scores.items():
             metric_sums[metric] = metric_sums.get(metric, 0.0) + score
@@ -201,8 +201,8 @@ def compute_session_stats(session: PlaygroundSession) -> Dict[str, Any]:
     }
 
     # Best/worst by average across all metrics for that turn
-    best_id: Optional[int] = None
-    worst_id: Optional[int] = None
+    best_id: int | None = None
+    worst_id: int | None = None
     best_avg = float("-inf")
     worst_avg = float("inf")
 
@@ -280,14 +280,14 @@ def format_session_summary(session: PlaygroundSession) -> str:
 def compare_turns(
     turn_a: PlaygroundTurn,
     turn_b: PlaygroundTurn,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Per-metric delta between two turns.
 
     Returns a dict mapping metric names to the difference (b - a).
     Only metrics present in both turns are compared.
     """
     all_metrics = set(turn_a.scores) | set(turn_b.scores)
-    deltas: Dict[str, float] = {}
+    deltas: dict[str, float] = {}
     for m in sorted(all_metrics):
         score_a = turn_a.scores.get(m, 0.0)
         score_b = turn_b.scores.get(m, 0.0)

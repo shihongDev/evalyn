@@ -24,12 +24,12 @@ class AnalysisSnapshot:
     snapshot_id: str
     timestamp: str
     run_id: str = ""
-    metrics: Dict[str, float] = field(default_factory=dict)
+    metrics: dict[str, float] = field(default_factory=dict)
     pass_rate: float = 0.0
     total_items: int = 0
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    metadata: dict[str, Any] = field(default_factory=dict)
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "snapshot_id": self.snapshot_id,
             "timestamp": self.timestamp,
@@ -41,7 +41,7 @@ class AnalysisSnapshot:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> AnalysisSnapshot:
+    def from_dict(cls, data: dict[str, Any]) -> AnalysisSnapshot:
         return cls(
             snapshot_id=data["snapshot_id"],
             timestamp=data["timestamp"],
@@ -59,12 +59,12 @@ class SnapshotComparison:
 
     snapshot_a_id: str
     snapshot_b_id: str
-    metric_deltas: Dict[str, float] = field(default_factory=dict)
+    metric_deltas: dict[str, float] = field(default_factory=dict)
     pass_rate_delta: float = 0.0
-    improved_metrics: List[str] = field(default_factory=list)
-    degraded_metrics: List[str] = field(default_factory=list)
+    improved_metrics: list[str] = field(default_factory=list)
+    degraded_metrics: list[str] = field(default_factory=list)
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "snapshot_a_id": self.snapshot_a_id,
             "snapshot_b_id": self.snapshot_b_id,
@@ -94,34 +94,34 @@ class SnapshotComparison:
 class SnapshotStore:
     """In-memory collection of snapshots."""
 
-    snapshots: List[AnalysisSnapshot] = field(default_factory=list)
+    snapshots: list[AnalysisSnapshot] = field(default_factory=list)
 
     def add(self, snapshot: AnalysisSnapshot) -> None:
         self.snapshots.append(snapshot)
 
-    def get(self, snapshot_id: str) -> Optional[AnalysisSnapshot]:
+    def get(self, snapshot_id: str) -> AnalysisSnapshot | None:
         for s in self.snapshots:
             if s.snapshot_id == snapshot_id:
                 return s
         return None
 
-    def get_latest(self) -> Optional[AnalysisSnapshot]:
+    def get_latest(self) -> AnalysisSnapshot | None:
         if not self.snapshots:
             return None
         return self.snapshots[-1]
 
-    def list_all(self) -> List[AnalysisSnapshot]:
+    def list_all(self) -> list[AnalysisSnapshot]:
         return list(self.snapshots)
 
     @property
     def count(self) -> int:
         return len(self.snapshots)
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {"snapshots": [s.as_dict() for s in self.snapshots]}
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> SnapshotStore:
+    def from_dict(cls, data: dict[str, Any]) -> SnapshotStore:
         snapshots = [
             AnalysisSnapshot.from_dict(s) for s in data.get("snapshots", [])
         ]
@@ -142,7 +142,7 @@ class SnapshotStore:
 
 def create_snapshot(
     run_id: str,
-    metrics: Dict[str, float],
+    metrics: dict[str, float],
     pass_rate: float = 0.0,
     total_items: int = 0,
 ) -> AnalysisSnapshot:
@@ -163,9 +163,9 @@ def compare_snapshots(
     threshold: float = 0.01,
 ) -> SnapshotComparison:
     """Compare two snapshots. Positive deltas mean b is higher than a."""
-    metric_deltas: Dict[str, float] = {}
-    improved: List[str] = []
-    degraded: List[str] = []
+    metric_deltas: dict[str, float] = {}
+    improved: list[str] = []
+    degraded: list[str] = []
 
     all_keys = set(a.metrics) | set(b.metrics)
     for key in sorted(all_keys):
@@ -189,15 +189,15 @@ def compare_snapshots(
 
 
 def find_trend(
-    snapshots: List[AnalysisSnapshot],
+    snapshots: list[AnalysisSnapshot],
     metric_id: str,
-) -> List[float]:
+) -> list[float]:
     """Extract time series for one metric across snapshots (in order given)."""
     return [s.metrics.get(metric_id, 0.0) for s in snapshots]
 
 
 def render_snapshot_timeline(
-    snapshots: List[AnalysisSnapshot],
+    snapshots: list[AnalysisSnapshot],
     metric_id: str,
     width: int = 40,
 ) -> str:

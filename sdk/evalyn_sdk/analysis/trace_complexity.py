@@ -26,7 +26,7 @@ class ComplexityScore:
     unique_span_types: int = 0
     score: float = 0.0  # weighted composite 0-100
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "total_spans": self.total_spans,
             "max_depth": self.max_depth,
@@ -38,7 +38,7 @@ class ComplexityScore:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> ComplexityScore:
+    def from_dict(cls, data: dict[str, Any]) -> ComplexityScore:
         return cls(
             total_spans=data.get("total_spans", 0),
             max_depth=data.get("max_depth", 0),
@@ -68,8 +68,8 @@ class ComplexityThreshold:
 
 
 def compute_complexity(
-    spans: List[Span],
-    weights: Optional[Dict[str, float]] = None,
+    spans: list[Span],
+    weights: dict[str, float] | None = None,
 ) -> ComplexityScore:
     """Compute complexity score for a list of spans.
 
@@ -94,8 +94,8 @@ def compute_complexity(
     }
 
     # Build parent -> children mapping
-    children: Dict[Optional[str], List[str]] = defaultdict(list)
-    span_map: Dict[str, Span] = {}
+    children: dict[str | None, list[str]] = defaultdict(list)
+    span_map: dict[str, Span] = {}
     for s in spans:
         span_map[s.id] = s
         children[s.parent_id].append(s.id)
@@ -148,8 +148,8 @@ def compute_complexity(
 
 def check_complexity_alerts(
     score: ComplexityScore,
-    threshold: Optional[ComplexityThreshold] = None,
-) -> List[str]:
+    threshold: ComplexityThreshold | None = None,
+) -> list[str]:
     """Check if complexity exceeds thresholds.
 
     Returns list of alert messages (empty if within bounds).
@@ -171,7 +171,7 @@ def check_complexity_alerts(
     return alerts
 
 
-def _max_depth(roots: List[str], children: Dict[Optional[str], List[str]]) -> int:
+def _max_depth(roots: list[str], children: dict[str | None, list[str]]) -> int:
     """Compute max depth of the span tree via iterative DFS."""
     if not roots:
         return 0

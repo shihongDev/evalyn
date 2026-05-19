@@ -15,7 +15,7 @@ class QualityCheck:
     severity: str = "warning"  # "info" / "warning" / "error"
     message: str = ""
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "name": self.name,
             "passed": self.passed,
@@ -35,7 +35,7 @@ class QualityGateConfig:
     min_avg_input_length: int = 10
     fail_on_error: bool = True
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "min_items": self.min_items,
             "max_items": self.max_items,
@@ -46,7 +46,7 @@ class QualityGateConfig:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> QualityGateConfig:
+    def from_dict(cls, data: dict[str, Any]) -> QualityGateConfig:
         return cls(
             min_items=data.get("min_items", 1),
             max_items=data.get("max_items", 100000),
@@ -62,12 +62,12 @@ class QualityGateResult:
     """Result of running the quality gate."""
 
     passed: bool = True
-    checks: List[QualityCheck] = field(default_factory=list)
+    checks: list[QualityCheck] = field(default_factory=list)
     errors: int = 0
     warnings: int = 0
     blocked: bool = False
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "passed": self.passed,
             "checks": [c.as_dict() for c in self.checks],
@@ -77,7 +77,7 @@ class QualityGateResult:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> QualityGateResult:
+    def from_dict(cls, data: dict[str, Any]) -> QualityGateResult:
         checks = [
             QualityCheck(
                 name=c["name"],
@@ -105,7 +105,7 @@ class QualityGateResult:
         return "\n".join(lines)
 
 
-def check_min_items(items: List[Dict], config: QualityGateConfig) -> QualityCheck:
+def check_min_items(items: list[dict], config: QualityGateConfig) -> QualityCheck:
     """Check >= min_items."""
     count = len(items)
     passed = count >= config.min_items
@@ -117,7 +117,7 @@ def check_min_items(items: List[Dict], config: QualityGateConfig) -> QualityChec
     )
 
 
-def check_max_items(items: List[Dict], config: QualityGateConfig) -> QualityCheck:
+def check_max_items(items: list[dict], config: QualityGateConfig) -> QualityCheck:
     """Check <= max_items."""
     count = len(items)
     passed = count <= config.max_items
@@ -129,7 +129,7 @@ def check_max_items(items: List[Dict], config: QualityGateConfig) -> QualityChec
     )
 
 
-def check_empty_inputs(items: List[Dict], config: QualityGateConfig) -> QualityCheck:
+def check_empty_inputs(items: list[dict], config: QualityGateConfig) -> QualityCheck:
     """Check empty input rate <= max_empty_inputs_pct."""
     if not items:
         return QualityCheck(
@@ -149,7 +149,7 @@ def check_empty_inputs(items: List[Dict], config: QualityGateConfig) -> QualityC
     )
 
 
-def check_avg_input_length(items: List[Dict], config: QualityGateConfig) -> QualityCheck:
+def check_avg_input_length(items: list[dict], config: QualityGateConfig) -> QualityCheck:
     """Check avg input length >= min_avg_input_length."""
     if not items:
         return QualityCheck(
@@ -169,7 +169,7 @@ def check_avg_input_length(items: List[Dict], config: QualityGateConfig) -> Qual
     )
 
 
-def check_has_outputs(items: List[Dict], config: QualityGateConfig) -> QualityCheck:
+def check_has_outputs(items: list[dict], config: QualityGateConfig) -> QualityCheck:
     """Check all items have 'output' field (only if require_outputs)."""
     if not config.require_outputs:
         return QualityCheck(
@@ -188,7 +188,7 @@ def check_has_outputs(items: List[Dict], config: QualityGateConfig) -> QualityCh
     )
 
 
-def check_duplicate_ids(items: List[Dict]) -> QualityCheck:
+def check_duplicate_ids(items: list[dict]) -> QualityCheck:
     """Check no duplicate 'id' fields."""
     ids = [item.get("id") for item in items if "id" in item]
     unique = set(ids)
@@ -203,8 +203,8 @@ def check_duplicate_ids(items: List[Dict]) -> QualityCheck:
 
 
 def run_quality_gate(
-    items: List[Dict[str, Any]],
-    config: Optional[QualityGateConfig] = None,
+    items: list[dict[str, Any]],
+    config: QualityGateConfig | None = None,
 ) -> QualityGateResult:
     """Run all checks. Blocked if any error check fails and fail_on_error is True."""
     if config is None:

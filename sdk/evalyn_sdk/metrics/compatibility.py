@@ -17,12 +17,12 @@ class CompatibilityEntry:
 
     metric_id: str
     metric_type: str
-    unit_types: List[str] = field(default_factory=lambda: ["outcome"])
+    unit_types: list[str] = field(default_factory=lambda: ["outcome"])
 
     def supports(self, unit_type: str) -> bool:
         return unit_type in self.unit_types
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "metric_id": self.metric_id,
             "type": self.metric_type,
@@ -34,22 +34,22 @@ class CompatibilityEntry:
 class CompatibilityMatrix:
     """Matrix of metrics vs unit types."""
 
-    entries: List[CompatibilityEntry] = field(default_factory=list)
-    all_unit_types: List[str] = field(default_factory=lambda: [
+    entries: list[CompatibilityEntry] = field(default_factory=list)
+    all_unit_types: list[str] = field(default_factory=lambda: [
         "outcome", "single_turn", "tool_use", "multi_turn", "custom"
     ])
 
-    def get_compatible(self, unit_type: str) -> List[str]:
+    def get_compatible(self, unit_type: str) -> list[str]:
         """Get metric IDs compatible with a unit type."""
         return [e.metric_id for e in self.entries if e.supports(unit_type)]
 
-    def get_incompatible(self, unit_type: str) -> List[str]:
+    def get_incompatible(self, unit_type: str) -> list[str]:
         """Get metric IDs NOT compatible with a unit type."""
         return [e.metric_id for e in self.entries if not e.supports(unit_type)]
 
     def check_selection(
-        self, metric_ids: List[str], unit_type: str
-    ) -> Dict[str, Any]:
+        self, metric_ids: list[str], unit_type: str
+    ) -> dict[str, Any]:
         """Check if selected metrics are compatible with a unit type.
 
         Returns dict with compatible/incompatible lists and warnings.
@@ -83,7 +83,7 @@ class CompatibilityMatrix:
             "all_compatible": len(incompatible) == 0,
         }
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         # Build matrix: metric_id -> {unit_type: bool}
         matrix = {}
         for e in self.entries:
@@ -105,7 +105,7 @@ class CompatibilityMatrix:
         return "\n".join(lines)
 
 
-def build_compatibility_matrix(metric_specs: List) -> CompatibilityMatrix:
+def build_compatibility_matrix(metric_specs: list) -> CompatibilityMatrix:
     """Build a compatibility matrix from metric specs.
 
     Args:

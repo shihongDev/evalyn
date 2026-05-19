@@ -24,7 +24,7 @@ class ABComparison:
     score_b: float
     delta: float  # score_a - score_b
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "item_id": self.item_id,
             "metric_id": self.metric_id,
@@ -39,7 +39,7 @@ class ABTestResult:
     """Aggregated result of an A/B test for a single metric."""
 
     metric_id: str
-    comparisons: List[ABComparison]
+    comparisons: list[ABComparison]
     mean_score_a: float
     mean_score_b: float
     mean_delta: float
@@ -48,7 +48,7 @@ class ABTestResult:
     ties: int
     is_significant: bool = False
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "metric_id": self.metric_id,
             "comparisons": [c.as_dict() for c in self.comparisons],
@@ -62,7 +62,7 @@ class ABTestResult:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> ABTestResult:
+    def from_dict(cls, data: dict[str, Any]) -> ABTestResult:
         comparisons = []
         for c in data.get("comparisons", []):
             comparisons.append(
@@ -106,7 +106,7 @@ class ABTestConfig:
     label_b: str = "uncalibrated"
     significance_threshold: float = 0.05
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "metric_id": self.metric_id,
             "prompt_a": self.prompt_a,
@@ -117,7 +117,7 @@ class ABTestConfig:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> ABTestConfig:
+    def from_dict(cls, data: dict[str, Any]) -> ABTestConfig:
         return cls(
             metric_id=data["metric_id"],
             prompt_a=data.get("prompt_a", ""),
@@ -156,8 +156,8 @@ def compare_scores(
 
 def run_ab_test(
     metric_id: str,
-    scores_a: Dict[str, float],
-    scores_b: Dict[str, float],
+    scores_a: dict[str, float],
+    scores_b: dict[str, float],
     tie_margin: float = 0.01,
     significance_threshold: float = 0.05,
 ) -> ABTestResult:
@@ -169,7 +169,7 @@ def run_ab_test(
     is_significant is True when abs(mean_delta) > significance_threshold.
     """
     common_ids = sorted(set(scores_a.keys()) & set(scores_b.keys()))
-    comparisons: List[ABComparison] = []
+    comparisons: list[ABComparison] = []
     a_wins = 0
     b_wins = 0
     ties = 0
@@ -208,7 +208,7 @@ def run_ab_test(
     )
 
 
-def summarize_ab_tests(results: List[ABTestResult]) -> Dict[str, Any]:
+def summarize_ab_tests(results: list[ABTestResult]) -> dict[str, Any]:
     """Summarize multiple A/B test results.
 
     Returns a dict with total metrics tested, improved, degraded, and unchanged.

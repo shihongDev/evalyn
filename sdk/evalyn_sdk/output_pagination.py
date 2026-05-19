@@ -27,7 +27,7 @@ class PagerConfig:
     page_size: int = 0
     pager_command: str = ""
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "enabled": self.enabled,
             "page_size": self.page_size,
@@ -35,7 +35,7 @@ class PagerConfig:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> PagerConfig:
+    def from_dict(cls, data: dict[str, Any]) -> PagerConfig:
         return cls(
             enabled=data.get("enabled", True),
             page_size=data.get("page_size", 0),
@@ -72,7 +72,7 @@ def should_paginate(text: str, config: PagerConfig) -> bool:
     return line_count > page_size
 
 
-def paginate_builtin(text: str, page_size: int) -> List[str]:
+def paginate_builtin(text: str, page_size: int) -> list[str]:
     """Split text into pages of page_size lines each.
 
     Returns a list of page strings. Each page contains up to page_size lines,
@@ -84,7 +84,7 @@ def paginate_builtin(text: str, page_size: int) -> List[str]:
     # If text is empty, return one empty page
     if not lines:
         return [""]
-    pages: List[str] = []
+    pages: list[str] = []
     for i in range(0, len(lines), page_size):
         pages.append("".join(lines[i : i + page_size]))
     return pages
@@ -139,7 +139,7 @@ def paginate_text(text: str, config: PagerConfig | None = None) -> str:
     return format_page(pages[0], 1, total)
 
 
-def create_page_iterator(text: str, page_size: int) -> List[Tuple[int, str]]:
+def create_page_iterator(text: str, page_size: int) -> list[tuple[int, str]]:
     """Return a list of (page_num, page_text) tuples for iteration.
 
     Page numbers are 1-based.

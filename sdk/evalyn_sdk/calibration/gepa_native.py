@@ -42,7 +42,7 @@ class ParetoCandidate:
     """A candidate in the Pareto frontier."""
 
     preamble: str
-    scores: Dict[str, float] = field(default_factory=dict)  # example_id -> score
+    scores: dict[str, float] = field(default_factory=dict)  # example_id -> score
     total_f1: float = 0.0
     generation: int = 0
 
@@ -128,8 +128,8 @@ class GEPANativeOptimizer:
 
     def __init__(
         self,
-        config: Optional[GEPANativeConfig] = None,
-        api_key: Optional[str] = None,
+        config: GEPANativeConfig | None = None,
+        api_key: str | None = None,
     ):
         """Initialize GEPA-Native optimizer.
 
@@ -139,8 +139,8 @@ class GEPANativeOptimizer:
         """
         self.config = config or GEPANativeConfig()
         self._api_key = api_key
-        self._task_client: Optional[GeminiClient] = None
-        self._reflection_client: Optional[GeminiClient] = None
+        self._task_client: GeminiClient | None = None
+        self._reflection_client: GeminiClient | None = None
 
     @property
     def task_client(self) -> GeminiClient:
@@ -169,10 +169,10 @@ class GEPANativeOptimizer:
     def _evaluate_candidate_on_examples(
         self,
         candidate: ParetoCandidate,
-        rubric: List[str],
-        examples: List[Dict[str, Any]],
-        accumulator: Optional[TokenAccumulator] = None,
-    ) -> Tuple[AlignmentMetrics, List[Dict[str, Any]]]:
+        rubric: list[str],
+        examples: list[dict[str, Any]],
+        accumulator: TokenAccumulator | None = None,
+    ) -> tuple[AlignmentMetrics, list[dict[str, Any]]]:
         """
         Evaluate a candidate on examples, tracking per-example scores.
 
@@ -181,7 +181,7 @@ class GEPANativeOptimizer:
         """
         full_prompt = build_full_prompt(candidate.preamble, rubric)
         metrics = AlignmentMetrics()
-        failures: List[Dict[str, Any]] = []
+        failures: list[dict[str, Any]] = []
 
         for ex in examples:
             eval_prompt = f"""{full_prompt}
@@ -229,9 +229,9 @@ Provide your verdict:"""
         self,
         seed_preamble: str,
         metric_id: str,
-        rubric: List[str],
-        accumulator: Optional[TokenAccumulator] = None,
-    ) -> List[ParetoCandidate]:
+        rubric: list[str],
+        accumulator: TokenAccumulator | None = None,
+    ) -> list[ParetoCandidate]:
         """Generate initial diverse candidates from seed.
 
         Args:
@@ -272,11 +272,11 @@ Provide your verdict:"""
     def _reflect_and_mutate(
         self,
         candidate: ParetoCandidate,
-        rubric: List[str],
-        failures: List[Dict[str, Any]],
+        rubric: list[str],
+        failures: list[dict[str, Any]],
         generation: int,
-        accumulator: Optional[TokenAccumulator] = None,
-    ) -> Optional[ParetoCandidate]:
+        accumulator: TokenAccumulator | None = None,
+    ) -> ParetoCandidate | None:
         """Generate a mutation by reflecting on failures.
 
         Args:
@@ -336,8 +336,8 @@ Example {i}:
 
     def _select_pareto_candidate(
         self,
-        frontier: List[ParetoCandidate],
-        pareto_examples: List[Dict[str, Any]],
+        frontier: list[ParetoCandidate],
+        pareto_examples: list[dict[str, Any]],
     ) -> ParetoCandidate:
         """
         Select a candidate using Pareto-weighted probability.
@@ -349,12 +349,12 @@ Example {i}:
 
         # Calculate per-example best scores
         example_ids = [ex["id"] for ex in pareto_examples]
-        best_scores: Dict[str, float] = {}
+        best_scores: dict[str, float] = {}
         for ex_id in example_ids:
             best_scores[ex_id] = max(c.get_score(ex_id) for c in frontier)
 
         # Count how often each candidate achieves best score
-        weights: List[float] = []
+        weights: list[float] = []
         for candidate in frontier:
             count = sum(
                 1
@@ -378,8 +378,8 @@ Example {i}:
     def _is_dominated(
         self,
         candidate: ParetoCandidate,
-        others: List[ParetoCandidate],
-        example_ids: List[str],
+        others: list[ParetoCandidate],
+        example_ids: list[str],
     ) -> bool:
         """Check if candidate is dominated by any other in the frontier."""
         for other in others:
@@ -405,11 +405,11 @@ Example {i}:
 
     def _update_pareto_frontier(
         self,
-        frontier: List[ParetoCandidate],
+        frontier: list[ParetoCandidate],
         new_candidate: ParetoCandidate,
-        pareto_examples: List[Dict[str, Any]],
+        pareto_examples: list[dict[str, Any]],
         max_size: int = 10,
-    ) -> List[ParetoCandidate]:
+    ) -> list[ParetoCandidate]:
         """Add candidate to frontier if non-dominated, prune dominated ones."""
         example_ids = [ex["id"] for ex in pareto_examples]
 
@@ -433,12 +433,12 @@ Example {i}:
     def optimize(
         self,
         metric_id: str,
-        current_rubric: List[str],
-        metric_results: List[MetricResult],
-        annotations: List[Annotation],
-        dataset_items: Optional[List[DatasetItem]] = None,
+        current_rubric: list[str],
+        metric_results: list[MetricResult],
+        annotations: list[Annotation],
+        dataset_items: list[DatasetItem] | None = None,
         current_preamble: str = "",
-        accumulator: Optional[TokenAccumulator] = None,
+        accumulator: TokenAccumulator | None = None,
     ) -> PromptOptimizationResult:
         """
         Run GEPA optimization loop.

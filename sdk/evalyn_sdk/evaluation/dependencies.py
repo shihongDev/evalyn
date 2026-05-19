@@ -49,9 +49,9 @@ class MetricDependency:
 
 
 def topological_sort(
-    metrics: List,
-    dependencies: List[MetricDependency],
-) -> Tuple[List, Dict[str, List[str]]]:
+    metrics: list,
+    dependencies: list[MetricDependency],
+) -> tuple[list, dict[str, list[str]]]:
     """Sort metrics in dependency order.
 
     Metrics with no dependencies come first. Metrics that depend on others
@@ -68,8 +68,8 @@ def topological_sort(
         ValueError: If a cycle is detected in dependencies.
     """
     metric_map = {m.spec.id: m for m in metrics}
-    dep_map: Dict[str, List[str]] = defaultdict(list)
-    in_degree: Dict[str, int] = {m.spec.id: 0 for m in metrics}
+    dep_map: dict[str, list[str]] = defaultdict(list)
+    in_degree: dict[str, int] = {m.spec.id: 0 for m in metrics}
 
     for dep in dependencies:
         if dep.metric_id in metric_map and dep.depends_on in metric_map:
@@ -102,9 +102,9 @@ def topological_sort(
 
 def resolve_skips(
     metric_id: str,
-    dependencies: List[MetricDependency],
-    results: Dict[str, object],
-) -> Optional[str]:
+    dependencies: list[MetricDependency],
+    results: dict[str, object],
+) -> str | None:
     """Check if a metric should be skipped based on dependency results.
 
     Args:
@@ -164,11 +164,11 @@ class ConditionalMetricChain:
 
 
 def evaluate_chains(
-    chains: List[ConditionalMetricChain],
-    results: Dict[str, object],
+    chains: list[ConditionalMetricChain],
+    results: dict[str, object],
     call: object,
     item: object,
-) -> List:
+) -> list:
     """Evaluate conditional metric chains based on existing results.
 
     Args:

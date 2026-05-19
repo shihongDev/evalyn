@@ -9,7 +9,8 @@ identifying regressed items, and ranking by impact.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Callable, Dict, List, Tuple
+from typing import Any, Dict, List, Tuple
+from collections.abc import Callable
 
 # ---------------------------------------------------------------------------
 # Data Models
@@ -24,9 +25,9 @@ class BisectionStep:
     subset_size: int
     pass_rate: float
     direction: str = ""
-    item_ids: List[str] = field(default_factory=list)
+    item_ids: list[str] = field(default_factory=list)
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "step_number": self.step_number,
             "subset_size": self.subset_size,
@@ -40,13 +41,13 @@ class BisectionStep:
 class BisectionResult:
     """Result of a bisection search for regression culprits."""
 
-    culprit_items: List[str] = field(default_factory=list)
+    culprit_items: list[str] = field(default_factory=list)
     total_steps: int = 0
-    steps: List[BisectionStep] = field(default_factory=list)
+    steps: list[BisectionStep] = field(default_factory=list)
     original_pass_rate: float = 0.0
     regression_magnitude: float = 0.0
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "culprit_items": list(self.culprit_items),
             "total_steps": self.total_steps,
@@ -56,7 +57,7 @@ class BisectionResult:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> BisectionResult:
+    def from_dict(cls, data: dict[str, Any]) -> BisectionResult:
         steps = [
             BisectionStep(
                 step_number=s["step_number"],
@@ -76,7 +77,7 @@ class BisectionResult:
         )
 
     def format_text(self) -> str:
-        lines: List[str] = []
+        lines: list[str] = []
         lines.append("BISECTION RESULT")
         lines.append(f"Original pass rate: {self.original_pass_rate:.2%}")
         lines.append(f"Regression magnitude: {self.regression_magnitude:.2%}")
@@ -103,7 +104,7 @@ class BisectionResult:
 
 
 def compute_pass_rate(
-    items: List[Dict[str, Any]],
+    items: list[dict[str, Any]],
     score_field: str = "score",
     threshold: float = 0.5,
 ) -> float:
@@ -115,8 +116,8 @@ def compute_pass_rate(
 
 
 def bisect_items(
-    items: List[Dict[str, Any]],
-    score_fn: Callable[[List[Dict[str, Any]]], float],
+    items: list[dict[str, Any]],
+    score_fn: Callable[[list[dict[str, Any]]], float],
     target_drop: float = 0.1,
 ) -> BisectionResult:
     """Binary search to find the subset causing a regression.
@@ -135,7 +136,7 @@ def bisect_items(
         return BisectionResult()
 
     original_rate = score_fn(items)
-    steps: List[BisectionStep] = []
+    steps: list[BisectionStep] = []
     current = list(items)
     step_num = 0
 
@@ -197,10 +198,10 @@ def bisect_items(
 
 
 def identify_regression_items(
-    items_a: List[Dict[str, Any]],
-    items_b: List[Dict[str, Any]],
+    items_a: list[dict[str, Any]],
+    items_b: list[dict[str, Any]],
     score_field: str = "score",
-) -> List[str]:
+) -> list[str]:
     """Find items where score dropped between run A (baseline) and run B.
 
     Items are matched by "id" field. Returns IDs where score_b < score_a.
@@ -208,7 +209,7 @@ def identify_regression_items(
     scores_a = {item.get("id", ""): item.get(score_field, 0.0) for item in items_a}
     scores_b = {item.get("id", ""): item.get(score_field, 0.0) for item in items_b}
 
-    regressed: List[str] = []
+    regressed: list[str] = []
     for item_id in scores_a:
         if item_id in scores_b:
             if scores_b[item_id] < scores_a[item_id]:
@@ -218,16 +219,16 @@ def identify_regression_items(
 
 
 def rank_by_regression_impact(
-    items: List[Dict[str, Any]],
-    baseline_scores: Dict[str, float],
+    items: list[dict[str, Any]],
+    baseline_scores: dict[str, float],
     score_field: str = "score",
-) -> List[Tuple[str, float]]:
+) -> list[tuple[str, float]]:
     """Rank items by score drop magnitude relative to baseline.
 
     Returns list of (item_id, drop_magnitude) sorted by drop descending.
     Only includes items where score decreased.
     """
-    impacts: List[Tuple[str, float]] = []
+    impacts: list[tuple[str, float]] = []
     for item in items:
         item_id = item.get("id", "")
         if item_id not in baseline_scores:

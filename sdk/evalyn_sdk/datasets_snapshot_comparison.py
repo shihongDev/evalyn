@@ -26,7 +26,7 @@ class ItemDiff:
     new_output: str = ""
     diff_text: str = ""
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "item_id": self.item_id,
             "change_type": self.change_type,
@@ -44,13 +44,13 @@ class SnapshotComparison:
 
     version_a: str
     version_b: str
-    diffs: List[ItemDiff] = field(default_factory=list)
+    diffs: list[ItemDiff] = field(default_factory=list)
     added_count: int = 0
     removed_count: int = 0
     modified_count: int = 0
     unchanged_count: int = 0
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "version_a": self.version_a,
             "version_b": self.version_b,
@@ -62,7 +62,7 @@ class SnapshotComparison:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> SnapshotComparison:
+    def from_dict(cls, data: dict[str, Any]) -> SnapshotComparison:
         diffs = [ItemDiff(**d) for d in data.get("diffs", [])]
         return cls(
             version_a=data.get("version_a", ""),
@@ -75,7 +75,7 @@ class SnapshotComparison:
         )
 
     def format_text(self) -> str:
-        lines: List[str] = []
+        lines: list[str] = []
         lines.append("Snapshot Comparison")
         lines.append("=" * 40)
         lines.append(f"  {self.version_a} -> {self.version_b}")
@@ -103,7 +103,7 @@ class SnapshotComparison:
 # ---------------------------------------------------------------------------
 
 
-def compute_item_diff(old_item: Dict[str, Any], new_item: Dict[str, Any]) -> ItemDiff:
+def compute_item_diff(old_item: dict[str, Any], new_item: dict[str, Any]) -> ItemDiff:
     """Compute diff for one item. Uses difflib.unified_diff on input text."""
     item_id = str(old_item.get("id", new_item.get("id", "")))
     old_input = str(old_item.get("input", ""))
@@ -143,25 +143,25 @@ def compute_item_diff(old_item: Dict[str, Any], new_item: Dict[str, Any]) -> Ite
 
 
 def compare_snapshots(
-    items_a: List[Dict[str, Any]],
-    items_b: List[Dict[str, Any]],
+    items_a: list[dict[str, Any]],
+    items_b: list[dict[str, Any]],
     version_a: str = "v1",
     version_b: str = "v2",
 ) -> SnapshotComparison:
     """Compare two lists of dataset items. Match by 'id' field."""
-    index_a: Dict[str, Dict[str, Any]] = {}
+    index_a: dict[str, dict[str, Any]] = {}
     for item in items_a:
         item_id = str(item.get("id", ""))
         index_a[item_id] = item
 
-    index_b: Dict[str, Dict[str, Any]] = {}
+    index_b: dict[str, dict[str, Any]] = {}
     for item in items_b:
         item_id = str(item.get("id", ""))
         index_b[item_id] = item
 
     all_ids = list(dict.fromkeys(list(index_a.keys()) + list(index_b.keys())))
 
-    diffs: List[ItemDiff] = []
+    diffs: list[ItemDiff] = []
     added_count = 0
     removed_count = 0
     modified_count = 0
@@ -208,7 +208,7 @@ def compare_snapshots(
     )
 
 
-def filter_diffs(comparison: SnapshotComparison, change_type: str) -> List[ItemDiff]:
+def filter_diffs(comparison: SnapshotComparison, change_type: str) -> list[ItemDiff]:
     """Filter diffs by change type."""
     return [d for d in comparison.diffs if d.change_type == change_type]
 
@@ -221,7 +221,7 @@ def render_diff_summary(comparison: SnapshotComparison) -> str:
         + comparison.modified_count
         + comparison.unchanged_count
     )
-    lines: List[str] = []
+    lines: list[str] = []
     lines.append(f"Diff Summary: {comparison.version_a} -> {comparison.version_b}")
     lines.append("-" * 40)
     lines.append(f"  + Added:     {comparison.added_count}")

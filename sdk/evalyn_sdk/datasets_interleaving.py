@@ -12,10 +12,10 @@ class InterleavingConfig:
     """Configuration for dataset interleaving."""
 
     strategy: str = "round_robin"  # "round_robin" / "weighted" / "random"
-    weights: Dict[str, float] = field(default_factory=dict)
-    seed: Optional[int] = None
+    weights: dict[str, float] = field(default_factory=dict)
+    seed: int | None = None
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "strategy": self.strategy,
             "weights": dict(self.weights),
@@ -23,7 +23,7 @@ class InterleavingConfig:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> InterleavingConfig:
+    def from_dict(cls, data: dict[str, Any]) -> InterleavingConfig:
         return cls(
             strategy=data.get("strategy", "round_robin"),
             weights=data.get("weights", {}),
@@ -38,9 +38,9 @@ class InterleavedItem:
     id: str
     source_dataset: str
     original_index: int
-    data: Dict[str, Any] = field(default_factory=dict)
+    data: dict[str, Any] = field(default_factory=dict)
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "id": self.id,
             "source_dataset": self.source_dataset,
@@ -49,7 +49,7 @@ class InterleavedItem:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> InterleavedItem:
+    def from_dict(cls, data: dict[str, Any]) -> InterleavedItem:
         return cls(
             id=data["id"],
             source_dataset=data["source_dataset"],
@@ -62,11 +62,11 @@ class InterleavedItem:
 class InterleavingResult:
     """Result of interleaving multiple datasets."""
 
-    items: List[InterleavedItem] = field(default_factory=list)
+    items: list[InterleavedItem] = field(default_factory=list)
     total_items: int = 0
-    source_distribution: Dict[str, int] = field(default_factory=dict)
+    source_distribution: dict[str, int] = field(default_factory=dict)
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "items": [item.as_dict() for item in self.items],
             "total_items": self.total_items,
@@ -74,7 +74,7 @@ class InterleavingResult:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> InterleavingResult:
+    def from_dict(cls, data: dict[str, Any]) -> InterleavingResult:
         return cls(
             items=[InterleavedItem.from_dict(i) for i in data.get("items", [])],
             total_items=data.get("total_items", 0),
@@ -89,22 +89,21 @@ class InterleavingResult:
         return "\n".join(lines)
 
 
-def _build_result(items: List[InterleavedItem]) -> InterleavingResult:
-    dist: Dict[str, int] = {}
+def _build_result(items: list[InterleavedItem]) -> InterleavingResult:
+    dist: dict[str, int] = {}
     for item in items:
         dist[item.source_dataset] = dist.get(item.source_dataset, 0) + 1
     return InterleavingResult(items=items, total_items=len(items), source_distribution=dist)
 
 
 def interleave_round_robin(
-    datasets: Dict[str, List[Dict[str, Any]]],
+    datasets: dict[str, list[dict[str, Any]]],
 ) -> InterleavingResult:
     """Round-robin merge. Take one item from each dataset in turn until all exhausted."""
-    items: List[InterleavedItem] = []
+    items: list[InterleavedItem] = []
     names = sorted(datasets.keys())
     if not names:
         return _build_result(items)
-    pointers = {name: 0 for name in names}
     max_len = max(len(datasets[n]) for n in names) if names else 0
     for round_idx in range(max_len):
         for name in names:
@@ -120,18 +119,18 @@ def interleave_round_robin(
 
 
 def interleave_weighted(
-    datasets: Dict[str, List[Dict[str, Any]]],
-    weights: Dict[str, float],
-    seed: Optional[int] = None,
+    datasets: dict[str, list[dict[str, Any]]],
+    weights: dict[str, float],
+    seed: int | None = None,
 ) -> InterleavingResult:
     """Weighted random selection. Higher weight = more items from that dataset."""
     rng = random.Random(seed)
-    items: List[InterleavedItem] = []
+    items: list[InterleavedItem] = []
     names = sorted(datasets.keys())
     if not names:
         return _build_result(items)
     # Build pool of (name, index) pairs
-    pool: List[Tuple[str, int]] = []
+    pool: list[tuple[str, int]] = []
     for name in names:
         for idx in range(len(datasets[name])):
             pool.append((name, idx))
@@ -141,12 +140,12 @@ def interleave_weighted(
     total_weight = sum(weights.get(n, 1.0) for n in names)
     dataset_probs = {n: weights.get(n, 1.0) / total_weight for n in names}
     # Assign each pool entry a probability proportional to its dataset weight / dataset size
-    entry_weights: List[float] = []
+    entry_weights: list[float] = []
     for name, idx in pool:
         ds_size = len(datasets[name])
         entry_weights.append(dataset_probs[name] / ds_size if ds_size else 0.0)
     # Sample all items without replacement using weighted shuffle
-    order: List[int] = []
+    order: list[int] = []
     remaining = list(range(len(pool)))
     remaining_weights = list(entry_weights)
     while remaining:
@@ -167,12 +166,12 @@ def interleave_weighted(
 
 
 def interleave_random(
-    datasets: Dict[str, List[Dict[str, Any]]],
-    seed: Optional[int] = None,
+    datasets: dict[str, list[dict[str, Any]]],
+    seed: int | None = None,
 ) -> InterleavingResult:
     """Random shuffle of all items."""
     rng = random.Random(seed)
-    items: List[InterleavedItem] = []
+    items: list[InterleavedItem] = []
     for name in sorted(datasets.keys()):
         for idx, data in enumerate(datasets[name]):
             items.append(InterleavedItem(
@@ -186,7 +185,7 @@ def interleave_random(
 
 
 def interleave(
-    datasets: Dict[str, List[Dict[str, Any]]],
+    datasets: dict[str, list[dict[str, Any]]],
     config: InterleavingConfig,
 ) -> InterleavingResult:
     """Route to appropriate strategy."""
@@ -200,9 +199,9 @@ def interleave(
         raise ValueError(f"Unknown interleaving strategy: {config.strategy}")
 
 
-def validate_interleaving(result: InterleavingResult) -> Tuple[bool, List[str]]:
+def validate_interleaving(result: InterleavingResult) -> tuple[bool, list[str]]:
     """Check all source datasets represented, no duplicates."""
-    errors: List[str] = []
+    errors: list[str] = []
     # Check for duplicate IDs
     seen_ids: set = set()
     for item in result.items:

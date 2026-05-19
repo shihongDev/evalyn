@@ -24,7 +24,7 @@ class EvalUnitBuilder(ABC):
         pass
 
     @abstractmethod
-    def discover(self, call: FunctionCall) -> List[EvalUnit]:
+    def discover(self, call: FunctionCall) -> list[EvalUnit]:
         """Discover all evaluatable units of this type from a FunctionCall."""
         pass
 
@@ -41,7 +41,7 @@ class OutcomeBuilder(EvalUnitBuilder):
     def unit_type(self) -> str:
         return "outcome"
 
-    def discover(self, call: FunctionCall) -> List[EvalUnit]:
+    def discover(self, call: FunctionCall) -> list[EvalUnit]:
         return [
             EvalUnit(
                 id=f"outcome-{call.id}",
@@ -68,7 +68,7 @@ class SingleTurnBuilder(EvalUnitBuilder):
     def unit_type(self) -> str:
         return "single_turn"
 
-    def discover(self, call: FunctionCall) -> List[EvalUnit]:
+    def discover(self, call: FunctionCall) -> list[EvalUnit]:
         units = []
         for span in call.spans:
             if span.span_type == "llm_call":
@@ -100,7 +100,7 @@ class ToolUseBuilder(EvalUnitBuilder):
     def unit_type(self) -> str:
         return "tool_use"
 
-    def discover(self, call: FunctionCall) -> List[EvalUnit]:
+    def discover(self, call: FunctionCall) -> list[EvalUnit]:
         units = []
         for span in call.spans:
             if span.span_type == "tool_call":
@@ -125,7 +125,7 @@ class ToolUseBuilder(EvalUnitBuilder):
                 )
         return units
 
-    def _find_result_span(self, spans: List[Span], tool_span: Span) -> Optional[Span]:
+    def _find_result_span(self, spans: list[Span], tool_span: Span) -> Span | None:
         """Find the tool_result span associated with a tool_call span."""
         for span in spans:
             if span.span_type == "tool_result" and span.parent_id == tool_span.id:
@@ -145,9 +145,9 @@ class MultiTurnBuilder(EvalUnitBuilder):
     def unit_type(self) -> str:
         return "multi_turn"
 
-    def discover(self, call: FunctionCall) -> List[EvalUnit]:
+    def discover(self, call: FunctionCall) -> list[EvalUnit]:
         # Group llm_calls by their parent span
-        by_parent: Dict[Optional[str], List[Span]] = {}
+        by_parent: dict[str | None, list[Span]] = {}
         for span in call.spans:
             if span.span_type == "llm_call":
                 parent = span.parent_id
@@ -187,7 +187,7 @@ class CustomBuilder(EvalUnitBuilder):
     def unit_type(self) -> str:
         return "custom"
 
-    def discover(self, call: FunctionCall) -> List[EvalUnit]:
+    def discover(self, call: FunctionCall) -> list[EvalUnit]:
         units = []
         for span in call.spans:
             if span.attributes.get("eval_boundary"):
@@ -204,7 +204,7 @@ class CustomBuilder(EvalUnitBuilder):
 
 
 # Registry of all builders
-_BUILDERS: Dict[str, Type[EvalUnitBuilder]] = {
+_BUILDERS: dict[str, type[EvalUnitBuilder]] = {
     "outcome": OutcomeBuilder,
     "single_turn": SingleTurnBuilder,
     "tool_use": ToolUseBuilder,
@@ -213,18 +213,18 @@ _BUILDERS: Dict[str, Type[EvalUnitBuilder]] = {
 }
 
 
-def get_default_builders() -> List[EvalUnitBuilder]:
+def get_default_builders() -> list[EvalUnitBuilder]:
     """Get the default builder (OutcomeBuilder only for backward compat)."""
     return [OutcomeBuilder()]
 
 
-def get_builder_for_type(unit_type: str) -> Optional[EvalUnitBuilder]:
+def get_builder_for_type(unit_type: str) -> EvalUnitBuilder | None:
     """Get a builder instance for a specific unit type."""
     builder_cls = _BUILDERS.get(unit_type)
     return builder_cls() if builder_cls else None
 
 
-def get_builders_for_types(unit_types: List[str]) -> List[EvalUnitBuilder]:
+def get_builders_for_types(unit_types: list[str]) -> list[EvalUnitBuilder]:
     """Get builder instances for multiple unit types."""
     builders = []
     for ut in unit_types:

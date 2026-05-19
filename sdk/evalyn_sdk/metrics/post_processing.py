@@ -7,7 +7,8 @@ result recording. Built-in processors: clamp, threshold, invert, round.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any, Dict, List, Optional
+from collections.abc import Callable
 
 
 @dataclass
@@ -76,7 +77,7 @@ class PostProcessorChain:
         processed_score = chain.apply(0.8567)  # -> 0.86
     """
 
-    def __init__(self, processors: Optional[List[PostProcessor]] = None):
+    def __init__(self, processors: list[PostProcessor] | None = None):
         self.processors = processors or []
 
     def add(self, processor: PostProcessor) -> PostProcessorChain:
@@ -111,10 +112,10 @@ class PostProcessorChain:
             result.score = self.apply(result.score)
 
     @property
-    def names(self) -> List[str]:
+    def names(self) -> list[str]:
         return [p.name for p in self.processors]
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "processors": [
                 {"name": p.name, "description": p.description}
@@ -124,7 +125,7 @@ class PostProcessorChain:
 
 
 # Registry of built-in processors by name
-BUILTIN_PROCESSORS: Dict[str, Callable] = {
+BUILTIN_PROCESSORS: dict[str, Callable] = {
     "clamp": score_clamp,
     "binary_threshold": binary_threshold,
     "invert": invert_score,
@@ -133,7 +134,7 @@ BUILTIN_PROCESSORS: Dict[str, Callable] = {
 }
 
 
-def build_chain_from_config(config: List[Dict[str, Any]]) -> PostProcessorChain:
+def build_chain_from_config(config: list[dict[str, Any]]) -> PostProcessorChain:
     """Build a post-processor chain from YAML/dict config.
 
     Config format:

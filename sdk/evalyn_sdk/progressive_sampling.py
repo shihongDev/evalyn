@@ -9,7 +9,8 @@ from __future__ import annotations
 import math
 import random
 from dataclasses import dataclass, field
-from typing import Any, Callable, Dict, List
+from typing import Any, Dict, List
+from collections.abc import Callable
 
 
 @dataclass
@@ -23,7 +24,7 @@ class ProgressiveConfig:
     max_rounds: int = 5
     seed: int | None = None
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "initial_size": self.initial_size,
             "expansion_factor": self.expansion_factor,
@@ -34,7 +35,7 @@ class ProgressiveConfig:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> ProgressiveConfig:
+    def from_dict(cls, data: dict[str, Any]) -> ProgressiveConfig:
         return cls(
             initial_size=data.get("initial_size", 20),
             expansion_factor=data.get("expansion_factor", 2.0),
@@ -54,7 +55,7 @@ class ProgressiveRound:
     ci_width: float
     sufficient: bool
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "round_number": self.round_number,
             "sample_size": self.sample_size,
@@ -63,7 +64,7 @@ class ProgressiveRound:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> ProgressiveRound:
+    def from_dict(cls, data: dict[str, Any]) -> ProgressiveRound:
         return cls(
             round_number=data["round_number"],
             sample_size=data["sample_size"],
@@ -76,13 +77,13 @@ class ProgressiveRound:
 class ProgressiveResult:
     """Result of progressive sampling."""
 
-    final_sample_ids: List[str] = field(default_factory=list)
-    rounds: List[ProgressiveRound] = field(default_factory=list)
+    final_sample_ids: list[str] = field(default_factory=list)
+    rounds: list[ProgressiveRound] = field(default_factory=list)
     total_rounds: int = 0
     final_ci_width: float = 0.0
     converged: bool = False
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "final_sample_ids": self.final_sample_ids,
             "rounds": [r.as_dict() for r in self.rounds],
@@ -92,7 +93,7 @@ class ProgressiveResult:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> ProgressiveResult:
+    def from_dict(cls, data: dict[str, Any]) -> ProgressiveResult:
         return cls(
             final_sample_ids=data.get("final_sample_ids", []),
             rounds=[ProgressiveRound.from_dict(r) for r in data.get("rounds", [])],

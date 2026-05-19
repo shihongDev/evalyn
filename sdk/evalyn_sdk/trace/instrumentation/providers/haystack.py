@@ -19,7 +19,8 @@ from __future__ import annotations
 
 import importlib.util
 from contextlib import contextmanager
-from typing import Any, Dict, Iterator, Optional
+from typing import Any, Dict, Optional
+from collections.abc import Iterator
 
 from ....models import Span
 from ... import context as span_context
@@ -83,11 +84,11 @@ class EvalynHaystackSpan:
     def __init__(
         self,
         operation_name: str,
-        tags: Optional[Dict[str, Any]] = None,
-        parent: Optional[EvalynHaystackSpan] = None,
+        tags: dict[str, Any] | None = None,
+        parent: EvalynHaystackSpan | None = None,
     ) -> None:
         self.operation_name = operation_name
-        self.tags: Dict[str, Any] = tags or {}
+        self.tags: dict[str, Any] = tags or {}
         self.parent = parent
 
         span_type = _map_operation_to_span_type(operation_name)
@@ -107,7 +108,7 @@ class EvalynHaystackSpan:
         if safe_value is not None:
             self._span.attributes[key] = safe_value
 
-    def set_tags(self, tags: Dict[str, Any]) -> None:
+    def set_tags(self, tags: dict[str, Any]) -> None:
         for key, value in tags.items():
             self.set_tag(key, value)
 
@@ -121,7 +122,7 @@ class EvalynHaystackSpan:
     def raw_span(self) -> Any:
         return self._span
 
-    def get_correlation_data_for_logs(self) -> Dict[str, Any]:
+    def get_correlation_data_for_logs(self) -> dict[str, Any]:
         return {
             "span_id": self._span.id,
             "operation_name": self.operation_name,
@@ -141,8 +142,8 @@ class EvalynHaystackTracer:
     def trace(
         self,
         operation_name: str,
-        tags: Optional[Dict[str, Any]] = None,
-        parent_span: Optional[EvalynHaystackSpan] = None,
+        tags: dict[str, Any] | None = None,
+        parent_span: EvalynHaystackSpan | None = None,
     ) -> Iterator[EvalynHaystackSpan]:
         span = EvalynHaystackSpan(
             operation_name=operation_name,
@@ -161,7 +162,7 @@ class EvalynHaystackTracer:
             span.finish(status="error")
             raise
 
-    def current_span(self) -> Optional[EvalynHaystackSpan]:
+    def current_span(self) -> EvalynHaystackSpan | None:
         return None
 
 
@@ -174,7 +175,7 @@ def _map_operation_to_span_type(operation_name: str) -> str:
     return "custom"
 
 
-def _enrich_span_from_tags(span: Span, tags: Dict[str, Any]) -> None:
+def _enrich_span_from_tags(span: Span, tags: dict[str, Any]) -> None:
     """Enrich span with structured info extracted from Haystack tags."""
     component_name = tags.get("haystack.component.name")
     component_type = tags.get("haystack.component.type", "")

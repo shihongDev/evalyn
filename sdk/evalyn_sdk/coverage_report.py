@@ -37,12 +37,12 @@ class CoverageRegion:
     """A topic region identified in production data with coverage gap info."""
 
     region_id: str
-    keywords: List[str]
+    keywords: list[str]
     simulated_count: int
     production_count: int
     gap: float  # production_count / max(1, simulated_count) - higher means bigger gap
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "region_id": self.region_id,
             "keywords": list(self.keywords),
@@ -52,7 +52,7 @@ class CoverageRegion:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> CoverageRegion:
+    def from_dict(cls, data: dict[str, Any]) -> CoverageRegion:
         return cls(
             region_id=data["region_id"],
             keywords=data["keywords"],
@@ -69,10 +69,10 @@ class CoverageResult:
     overlap_score: float
     total_sim_items: int
     total_prod_items: int
-    uncovered_regions: List[CoverageRegion]
-    recommendations: List[str]
+    uncovered_regions: list[CoverageRegion]
+    recommendations: list[str]
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "overlap_score": self.overlap_score,
             "total_sim_items": self.total_sim_items,
@@ -82,7 +82,7 @@ class CoverageResult:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> CoverageResult:
+    def from_dict(cls, data: dict[str, Any]) -> CoverageResult:
         return cls(
             overlap_score=data["overlap_score"],
             total_sim_items=data["total_sim_items"],

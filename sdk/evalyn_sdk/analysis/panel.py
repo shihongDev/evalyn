@@ -33,12 +33,12 @@ class ExpertOpinion:
 
     role: str
     summary: str
-    findings: List[str] = field(default_factory=list)
-    concerns: List[str] = field(default_factory=list)
-    suggestions: List[str] = field(default_factory=list)
+    findings: list[str] = field(default_factory=list)
+    concerns: list[str] = field(default_factory=list)
+    suggestions: list[str] = field(default_factory=list)
     confidence: float = 0.0
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "role": self.role,
             "summary": self.summary,
@@ -49,7 +49,7 @@ class ExpertOpinion:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> ExpertOpinion:
+    def from_dict(cls, data: dict[str, Any]) -> ExpertOpinion:
         return cls(
             role=data.get("role", "unknown"),
             summary=data.get("summary", ""),
@@ -64,14 +64,14 @@ class ExpertOpinion:
 class PanelDiscussion:
     """Complete expert panel discussion with synthesis."""
 
-    experts: List[ExpertOpinion] = field(default_factory=list)
+    experts: list[ExpertOpinion] = field(default_factory=list)
     synthesis: str = ""
-    action_plan: List[str] = field(default_factory=list)
-    dissenting_views: List[str] = field(default_factory=list)
+    action_plan: list[str] = field(default_factory=list)
+    dissenting_views: list[str] = field(default_factory=list)
     total_input_tokens: int = 0
     total_output_tokens: int = 0
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "experts": [e.as_dict() for e in self.experts],
             "synthesis": self.synthesis,
@@ -82,7 +82,7 @@ class PanelDiscussion:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> PanelDiscussion:
+    def from_dict(cls, data: dict[str, Any]) -> PanelDiscussion:
         return cls(
             experts=[ExpertOpinion.from_dict(e) for e in data.get("experts", [])],
             synthesis=data.get("synthesis", ""),
@@ -101,7 +101,7 @@ class PanelDiscussion:
 def prepare_panel_context(
     run_analysis: RunAnalysis,
     insights_report: InsightsReport,
-    dataset_items: Optional[List[Dict[str, Any]]] = None,
+    dataset_items: list[dict[str, Any]] | None = None,
     sample_failures: int = 5,
 ) -> str:
     """Condense RunAnalysis + InsightsReport into compact text for LLM context.
@@ -226,7 +226,7 @@ Rules:
 def build_expert_prompt(
     role: str,
     context: str,
-    prior_opinions: Optional[List[ExpertOpinion]] = None,
+    prior_opinions: list[ExpertOpinion] | None = None,
 ) -> str:
     """Build prompt for one expert, including prior opinions for sequential reasoning."""
     parts = []
@@ -260,7 +260,7 @@ def build_expert_prompt(
 
 def build_moderator_prompt(
     context: str,
-    opinions: List[ExpertOpinion],
+    opinions: list[ExpertOpinion],
 ) -> str:
     """Build the moderator synthesis prompt."""
     parts = [
@@ -310,7 +310,7 @@ Rules:
 # ---------------------------------------------------------------------------
 
 
-def _extract_json(raw_text: str) -> Optional[Dict[str, Any]]:
+def _extract_json(raw_text: str) -> dict[str, Any] | None:
     """Extract a JSON object from LLM response text.
 
     Handles JSON wrapped in markdown code blocks, bare JSON, or JSON
@@ -367,7 +367,7 @@ def parse_expert_response(role: str, raw_text: str) -> ExpertOpinion:
     )
 
 
-def _parse_moderator_response(raw_text: str) -> Dict[str, Any]:
+def _parse_moderator_response(raw_text: str) -> dict[str, Any]:
     """Parse moderator synthesis response."""
     data = _extract_json(raw_text)
     if data is not None:
@@ -382,7 +382,7 @@ def _parse_moderator_response(raw_text: str) -> Dict[str, Any]:
 
 def create_api_client(
     provider: str = "gemini",
-    model: Optional[str] = None,
+    model: str | None = None,
     temperature: float = 0.3,
 ) -> Any:
     """Create an API client based on provider.
@@ -422,8 +422,8 @@ def run_expert_panel(
     run_analysis: RunAnalysis,
     insights_report: InsightsReport,
     client: Any,
-    dataset_items: Optional[List[Dict[str, Any]]] = None,
-    experts: Optional[List[str]] = None,
+    dataset_items: list[dict[str, Any]] | None = None,
+    experts: list[str] | None = None,
     verbose: bool = False,
 ) -> PanelDiscussion:
     """Run the expert panel: sequential experts + moderator synthesis.
@@ -452,7 +452,7 @@ def run_expert_panel(
         run_analysis, insights_report, dataset_items
     )
 
-    opinions: List[ExpertOpinion] = []
+    opinions: list[ExpertOpinion] = []
     total_input = 0
     total_output = 0
 

@@ -19,7 +19,7 @@ class ConvergencePoint:
     prompt_length: int = 0
     tokens_used: int = 0
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "step": self.step,
             "alignment_score": self.alignment_score,
@@ -34,9 +34,9 @@ class ConvergenceTrace:
 
     metric_id: str
     optimizer: str
-    points: List[ConvergencePoint] = field(default_factory=list)
+    points: list[ConvergencePoint] = field(default_factory=list)
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "metric_id": self.metric_id,
             "optimizer": self.optimizer,
@@ -44,7 +44,7 @@ class ConvergenceTrace:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> ConvergenceTrace:
+    def from_dict(cls, data: dict[str, Any]) -> ConvergenceTrace:
         points = [
             ConvergencePoint(
                 step=p["step"],
@@ -98,7 +98,7 @@ class ConvergenceTracker:
     def __init__(self, metric_id: str, optimizer: str) -> None:
         self.metric_id = metric_id
         self.optimizer = optimizer
-        self._points: List[ConvergencePoint] = []
+        self._points: list[ConvergencePoint] = []
         self._step: int = 0
 
     def record(
@@ -192,7 +192,7 @@ def render_ascii_convergence(
     return "\n".join(lines)
 
 
-def diagnose_convergence(trace: ConvergenceTrace) -> Dict[str, Any]:
+def diagnose_convergence(trace: ConvergenceTrace) -> dict[str, Any]:
     """Analyze convergence behavior.
 
     Returns a dict with:
@@ -234,7 +234,7 @@ def diagnose_convergence(trace: ConvergenceTrace) -> Dict[str, Any]:
     oscillating = direction_changes >= max(len(scores) // 2, 2)
 
     # Detect plateau: find first step where remaining scores vary < 0.01
-    plateau_at_step: Optional[int] = None
+    plateau_at_step: int | None = None
     for i in range(len(scores)):
         remaining = scores[i:]
         if len(remaining) < 3:

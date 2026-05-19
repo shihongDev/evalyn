@@ -55,7 +55,8 @@ import shutil
 import threading
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Iterable
+from typing import Any
+from collections.abc import Iterable
 
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import JSONResponse
@@ -366,8 +367,8 @@ async def promote_run_failures(req: PromoteRequest) -> JSONResponse:
         "source_run=%s requested=%d promoted=%d skipped=%d",
         dataset_name,
         source_dataset_name,
-        run_id,
-        len(row_hashes),
+        safe_run_id,
+        len(req.row_hashes),
         len(promoted),
         len(skipped),
     )

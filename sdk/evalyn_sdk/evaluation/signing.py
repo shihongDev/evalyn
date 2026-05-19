@@ -12,7 +12,7 @@ import json
 from typing import Any, Dict, List
 
 
-def compute_result_hash(metric_results: List) -> str:
+def compute_result_hash(metric_results: list) -> str:
     """Compute a deterministic hash of all metric results.
 
     The hash covers: metric_id, item_id, score, passed for each result,
@@ -56,7 +56,7 @@ def sign_run(run) -> str:
     return result_hash
 
 
-def verify_run(run) -> Dict[str, Any]:
+def verify_run(run) -> dict[str, Any]:
     """Verify that a run's results haven't been tampered with.
 
     Recomputes the hash from current results and compares against

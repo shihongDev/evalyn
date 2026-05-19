@@ -15,7 +15,7 @@ class ImageMetadata:
     size_bytes: int = 0
     has_content: bool = False
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "width": self.width,
             "height": self.height,
@@ -25,7 +25,7 @@ class ImageMetadata:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> ImageMetadata:
+    def from_dict(cls, data: dict[str, Any]) -> ImageMetadata:
         return cls(
             width=data.get("width", 0),
             height=data.get("height", 0),
@@ -42,9 +42,9 @@ class ImageScore:
     metric_name: str
     score: float
     passed: bool
-    details: Dict[str, Any] = field(default_factory=dict)
+    details: dict[str, Any] = field(default_factory=dict)
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "metric_name": self.metric_name,
             "score": self.score,
@@ -57,11 +57,11 @@ class ImageScore:
 class ImageEvalReport:
     """Aggregated report from multiple image evaluation checks."""
 
-    scores: List[ImageScore] = field(default_factory=list)
+    scores: list[ImageScore] = field(default_factory=list)
     overall_score: float = 0.0
     pass_rate: float = 0.0
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "scores": [s.as_dict() for s in self.scores],
             "overall_score": self.overall_score,
@@ -69,7 +69,7 @@ class ImageEvalReport:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> ImageEvalReport:
+    def from_dict(cls, data: dict[str, Any]) -> ImageEvalReport:
         scores = [
             ImageScore(
                 metric_name=s["metric_name"],
@@ -86,7 +86,7 @@ class ImageEvalReport:
         )
 
     def format_text(self) -> str:
-        lines: List[str] = []
+        lines: list[str] = []
         lines.append("Image Evaluation Report")
         lines.append("-" * 40)
         for s in self.scores:
@@ -138,7 +138,7 @@ def check_image_exists(file_path: str) -> ImageScore:
 
 def check_image_format(
     file_path: str,
-    expected_formats: Optional[List[str]] = None,
+    expected_formats: list[str] | None = None,
 ) -> ImageScore:
     """Check file extension matches expected formats."""
     if expected_formats is None:
@@ -221,10 +221,10 @@ def extract_image_metadata_from_path(file_path: str) -> ImageMetadata:
 
 def evaluate_image(
     file_path: str,
-    metadata: Optional[ImageMetadata] = None,
+    metadata: ImageMetadata | None = None,
 ) -> ImageEvalReport:
     """Run all image checks and return an aggregated report."""
-    scores: List[ImageScore] = []
+    scores: list[ImageScore] = []
 
     scores.append(check_image_exists(file_path))
     scores.append(check_image_format(file_path))

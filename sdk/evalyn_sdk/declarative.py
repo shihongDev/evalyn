@@ -17,7 +17,8 @@ Usage:
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any, Dict, List, Optional
+from collections.abc import Callable
 
 from .models import DatasetItem, MetricResult
 
@@ -29,7 +30,7 @@ class EvalConfig:
     name: str = ""
     provider: str = "gemini"
     max_workers: int = 1
-    tags: Optional[List[str]] = None
+    tags: list[str] | None = None
 
 
 @dataclass
@@ -38,14 +39,14 @@ class EvalOutput:
 
     name: str
     items_evaluated: int
-    results: List[MetricResult] = field(default_factory=list)
+    results: list[MetricResult] = field(default_factory=list)
 
     @property
     def pass_rate(self) -> float:
         """Overall pass rate (items passing all metrics)."""
         if not self.results:
             return 0.0
-        item_pass: Dict[str, bool] = {}
+        item_pass: dict[str, bool] = {}
         for r in self.results:
             if r.item_id not in item_pass:
                 item_pass[r.item_id] = True
@@ -56,8 +57,8 @@ class EvalOutput:
         return sum(1 for v in item_pass.values() if v) / len(item_pass)
 
     @property
-    def metric_pass_rates(self) -> Dict[str, float]:
-        counts: Dict[str, list] = {}
+    def metric_pass_rates(self) -> dict[str, float]:
+        counts: dict[str, list] = {}
         for r in self.results:
             mid = r.metric_id
             if mid not in counts:
@@ -68,8 +69,8 @@ class EvalOutput:
         return {mid: p / t if t > 0 else 0.0 for mid, (p, t) in counts.items()}
 
     @property
-    def failed_items(self) -> List[str]:
-        item_pass: Dict[str, bool] = {}
+    def failed_items(self) -> list[str]:
+        item_pass: dict[str, bool] = {}
         for r in self.results:
             if r.item_id not in item_pass:
                 item_pass[r.item_id] = True
@@ -77,7 +78,7 @@ class EvalOutput:
                 item_pass[r.item_id] = False
         return [iid for iid, v in item_pass.items() if not v]
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "name": self.name,
             "items_evaluated": self.items_evaluated,
@@ -102,10 +103,10 @@ class Eval:
     def __init__(
         self,
         name: str = "",
-        data: Optional[List] = None,
-        scorers: Optional[List[str]] = None,
-        task: Optional[Callable] = None,
-        config: Optional[EvalConfig] = None,
+        data: list | None = None,
+        scorers: list[str] | None = None,
+        task: Callable | None = None,
+        config: EvalConfig | None = None,
     ):
         self.name = name
         self._data = data or []

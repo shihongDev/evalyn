@@ -20,7 +20,7 @@ class RetryConfig:
     retry_prompt_suffix: str = "Please respond with valid JSON."
     backoff_ms: float = 0.0
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "max_retries": self.max_retries,
             "retry_prompt_suffix": self.retry_prompt_suffix,
@@ -28,7 +28,7 @@ class RetryConfig:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> RetryConfig:
+    def from_dict(cls, data: dict[str, Any]) -> RetryConfig:
         return cls(
             max_retries=data.get("max_retries", 2),
             retry_prompt_suffix=data.get(
@@ -47,7 +47,7 @@ class RetryAttempt:
     parse_success: bool
     error: str = ""
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "attempt_number": self.attempt_number,
             "raw_output": self.raw_output,
@@ -60,13 +60,13 @@ class RetryAttempt:
 class RetryResult:
     """Outcome of retry logic for a single judge call."""
 
-    final_output: Optional[Dict[str, Any]] = None
-    attempts: List[RetryAttempt] = field(default_factory=list)
+    final_output: dict[str, Any] | None = None
+    attempts: list[RetryAttempt] = field(default_factory=list)
     total_attempts: int = 0
     success: bool = False
     parse_failure_rate: float = 0.0
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "final_output": self.final_output,
             "attempts": [a.as_dict() for a in self.attempts],
@@ -76,7 +76,7 @@ class RetryResult:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> RetryResult:
+    def from_dict(cls, data: dict[str, Any]) -> RetryResult:
         attempts = [
             RetryAttempt(
                 attempt_number=a["attempt_number"],
@@ -130,7 +130,7 @@ class RetryStats:
             return 0.0
         return self.success_on_first / self.total_calls
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "total_calls": self.total_calls,
             "total_retries": self.total_retries,
@@ -158,7 +158,7 @@ class RetryStats:
 # ---------------------------------------------------------------------------
 
 
-def attempt_parse(output: str) -> Tuple[bool, Optional[Dict[str, Any]], str]:
+def attempt_parse(output: str) -> tuple[bool, dict[str, Any] | None, str]:
     """Try to parse JSON from output.
 
     Returns (success, data, error_msg).
@@ -204,15 +204,15 @@ def build_retry_prompt(original_prompt: str, config: RetryConfig) -> str:
     return f"{original_prompt}\n{config.retry_prompt_suffix}"
 
 
-def simulate_retry(outputs: List[str], config: RetryConfig) -> RetryResult:
+def simulate_retry(outputs: list[str], config: RetryConfig) -> RetryResult:
     """Simulate retry logic on a list of outputs (one per attempt).
 
     Parses each output in order, stops on the first success. At most
     config.max_retries + 1 attempts are used (1 initial + max_retries).
     """
-    attempts: List[RetryAttempt] = []
+    attempts: list[RetryAttempt] = []
     max_total = config.max_retries + 1
-    final_output: Optional[Dict[str, Any]] = None
+    final_output: dict[str, Any] | None = None
     success = False
     failures = 0
 
@@ -245,7 +245,7 @@ def simulate_retry(outputs: List[str], config: RetryConfig) -> RetryResult:
     )
 
 
-def compute_retry_stats(results: List[RetryResult]) -> RetryStats:
+def compute_retry_stats(results: list[RetryResult]) -> RetryStats:
     """Aggregate statistics across multiple retry results."""
     stats = RetryStats()
     for r in results:

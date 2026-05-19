@@ -20,7 +20,7 @@ class Column:
     """A single column of text with an optional fixed width."""
 
     title: str
-    lines: List[str] = field(default_factory=list)
+    lines: list[str] = field(default_factory=list)
     width: int = 0  # 0 means auto
 
     def as_dict(self) -> dict:
@@ -68,7 +68,7 @@ class SideBySideConfig:
 # ---------------------------------------------------------------------------
 
 
-def wrap_text(text: str, width: int) -> List[str]:
+def wrap_text(text: str, width: int) -> list[str]:
     """Word-wrap text to the given width.
 
     Splits on whitespace boundaries. Words longer than width are
@@ -80,7 +80,7 @@ def wrap_text(text: str, width: int) -> List[str]:
     if not text:
         return [""]
 
-    result: List[str] = []
+    result: list[str] = []
     for paragraph in text.split("\n"):
         if not paragraph:
             result.append("")
@@ -188,7 +188,7 @@ def _compute_col_width(
 def render_side_by_side(
     left: Column,
     right: Column,
-    config: Optional[SideBySideConfig] = None,
+    config: SideBySideConfig | None = None,
 ) -> str:
     """Render two columns side by side.
 
@@ -201,11 +201,11 @@ def render_side_by_side(
     sep = config.separator
 
     # Wrap all lines in each column
-    left_lines: List[str] = []
+    left_lines: list[str] = []
     for line in left.lines:
         left_lines.extend(wrap_text(line, col_width))
 
-    right_lines: List[str] = []
+    right_lines: list[str] = []
     for line in right.lines:
         right_lines.extend(wrap_text(line, col_width))
 
@@ -214,7 +214,7 @@ def render_side_by_side(
 
     # Build body - zip with padding
     max_rows = max(len(left_lines), len(right_lines))
-    body_lines: List[str] = []
+    body_lines: list[str] = []
     for i in range(max_rows):
         l_text = left_lines[i] if i < len(left_lines) else ""
         r_text = right_lines[i] if i < len(right_lines) else ""

@@ -81,13 +81,13 @@ def _get_eval_run_and_metrics(
 
 def _load_dataset_context(
     args: argparse.Namespace,
-) -> tuple[Optional[list[DatasetItem]], Optional[Path]]:
+) -> tuple[list[DatasetItem] | None, Path | None]:
     """Load dataset items and determine dataset directory."""
     from ...datasets import load_dataset
 
     config = load_config()
-    dataset_items: Optional[list[DatasetItem]] = None
-    dataset_dir: Optional[Path] = None
+    dataset_items: list[DatasetItem] | None = None
+    dataset_dir: Path | None = None
 
     dataset_arg = getattr(args, "dataset", None)
     use_latest = getattr(args, "latest", False)
@@ -108,7 +108,7 @@ def _load_dataset_context(
 
 def _write_output(
     output_format: str,
-    output_path: Optional[str],
+    output_path: str | None,
     default_path: Path,
     result_dict: dict,
     html_content: str,

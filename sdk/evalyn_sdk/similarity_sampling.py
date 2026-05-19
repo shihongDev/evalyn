@@ -18,7 +18,7 @@ class SimilarityScore:
     similarity: float  # 0 to 1
     distance: float  # 1 - similarity
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "item_id": self.item_id,
             "similarity": self.similarity,
@@ -26,7 +26,7 @@ class SimilarityScore:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> SimilarityScore:
+    def from_dict(cls, data: dict[str, Any]) -> SimilarityScore:
         return cls(
             item_id=data["item_id"],
             similarity=data["similarity"],
@@ -43,7 +43,7 @@ class SimilarityConfig:
     reference_id: str = ""
     reference_text: str = ""
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "mode": self.mode,
             "sample_size": self.sample_size,
@@ -52,7 +52,7 @@ class SimilarityConfig:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> SimilarityConfig:
+    def from_dict(cls, data: dict[str, Any]) -> SimilarityConfig:
         return cls(
             mode=data.get("mode", "similar"),
             sample_size=data.get("sample_size", 20),
@@ -65,13 +65,13 @@ class SimilarityConfig:
 class SimilarityResult:
     """Result of a similarity-based sampling run."""
 
-    selected_ids: List[str] = field(default_factory=list)
-    scores: List[SimilarityScore] = field(default_factory=list)
+    selected_ids: list[str] = field(default_factory=list)
+    scores: list[SimilarityScore] = field(default_factory=list)
     reference_id: str = ""
     mode: str = "similar"
     total_pool: int = 0
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "selected_ids": self.selected_ids,
             "scores": [s.as_dict() for s in self.scores],
@@ -81,7 +81,7 @@ class SimilarityResult:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> SimilarityResult:
+    def from_dict(cls, data: dict[str, Any]) -> SimilarityResult:
         return cls(
             selected_ids=data.get("selected_ids", []),
             scores=[
@@ -120,13 +120,13 @@ def compute_jaccard_similarity(text_a: str, text_b: str) -> float:
 
 
 def rank_by_similarity(
-    reference_text: str, items: Dict[str, str]
-) -> List[SimilarityScore]:
+    reference_text: str, items: dict[str, str]
+) -> list[SimilarityScore]:
     """Rank all items by similarity to the reference text.
 
     Returns a list of SimilarityScore sorted by similarity descending.
     """
-    scores: List[SimilarityScore] = []
+    scores: list[SimilarityScore] = []
     for item_id, text in items.items():
         sim = compute_jaccard_similarity(reference_text, text)
         scores.append(
@@ -140,20 +140,20 @@ def rank_by_similarity(
     return scores
 
 
-def select_most_similar(scores: List[SimilarityScore], n: int) -> List[str]:
+def select_most_similar(scores: list[SimilarityScore], n: int) -> list[str]:
     """Select top-N most similar items (highest similarity first)."""
     sorted_scores = sorted(scores, key=lambda s: (-s.similarity, s.item_id))
     return [s.item_id for s in sorted_scores[:n]]
 
 
-def select_most_dissimilar(scores: List[SimilarityScore], n: int) -> List[str]:
+def select_most_dissimilar(scores: list[SimilarityScore], n: int) -> list[str]:
     """Select top-N most dissimilar items (lowest similarity first)."""
     sorted_scores = sorted(scores, key=lambda s: (s.similarity, s.item_id))
     return [s.item_id for s in sorted_scores[:n]]
 
 
 def run_similarity_sampling(
-    items: Dict[str, str], config: SimilarityConfig
+    items: dict[str, str], config: SimilarityConfig
 ) -> SimilarityResult:
     """Full similarity sampling pipeline.
 
@@ -188,8 +188,8 @@ def run_similarity_sampling(
 
 
 def find_nearest_neighbors(
-    reference_text: str, items: Dict[str, str], k: int = 5
-) -> List[SimilarityScore]:
+    reference_text: str, items: dict[str, str], k: int = 5
+) -> list[SimilarityScore]:
     """Convenience function for k-nearest-neighbor lookup.
 
     Returns the k items most similar to reference_text.
@@ -205,7 +205,7 @@ def find_nearest_neighbors(
 
 def format_similarity_report(result: SimilarityResult) -> str:
     """Format a similarity result as a human-readable report."""
-    lines: List[str] = []
+    lines: list[str] = []
     lines.append(
         f"Similarity Sampling Report (mode={result.mode}, "
         f"pool={result.total_pool})"

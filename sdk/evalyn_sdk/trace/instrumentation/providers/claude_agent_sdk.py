@@ -16,7 +16,8 @@ import importlib.util
 import time
 from dataclasses import dataclass
 from datetime import timedelta
-from typing import Any, AsyncIterator, Dict, List, Optional, TypedDict
+from typing import Any, Dict, List, Optional, TypedDict
+from collections.abc import AsyncIterator
 
 from ....models import Span
 from ... import context as span_context
@@ -71,7 +72,7 @@ class EvalynAgentHooks:
         options = ClaudeAgentOptions(hooks=hooks, ...)
     """
 
-    def __init__(self, user_hooks: Optional[Any] = None):
+    def __init__(self, user_hooks: Any | None = None):
         """
         Initialize hooks.
 
@@ -80,12 +81,12 @@ class EvalynAgentHooks:
                         Our hooks will run before user hooks.
         """
         self._user_hooks = user_hooks
-        self._span_stack: List[SpanState] = []
-        self._tool_spans: Dict[str, SpanState] = {}
-        self._subagent_contexts: Dict[str, SubagentContext] = {}
-        self._current_parent_tool_use_id: Optional[str] = None
-        self._thinking_blocks: List[str] = []
-        self._run_start_time: Optional[float] = None
+        self._span_stack: list[SpanState] = []
+        self._tool_spans: dict[str, SpanState] = {}
+        self._subagent_contexts: dict[str, SubagentContext] = {}
+        self._current_parent_tool_use_id: str | None = None
+        self._thinking_blocks: list[str] = []
+        self._run_start_time: float | None = None
         # Track turns for automatic LLM span creation from hooks
         self._last_logged_turn: int = 0
         self._seen_tool_use_ids: set = set()
@@ -161,7 +162,7 @@ class EvalynAgentHooks:
         if stack and stack[-1] == span_id:
             span_context._span_stack.set(stack[:-1])
 
-    def set_current_context(self, parent_tool_use_id: Optional[str]) -> None:
+    def set_current_context(self, parent_tool_use_id: str | None) -> None:
         """
         Set the current parent tool use ID for context tracking.
 
@@ -170,7 +171,7 @@ class EvalynAgentHooks:
         """
         self._current_parent_tool_use_id = parent_tool_use_id
 
-    def register_subagent(self, tool_use_id: str, tool_input: Dict[str, Any]) -> None:
+    def register_subagent(self, tool_use_id: str, tool_input: dict[str, Any]) -> None:
         """
         Register a subagent spawn from a Task tool call.
 
@@ -185,7 +186,7 @@ class EvalynAgentHooks:
         )
 
     def capture_thinking(
-        self, thinking_text: str, signature: Optional[str] = None
+        self, thinking_text: str, signature: str | None = None
     ) -> None:
         """Capture a thinking block from extended thinking."""
         if signature:
@@ -221,9 +222,9 @@ class EvalynAgentHooks:
         self,
         turn: int,
         model: str,
-        output_text: Optional[str] = None,
-        tool_calls: Optional[List[str]] = None,
-        parent_tool_use_id: Optional[str] = None,
+        output_text: str | None = None,
+        tool_calls: list[str] | None = None,
+        parent_tool_use_id: str | None = None,
     ) -> None:
         """
         Log an LLM turn as a span.
@@ -260,8 +261,8 @@ class EvalynAgentHooks:
 
     # SDK PreToolUse/PostToolUse hooks - compatible with claude_agent_sdk
     async def pre_tool_use_hook(
-        self, hook_input: Dict[str, Any], tool_use_id: str, context: Any
-    ) -> Dict[str, Any]:
+        self, hook_input: dict[str, Any], tool_use_id: str, context: Any
+    ) -> dict[str, Any]:
         """
         PreToolUse hook for claude_agent_sdk.
 
@@ -335,8 +336,8 @@ class EvalynAgentHooks:
         return {"continue_": True}
 
     async def post_tool_use_hook(
-        self, hook_input: Dict[str, Any], tool_use_id: str, context: Any
-    ) -> Dict[str, Any]:
+        self, hook_input: dict[str, Any], tool_use_id: str, context: Any
+    ) -> dict[str, Any]:
         """
         PostToolUse hook for claude_agent_sdk.
 
@@ -449,7 +450,7 @@ class EvalynAgentHooks:
             root_state = self._span_stack[0]
             root_state.span.attributes["thinking_blocks"] = self._thinking_blocks
 
-    def get_hook_matchers(self) -> Dict[str, List[Dict[str, Any]]]:
+    def get_hook_matchers(self) -> dict[str, list[dict[str, Any]]]:
         """
         Get hook configuration for ClaudeAgentOptions.
 
@@ -568,8 +569,8 @@ class ClaudeAgentSDKInstrumentor(Instrumentor):
     Also patches ClaudeSDKClient.send_message() to capture user input.
     """
 
-    _hooks: Optional[EvalynAgentHooks] = None
-    _original_send_message: Optional[Any] = None
+    _hooks: EvalynAgentHooks | None = None
+    _original_send_message: Any | None = None
     _patched: bool = False
 
     @property
@@ -642,7 +643,7 @@ class ClaudeAgentSDKInstrumentor(Instrumentor):
         except ImportError:
             pass
 
-    def get_hooks(self) -> Optional[EvalynAgentHooks]:
+    def get_hooks(self) -> EvalynAgentHooks | None:
         """Get the hooks adapter to pass to ClaudeAgentOptions."""
         if self._hooks is None:
             self.instrument()
@@ -653,7 +654,7 @@ class ClaudeAgentSDKInstrumentor(Instrumentor):
 AnthropicAgentsInstrumentor = ClaudeAgentSDKInstrumentor
 
 
-def create_agent_hooks(user_hooks: Optional[Any] = None) -> EvalynAgentHooks:
+def create_agent_hooks(user_hooks: Any | None = None) -> EvalynAgentHooks:
     """
     Create Evalyn agent hooks for Claude Agent SDK.
 

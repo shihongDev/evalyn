@@ -18,11 +18,11 @@ class RubricPack:
     pack_id: str
     domain: str
     description: str
-    rubrics: List[Dict[str, Any]]
+    rubrics: list[dict[str, Any]]
     version: str
     author: str
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "pack_id": self.pack_id,
             "domain": self.domain,
@@ -33,7 +33,7 @@ class RubricPack:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> RubricPack:
+    def from_dict(cls, data: dict[str, Any]) -> RubricPack:
         return cls(
             pack_id=data["pack_id"],
             domain=data["domain"],
@@ -48,32 +48,32 @@ class PackRegistry:
     """Registry for rubric packs."""
 
     def __init__(self) -> None:
-        self._packs: Dict[str, RubricPack] = {}
+        self._packs: dict[str, RubricPack] = {}
 
     def register(self, pack: RubricPack) -> None:
         """Register a rubric pack."""
         self._packs[pack.pack_id] = pack
 
-    def get(self, pack_id: str) -> Optional[RubricPack]:
+    def get(self, pack_id: str) -> RubricPack | None:
         """Get a pack by ID."""
         return self._packs.get(pack_id)
 
-    def list_packs(self) -> List[RubricPack]:
+    def list_packs(self) -> list[RubricPack]:
         """List all registered packs."""
         return list(self._packs.values())
 
-    def list_domains(self) -> List[str]:
+    def list_domains(self) -> list[str]:
         """List unique domains across all packs."""
         return sorted(set(p.domain for p in self._packs.values()))
 
-    def search(self, query: str) -> List[RubricPack]:
+    def search(self, query: str) -> list[RubricPack]:
         """Search packs by name, description, or domain.
 
         Case-insensitive substring match against pack_id, description,
         and domain fields.
         """
         query_lower = query.lower()
-        results: List[RubricPack] = []
+        results: list[RubricPack] = []
         for pack in self._packs.values():
             searchable = " ".join([
                 pack.pack_id,
@@ -112,8 +112,8 @@ def _make_rubric(
     category: str,
     scope: str,
     prompt: str,
-    rubric: Dict[str, str],
-) -> Dict[str, Any]:
+    rubric: dict[str, str],
+) -> dict[str, Any]:
     """Helper to build a rubric template dict with pack-prefixed id."""
     return {
         "id": f"{pack_id}/{rubric_id}",
@@ -431,7 +431,7 @@ def format_pack_listing(registry: PackRegistry) -> str:
     if not packs:
         return "No packs registered."
 
-    lines: List[str] = []
+    lines: list[str] = []
     for pack in packs:
         lines.append(f"{pack.pack_id} (v{pack.version}) - {pack.domain}")
         lines.append(f"  {pack.description}")
@@ -442,7 +442,7 @@ def format_pack_listing(registry: PackRegistry) -> str:
 
 def format_pack_detail(pack: RubricPack) -> str:
     """Format a detailed view of a pack with all rubric descriptions."""
-    lines: List[str] = [
+    lines: list[str] = [
         f"Pack: {pack.pack_id} (v{pack.version})",
         f"Domain: {pack.domain}",
         f"Author: {pack.author}",

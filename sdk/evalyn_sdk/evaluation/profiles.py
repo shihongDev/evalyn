@@ -19,13 +19,13 @@ class EvalProfile:
     description: str = ""
     max_workers: int = 1
     provider: str = "gemini"
-    metric_types: List[str] = field(default_factory=lambda: ["objective", "subjective"])
+    metric_types: list[str] = field(default_factory=lambda: ["objective", "subjective"])
     confidence_method: str = "none"
     confidence_samples: int = 3
     checkpoint_enabled: bool = True
     batch_mode: bool = False
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "name": self.name,
             "description": self.description,
@@ -39,7 +39,7 @@ class EvalProfile:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> EvalProfile:
+    def from_dict(cls, data: dict[str, Any]) -> EvalProfile:
         return cls(
             name=data.get("name", "custom"),
             description=data.get("description", ""),
@@ -52,7 +52,7 @@ class EvalProfile:
             batch_mode=data.get("batch_mode", False),
         )
 
-    def filter_metrics(self, metrics: List) -> List:
+    def filter_metrics(self, metrics: list) -> list:
         """Filter metrics to those allowed by this profile's metric_types."""
         return [m for m in metrics if m.spec.type in self.metric_types]
 
@@ -98,7 +98,7 @@ COST_OPTIMIZED = EvalProfile(
 )
 
 # Registry of built-in profiles
-BUILTIN_PROFILES: Dict[str, EvalProfile] = {
+BUILTIN_PROFILES: dict[str, EvalProfile] = {
     "smoke-test": SMOKE_TEST,
     "standard": STANDARD,
     "thorough": THOROUGH,
@@ -106,7 +106,7 @@ BUILTIN_PROFILES: Dict[str, EvalProfile] = {
 }
 
 
-def get_profile(name: str, custom_profiles: Optional[Dict[str, Dict]] = None) -> EvalProfile:
+def get_profile(name: str, custom_profiles: dict[str, dict] | None = None) -> EvalProfile:
     """Get an evaluation profile by name.
 
     Checks custom profiles first, then built-in profiles.
@@ -137,7 +137,7 @@ def get_profile(name: str, custom_profiles: Optional[Dict[str, Dict]] = None) ->
     raise ValueError(f"Unknown profile '{name}'. Available: {sorted(available)}")
 
 
-def list_profiles(custom_profiles: Optional[Dict[str, Dict]] = None) -> List[EvalProfile]:
+def list_profiles(custom_profiles: dict[str, dict] | None = None) -> list[EvalProfile]:
     """List all available profiles (built-in + custom).
 
     Args:

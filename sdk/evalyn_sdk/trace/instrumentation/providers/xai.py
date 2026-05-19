@@ -19,7 +19,7 @@ from ..base import Instrumentor, InstrumentorType
 from ._shared import log_llm_call
 
 
-def _extract_usage(response: Any) -> Tuple[int, int]:
+def _extract_usage(response: Any) -> tuple[int, int]:
     """Extract input/output token counts from response."""
     usage = getattr(response, "usage", None)
     if not usage:
@@ -49,8 +49,8 @@ class XAIInstrumentor(Instrumentor):
     """Instrumentor for official xai-sdk package."""
 
     _instrumented = False
-    _original_sample: Optional[Any] = None
-    _original_asample: Optional[Any] = None
+    _original_sample: Any | None = None
+    _original_asample: Any | None = None
 
     @property
     def name(self) -> str:

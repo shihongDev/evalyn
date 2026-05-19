@@ -21,9 +21,9 @@ class DiagnosticFinding:
     category: str  # "improvement", "degradation", "unchanged"
     description: str
     severity: str = "info"  # "info", "warning", "critical"
-    affected_items: List[str] = field(default_factory=list)
+    affected_items: list[str] = field(default_factory=list)
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "category": self.category,
             "description": self.description,
@@ -40,12 +40,12 @@ class CalibrationDiagnostic:
     before_score: float
     after_score: float
     delta: float
-    findings: List[DiagnosticFinding] = field(default_factory=list)
-    improved_items: List[str] = field(default_factory=list)
-    degraded_items: List[str] = field(default_factory=list)
+    findings: list[DiagnosticFinding] = field(default_factory=list)
+    improved_items: list[str] = field(default_factory=list)
+    degraded_items: list[str] = field(default_factory=list)
     summary: str = ""
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "metric_id": self.metric_id,
             "before_score": self.before_score,
@@ -58,7 +58,7 @@ class CalibrationDiagnostic:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> CalibrationDiagnostic:
+    def from_dict(cls, data: dict[str, Any]) -> CalibrationDiagnostic:
         findings = []
         for f in data.get("findings", []):
             findings.append(
@@ -103,21 +103,21 @@ class CalibrationDiagnostic:
 
 
 def compute_calibration_delta(
-    before: Dict[str, float],
-    after: Dict[str, float],
-) -> Dict[str, float]:
+    before: dict[str, float],
+    after: dict[str, float],
+) -> dict[str, float]:
     """Per-item delta (after - before) for items present in both dicts."""
     common = sorted(set(before.keys()) & set(after.keys()))
     return {item: after[item] - before[item] for item in common}
 
 
 def identify_regression_items(
-    before_scores: Dict[str, float],
-    after_scores: Dict[str, float],
+    before_scores: dict[str, float],
+    after_scores: dict[str, float],
     threshold: float = 0.01,
-) -> List[str]:
+) -> list[str]:
     """Items where after_score < before_score - threshold."""
-    regressions: List[str] = []
+    regressions: list[str] = []
     for item in sorted(set(before_scores.keys()) & set(after_scores.keys())):
         if after_scores[item] < before_scores[item] - threshold:
             regressions.append(item)
@@ -126,8 +126,8 @@ def identify_regression_items(
 
 def diagnose_calibration(
     metric_id: str,
-    before_scores: Dict[str, float],
-    after_scores: Dict[str, float],
+    before_scores: dict[str, float],
+    after_scores: dict[str, float],
     threshold: float = 0.5,
 ) -> CalibrationDiagnostic:
     """Compare before/after scores per item and generate diagnostic findings.
@@ -138,9 +138,9 @@ def diagnose_calibration(
     deltas = compute_calibration_delta(before_scores, after_scores)
     common_items = sorted(deltas.keys())
 
-    improved: List[str] = []
-    degraded: List[str] = []
-    unchanged: List[str] = []
+    improved: list[str] = []
+    degraded: list[str] = []
+    unchanged: list[str] = []
 
     for item in common_items:
         d = deltas[item]
@@ -160,7 +160,7 @@ def diagnose_calibration(
         after_mean = 0.0
     delta = after_mean - before_mean
 
-    findings: List[DiagnosticFinding] = []
+    findings: list[DiagnosticFinding] = []
 
     # Improvement finding
     if improved:
@@ -224,7 +224,7 @@ def diagnose_calibration(
 
 def generate_summary(diagnostic: CalibrationDiagnostic) -> str:
     """Human-readable summary of a calibration diagnostic."""
-    parts: List[str] = []
+    parts: list[str] = []
     parts.append(
         f"Metric {diagnostic.metric_id}: {diagnostic.before_score:.4f} -> {diagnostic.after_score:.4f}"
         f" (delta {diagnostic.delta:+.4f})"

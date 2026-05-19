@@ -29,7 +29,7 @@ class StabilityMetric:
     num_runs: int = 0
     stability_label: str = "stable"
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "metric_id": self.metric_id,
             "mean_score": self.mean_score,
@@ -42,7 +42,7 @@ class StabilityMetric:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> StabilityMetric:
+    def from_dict(cls, data: dict[str, Any]) -> StabilityMetric:
         return cls(
             metric_id=data["metric_id"],
             mean_score=data.get("mean_score", 0.0),
@@ -59,13 +59,13 @@ class StabilityMetric:
 class StabilityReport:
     """Full cross-run stability report."""
 
-    metrics: List[StabilityMetric] = field(default_factory=list)
+    metrics: list[StabilityMetric] = field(default_factory=list)
     overall_stability: str = "stable"
     most_stable: str = ""
     least_stable: str = ""
     avg_cv: float = 0.0
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "metrics": [m.as_dict() for m in self.metrics],
             "overall_stability": self.overall_stability,
@@ -75,7 +75,7 @@ class StabilityReport:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> StabilityReport:
+    def from_dict(cls, data: dict[str, Any]) -> StabilityReport:
         metrics = [
             StabilityMetric.from_dict(m) for m in data.get("metrics", [])
         ]
@@ -130,7 +130,7 @@ def _label_from_cv(cv: float) -> str:
     return "unstable"
 
 
-def compute_stability(metric_id: str, scores: List[float]) -> StabilityMetric:
+def compute_stability(metric_id: str, scores: list[float]) -> StabilityMetric:
     """Compute stability statistics for a single metric across runs.
 
     Args:
@@ -162,7 +162,7 @@ def compute_stability(metric_id: str, scores: List[float]) -> StabilityMetric:
 
 
 def analyze_stability(
-    metric_scores: Dict[str, List[float]],
+    metric_scores: dict[str, list[float]],
 ) -> StabilityReport:
     """Analyze stability across all metrics.
 
@@ -172,7 +172,7 @@ def analyze_stability(
     Returns:
         StabilityReport summarizing all metrics.
     """
-    metrics: List[StabilityMetric] = []
+    metrics: list[StabilityMetric] = []
     for mid in sorted(metric_scores.keys()):
         metrics.append(compute_stability(mid, metric_scores[mid]))
 
@@ -196,7 +196,7 @@ def analyze_stability(
     )
 
 
-def detect_flaky_metrics(report: StabilityReport) -> List[str]:
+def detect_flaky_metrics(report: StabilityReport) -> list[str]:
     """Return metric IDs labeled 'unstable'."""
     return [m.metric_id for m in report.metrics if m.stability_label == "unstable"]
 
@@ -219,7 +219,7 @@ def render_stability_chart(report: StabilityReport, width: int = 60) -> str:
     if max_cv == 0:
         max_cv = 1.0
 
-    lines: List[str] = ["STABILITY CHART (CV)", "=" * width]
+    lines: list[str] = ["STABILITY CHART (CV)", "=" * width]
     for m in report.metrics:
         bar_len = int((m.coefficient_of_variation / max_cv) * (width - 30))
         bar_len = max(bar_len, 0)
@@ -230,9 +230,9 @@ def render_stability_chart(report: StabilityReport, width: int = 60) -> str:
     return "\n".join(lines)
 
 
-def suggest_stability_improvements(report: StabilityReport) -> List[str]:
+def suggest_stability_improvements(report: StabilityReport) -> list[str]:
     """Return suggestions for unstable metrics."""
-    suggestions: List[str] = []
+    suggestions: list[str] = []
     for m in report.metrics:
         if m.stability_label == "unstable":
             suggestions.append(

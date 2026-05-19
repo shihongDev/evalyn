@@ -23,10 +23,10 @@ class DomainVocabulary:
 
     domain_id: str
     name: str
-    terms: Dict[str, str]  # generic term -> domain-specific term
-    style_hints: List[str]
+    terms: dict[str, str]  # generic term -> domain-specific term
+    style_hints: list[str]
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "domain_id": self.domain_id,
             "name": self.name,
@@ -35,7 +35,7 @@ class DomainVocabulary:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> DomainVocabulary:
+    def from_dict(cls, data: dict[str, Any]) -> DomainVocabulary:
         return cls(
             domain_id=data["domain_id"],
             name=data["name"],
@@ -53,7 +53,7 @@ class TransferConfig:
     preserve_structure: bool = True
     preserve_complexity: bool = True
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "source_domain": self.source_domain,
             "target_domain": self.target_domain,
@@ -62,7 +62,7 @@ class TransferConfig:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> TransferConfig:
+    def from_dict(cls, data: dict[str, Any]) -> TransferConfig:
         return cls(
             source_domain=data["source_domain"],
             target_domain=data["target_domain"],
@@ -80,9 +80,9 @@ class TransferredInput:
     source_domain: str
     target_domain: str
     substitutions_made: int
-    tags: List[str] = field(default_factory=list)
+    tags: list[str] = field(default_factory=list)
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "original_text": self.original_text,
             "transferred_text": self.transferred_text,
@@ -93,7 +93,7 @@ class TransferredInput:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> TransferredInput:
+    def from_dict(cls, data: dict[str, Any]) -> TransferredInput:
         return cls(
             original_text=data["original_text"],
             transferred_text=data["transferred_text"],
@@ -108,12 +108,12 @@ class TransferredInput:
 class TransferReport:
     """Summary of a batch domain transfer operation."""
 
-    inputs: List[TransferredInput]
+    inputs: list[TransferredInput]
     total_items: int
     avg_substitutions: float
-    domains_used: List[str]
+    domains_used: list[str]
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "inputs": [i.as_dict() for i in self.inputs],
             "total_items": self.total_items,
@@ -122,7 +122,7 @@ class TransferReport:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> TransferReport:
+    def from_dict(cls, data: dict[str, Any]) -> TransferReport:
         return cls(
             inputs=[TransferredInput.from_dict(i) for i in data.get("inputs", [])],
             total_items=data.get("total_items", 0),
@@ -135,7 +135,7 @@ class TransferReport:
 # Built-in Vocabularies
 # ---------------------------------------------------------------------------
 
-BUILTIN_VOCABULARIES: Dict[str, DomainVocabulary] = {
+BUILTIN_VOCABULARIES: dict[str, DomainVocabulary] = {
     "medical": DomainVocabulary(
         domain_id="medical",
         name="Medical",
@@ -223,7 +223,7 @@ def transfer_text(
     text: str,
     source_vocab: DomainVocabulary,
     target_vocab: DomainVocabulary,
-) -> Tuple[str, int]:
+) -> tuple[str, int]:
     """Substitute domain terms using reverse source lookup + target forward lookup.
 
     Builds a reverse map from the source vocabulary (domain-specific -> generic),
@@ -233,14 +233,14 @@ def transfer_text(
     Returns (transferred_text, substitution_count).
     """
     # Build reverse map: source domain-specific term -> generic term
-    reverse_source: Dict[str, str] = {}
+    reverse_source: dict[str, str] = {}
     for generic, specific in source_vocab.terms.items():
         reverse_source[specific.lower()] = generic
         # Also map the generic term itself (source text may use either)
         reverse_source[generic.lower()] = generic
 
     # Build forward map: generic -> target domain-specific term
-    forward_target: Dict[str, str] = {}
+    forward_target: dict[str, str] = {}
     for generic, specific in target_vocab.terms.items():
         forward_target[generic.lower()] = specific
 
@@ -278,9 +278,9 @@ def transfer_text(
 
 
 def transfer_batch(
-    texts: List[str],
+    texts: list[str],
     config: TransferConfig,
-    vocabularies: Dict[str, DomainVocabulary] | None = None,
+    vocabularies: dict[str, DomainVocabulary] | None = None,
 ) -> TransferReport:
     """Transfer a batch of texts between domains.
 
@@ -312,7 +312,7 @@ def transfer_batch(
             missing.append(config.target_domain)
         raise ValueError(f"Unknown domain(s): {', '.join(missing)}")
 
-    transferred: List[TransferredInput] = []
+    transferred: list[TransferredInput] = []
     for text in texts:
         new_text, count = transfer_text(text, source_vocab, target_vocab)
 
@@ -385,7 +385,7 @@ def validate_transfer(
 
 def format_transfer_report(report: TransferReport) -> str:
     """Format a transfer report as human-readable text."""
-    lines: List[str] = []
+    lines: list[str] = []
     lines.append("DOMAIN TRANSFER REPORT")
     lines.append("=" * 50)
     lines.append(f"Total items: {report.total_items}")

@@ -18,10 +18,10 @@ class OTelSpan:
     start_time_unix_ns: int = 0
     duration_ns: int = 0
     service_name: str = "evalyn"
-    tags: Dict[str, str] = field(default_factory=dict)
+    tags: dict[str, str] = field(default_factory=dict)
     status: str = "ok"
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "trace_id": self.trace_id,
             "span_id": self.span_id,
@@ -35,7 +35,7 @@ class OTelSpan:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> OTelSpan:
+    def from_dict(cls, data: dict[str, Any]) -> OTelSpan:
         return cls(
             trace_id=data.get("trace_id", ""),
             span_id=data.get("span_id", ""),
@@ -56,9 +56,9 @@ class ExportConfig:
     format: str = "otlp"  # "otlp", "jaeger", "zipkin"
     endpoint: str = ""
     service_name: str = "evalyn"
-    headers: Dict[str, str] = field(default_factory=dict)
+    headers: dict[str, str] = field(default_factory=dict)
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "format": self.format,
             "endpoint": self.endpoint,
@@ -67,7 +67,7 @@ class ExportConfig:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> ExportConfig:
+    def from_dict(cls, data: dict[str, Any]) -> ExportConfig:
         return cls(
             format=data.get("format", "otlp"),
             endpoint=data.get("endpoint", ""),
@@ -85,7 +85,7 @@ class ExportResult:
     format: str = ""
     endpoint: str = ""
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "exported_count": self.exported_count,
             "failed_count": self.failed_count,
@@ -117,7 +117,7 @@ def convert_span_to_otel(span: Span, service_name: str = "evalyn") -> OTelSpan:
     end_ns = _datetime_to_unix_ns(span.end_time)
     duration_ns = end_ns - start_ns if end_ns and start_ns else 0
 
-    tags: Dict[str, str] = {}
+    tags: dict[str, str] = {}
     tags["span_type"] = span.span_type
     for key, value in span.attributes.items():
         tags[str(key)] = str(value)
@@ -136,19 +136,19 @@ def convert_span_to_otel(span: Span, service_name: str = "evalyn") -> OTelSpan:
 
 
 def convert_spans_to_otel(
-    spans: List[Span], service_name: str = "evalyn"
-) -> List[OTelSpan]:
+    spans: list[Span], service_name: str = "evalyn"
+) -> list[OTelSpan]:
     """Batch convert evalyn Spans to OTel format."""
     return [convert_span_to_otel(s, service_name) for s in spans]
 
 
-def format_as_otlp_json(otel_spans: List[OTelSpan]) -> str:
+def format_as_otlp_json(otel_spans: list[OTelSpan]) -> str:
     """Format as OTLP JSON (resource spans format)."""
     if not otel_spans:
         return json.dumps({"resourceSpans": []}, indent=2)
 
     # Group spans by service_name
-    by_service: Dict[str, List[OTelSpan]] = {}
+    by_service: dict[str, list[OTelSpan]] = {}
     for s in otel_spans:
         by_service.setdefault(s.service_name, []).append(s)
 
@@ -188,13 +188,13 @@ def format_as_otlp_json(otel_spans: List[OTelSpan]) -> str:
     return json.dumps({"resourceSpans": resource_spans}, indent=2)
 
 
-def format_as_jaeger_json(otel_spans: List[OTelSpan]) -> str:
+def format_as_jaeger_json(otel_spans: list[OTelSpan]) -> str:
     """Format as Jaeger-compatible JSON."""
     if not otel_spans:
         return json.dumps({"data": []}, indent=2)
 
     # Group by service
-    by_service: Dict[str, List[OTelSpan]] = {}
+    by_service: dict[str, list[OTelSpan]] = {}
     for s in otel_spans:
         by_service.setdefault(s.service_name, []).append(s)
 
@@ -242,14 +242,14 @@ def format_as_jaeger_json(otel_spans: List[OTelSpan]) -> str:
     return json.dumps({"data": data}, indent=2)
 
 
-def format_as_zipkin_json(otel_spans: List[OTelSpan]) -> str:
+def format_as_zipkin_json(otel_spans: list[OTelSpan]) -> str:
     """Format as Zipkin JSON array."""
     if not otel_spans:
         return json.dumps([], indent=2)
 
     zipkin_spans = []
     for s in otel_spans:
-        span_obj: Dict[str, Any] = {
+        span_obj: dict[str, Any] = {
             "traceId": s.trace_id,
             "id": s.span_id,
             "name": s.operation_name,
@@ -266,7 +266,7 @@ def format_as_zipkin_json(otel_spans: List[OTelSpan]) -> str:
 
 
 def export_to_file(
-    otel_spans: List[OTelSpan], file_path: str, format: str = "otlp"
+    otel_spans: list[OTelSpan], file_path: str, format: str = "otlp"
 ) -> ExportResult:
     """Write spans to file in specified format."""
     formatters = {

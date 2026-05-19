@@ -18,19 +18,19 @@ FREEZE_FILENAME = ".evalyn-metrics-freeze.json"
 class FrozenMetricSet:
     """A frozen snapshot of metric configurations."""
 
-    metrics: Dict[str, Dict[str, Any]] = field(default_factory=dict)  # id -> {type, version_hash, ...}
+    metrics: dict[str, dict[str, Any]] = field(default_factory=dict)  # id -> {type, version_hash, ...}
     frozen_at: str = ""
     description: str = ""
 
     @property
-    def metric_ids(self) -> List[str]:
+    def metric_ids(self) -> list[str]:
         return sorted(self.metrics.keys())
 
     @property
     def count(self) -> int:
         return len(self.metrics)
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "metrics": dict(self.metrics),
             "frozen_at": self.frozen_at,
@@ -39,7 +39,7 @@ class FrozenMetricSet:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> FrozenMetricSet:
+    def from_dict(cls, data: dict[str, Any]) -> FrozenMetricSet:
         return cls(
             metrics=data.get("metrics", {}),
             frozen_at=data.get("frozen_at", ""),
@@ -53,11 +53,11 @@ class FreezeCheckResult:
 
     is_frozen: bool
     matches: bool
-    added_metrics: List[str] = field(default_factory=list)
-    removed_metrics: List[str] = field(default_factory=list)
-    changed_metrics: List[str] = field(default_factory=list)
+    added_metrics: list[str] = field(default_factory=list)
+    removed_metrics: list[str] = field(default_factory=list)
+    changed_metrics: list[str] = field(default_factory=list)
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "is_frozen": self.is_frozen,
             "matches": self.matches,
@@ -82,7 +82,7 @@ class FreezeCheckResult:
 
 
 def freeze_metrics(
-    metric_specs: List,
+    metric_specs: list,
     project_dir: Path,
     description: str = "",
 ) -> FrozenMetricSet:
@@ -119,7 +119,7 @@ def freeze_metrics(
     return frozen
 
 
-def load_freeze(project_dir: Path) -> Optional[FrozenMetricSet]:
+def load_freeze(project_dir: Path) -> FrozenMetricSet | None:
     """Load an existing freeze file.
 
     Returns None if no freeze file exists.
@@ -135,7 +135,7 @@ def load_freeze(project_dir: Path) -> Optional[FrozenMetricSet]:
 
 
 def check_against_freeze(
-    metric_specs: List,
+    metric_specs: list,
     project_dir: Path,
 ) -> FreezeCheckResult:
     """Check current metrics against the frozen set.

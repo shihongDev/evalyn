@@ -26,7 +26,7 @@ class IRTItem:
     discrimination: float
     guessing: float = 0.0
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "item_id": self.item_id,
             "difficulty": self.difficulty,
@@ -35,7 +35,7 @@ class IRTItem:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> IRTItem:
+    def from_dict(cls, data: dict[str, Any]) -> IRTItem:
         return cls(
             item_id=data["item_id"],
             difficulty=data["difficulty"],
@@ -49,10 +49,10 @@ class IRTConfig:
     """Configuration for IRT-based item selection."""
 
     target_size: int = 100
-    ability_range: Tuple[float, float] = (-3.0, 3.0)
+    ability_range: tuple[float, float] = (-3.0, 3.0)
     n_ability_points: int = 21
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "target_size": self.target_size,
             "ability_range": list(self.ability_range),
@@ -60,7 +60,7 @@ class IRTConfig:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> IRTConfig:
+    def from_dict(cls, data: dict[str, Any]) -> IRTConfig:
         ar = data.get("ability_range", [-3.0, 3.0])
         return cls(
             target_size=data.get("target_size", 100),
@@ -73,12 +73,12 @@ class IRTConfig:
 class IRTResult:
     """Result of IRT-based item selection."""
 
-    selected_items: List[IRTItem] = field(default_factory=list)
+    selected_items: list[IRTItem] = field(default_factory=list)
     total_pool: int = 0
     compression_ratio: float = 0.0
     information_retained: float = 0.0
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "selected_items": [item.as_dict() for item in self.selected_items],
             "total_pool": self.total_pool,
@@ -87,7 +87,7 @@ class IRTResult:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> IRTResult:
+    def from_dict(cls, data: dict[str, Any]) -> IRTResult:
         return cls(
             selected_items=[
                 IRTItem.from_dict(d) for d in data.get("selected_items", [])

@@ -24,7 +24,7 @@ class AnonymizationRule:
     replacement: str = "[REDACTED]"
     method: str = "replace"  # "replace", "hash", or "remove"
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "field_pattern": self.field_pattern,
             "replacement": self.replacement,
@@ -32,7 +32,7 @@ class AnonymizationRule:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> AnonymizationRule:
+    def from_dict(cls, data: dict[str, Any]) -> AnonymizationRule:
         return cls(
             field_pattern=data.get("field_pattern", ""),
             replacement=data.get("replacement", "[REDACTED]"),
@@ -44,11 +44,11 @@ class AnonymizationRule:
 class AnonymousExportConfig:
     """Configuration for anonymous export with a list of rules."""
 
-    rules: List[AnonymizationRule] = field(default_factory=list)
+    rules: list[AnonymizationRule] = field(default_factory=list)
     preserve_structure: bool = True
     salt: str = ""
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "rules": [r.as_dict() for r in self.rules],
             "preserve_structure": self.preserve_structure,
@@ -56,7 +56,7 @@ class AnonymousExportConfig:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> AnonymousExportConfig:
+    def from_dict(cls, data: dict[str, Any]) -> AnonymousExportConfig:
         rules = [
             AnonymizationRule.from_dict(r)
             for r in data.get("rules", [])
@@ -76,7 +76,7 @@ class ExportResult:
     fields_anonymized: int = 0
     rules_applied: int = 0
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "total_records": self.total_records,
             "fields_anonymized": self.fields_anonymized,
@@ -84,7 +84,7 @@ class ExportResult:
         }
 
     def format_text(self) -> str:
-        lines: List[str] = []
+        lines: list[str] = []
         lines.append("Export Result")
         lines.append("-" * 40)
         lines.append(f"  Total records: {self.total_records}")
@@ -178,14 +178,14 @@ def apply_rule(value: str, rule: AnonymizationRule, salt: str = "") -> str:
 
 
 def anonymize_record(
-    record: Dict[str, Any], config: AnonymousExportConfig
-) -> Tuple[Dict[str, Any], int]:
+    record: dict[str, Any], config: AnonymousExportConfig
+) -> tuple[dict[str, Any], int]:
     """Anonymize one record by applying matching rules to its fields.
 
     Returns (new_record, fields_changed). Non-matching fields are preserved
     as-is. Only string values are anonymized; non-string values are kept.
     """
-    new_record: Dict[str, Any] = {}
+    new_record: dict[str, Any] = {}
     fields_changed = 0
 
     for key, value in record.items():
@@ -207,9 +207,9 @@ def anonymize_record(
 
 
 def anonymize_batch(
-    records: List[Dict[str, Any]],
-    config: Optional[AnonymousExportConfig] = None,
-) -> Tuple[List[Dict[str, Any]], ExportResult]:
+    records: list[dict[str, Any]],
+    config: AnonymousExportConfig | None = None,
+) -> tuple[list[dict[str, Any]], ExportResult]:
     """Anonymize a batch of records.
 
     Uses the default config (with DEFAULT_RULES) if none is provided.
@@ -218,7 +218,7 @@ def anonymize_batch(
     if config is None:
         config = get_default_config()
 
-    anonymized: List[Dict[str, Any]] = []
+    anonymized: list[dict[str, Any]] = []
     total_fields = 0
     rules_used: set[str] = set()
 

@@ -16,13 +16,13 @@ class EmbeddingSpanData:
     """Data payload for an embedding operation span."""
 
     model: str
-    input_texts: List[str] = field(default_factory=list)
+    input_texts: list[str] = field(default_factory=list)
     dimensions: int = 0
     token_count: int = 0
     batch_size: int = 0
     duration_ms: float = 0.0
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "model": self.model,
             "input_texts": list(self.input_texts),
@@ -33,7 +33,7 @@ class EmbeddingSpanData:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> EmbeddingSpanData:
+    def from_dict(cls, data: dict[str, Any]) -> EmbeddingSpanData:
         return cls(
             model=data["model"],
             input_texts=data.get("input_texts", []),
@@ -50,12 +50,12 @@ class RerankerSpanData:
 
     model: str
     query: str = ""
-    documents: List[str] = field(default_factory=list)
+    documents: list[str] = field(default_factory=list)
     top_k: int = 0
     token_count: int = 0
     duration_ms: float = 0.0
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "model": self.model,
             "query": self.query,
@@ -66,7 +66,7 @@ class RerankerSpanData:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> RerankerSpanData:
+    def from_dict(cls, data: dict[str, Any]) -> RerankerSpanData:
         return cls(
             model=data["model"],
             query=data.get("query", ""),
@@ -84,9 +84,9 @@ class EmbeddingStats:
     total_embeddings: int
     total_tokens: int
     avg_dimensions: float
-    models_used: List[str]
+    models_used: list[str]
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "total_embeddings": self.total_embeddings,
             "total_tokens": self.total_tokens,
@@ -108,7 +108,7 @@ class EmbeddingStats:
 def create_embedding_span(
     span_id: str,
     model: str,
-    input_texts: List[str],
+    input_texts: list[str],
     dimensions: int = 0,
     token_count: int = 0,
 ) -> Span:
@@ -134,7 +134,7 @@ def create_reranker_span(
     span_id: str,
     model: str,
     query: str,
-    documents: List[str],
+    documents: list[str],
     top_k: int = 0,
 ) -> Span:
     """Create a Span with span_type='reranker' and RerankerSpanData in attributes."""
@@ -154,7 +154,7 @@ def create_reranker_span(
     )
 
 
-def extract_embedding_data(span: Span) -> Optional[EmbeddingSpanData]:
+def extract_embedding_data(span: Span) -> EmbeddingSpanData | None:
     """Extract EmbeddingSpanData from span attributes. Returns None if not an embedding span."""
     if span.span_type != "embedding":
         return None
@@ -164,7 +164,7 @@ def extract_embedding_data(span: Span) -> Optional[EmbeddingSpanData]:
     return EmbeddingSpanData.from_dict(raw)
 
 
-def extract_reranker_data(span: Span) -> Optional[RerankerSpanData]:
+def extract_reranker_data(span: Span) -> RerankerSpanData | None:
     """Extract RerankerSpanData from span attributes. Returns None if not a reranker span."""
     if span.span_type != "reranker":
         return None
@@ -174,13 +174,13 @@ def extract_reranker_data(span: Span) -> Optional[RerankerSpanData]:
     return RerankerSpanData.from_dict(raw)
 
 
-def compute_embedding_stats(spans: List[Span]) -> EmbeddingStats:
+def compute_embedding_stats(spans: list[Span]) -> EmbeddingStats:
     """Aggregate stats from embedding spans in the given list."""
     total_embeddings = 0
     total_tokens = 0
     dimensions_sum = 0
     dimensions_count = 0
-    models: List[str] = []
+    models: list[str] = []
 
     for s in spans:
         data = extract_embedding_data(s)

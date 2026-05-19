@@ -39,7 +39,7 @@ class Namespace:
 
     name: str
     description: str = ""
-    metrics: List[str] = field(default_factory=list)
+    metrics: list[str] = field(default_factory=list)
 
     def as_dict(self) -> dict:
         return {
@@ -57,7 +57,7 @@ class Namespace:
         )
 
 
-def parse_full_id(full_id: str) -> Tuple[str, str]:
+def parse_full_id(full_id: str) -> tuple[str, str]:
     """Split 'namespace/metric' into (namespace, metric).
 
     If no '/' is present, the namespace defaults to 'default'.
@@ -72,8 +72,8 @@ class NamespaceRegistry:
     """Registry for organizing metrics under namespaces."""
 
     def __init__(self) -> None:
-        self._namespaces: Dict[str, Namespace] = {}
-        self._metrics: Dict[str, NamespacedMetric] = {}  # keyed by full_id
+        self._namespaces: dict[str, Namespace] = {}
+        self._metrics: dict[str, NamespacedMetric] = {}  # keyed by full_id
 
     def register_namespace(self, name: str, description: str = "") -> None:
         """Register a new namespace (or update its description)."""
@@ -101,17 +101,17 @@ class NamespaceRegistry:
             ns.metrics.append(metric_id)
         return metric
 
-    def resolve(self, full_id: str) -> Optional[NamespacedMetric]:
+    def resolve(self, full_id: str) -> NamespacedMetric | None:
         """Look up a metric by its full 'namespace/metric' ID."""
         ns_name, metric_id = parse_full_id(full_id)
         key = f"{ns_name}/{metric_id}"
         return self._metrics.get(key)
 
     def search(
-        self, query: str, namespace: Optional[str] = None
-    ) -> List[NamespacedMetric]:
+        self, query: str, namespace: str | None = None
+    ) -> list[NamespacedMetric]:
         """Search metrics by metric_id substring, optionally filtered by namespace."""
-        results: List[NamespacedMetric] = []
+        results: list[NamespacedMetric] = []
         for m in self._metrics.values():
             if namespace is not None and m.namespace != namespace:
                 continue
@@ -119,24 +119,24 @@ class NamespaceRegistry:
                 results.append(m)
         return results
 
-    def list_namespaces(self) -> List[Namespace]:
+    def list_namespaces(self) -> list[Namespace]:
         """Return all registered namespaces."""
         return list(self._namespaces.values())
 
-    def list_metrics(self, namespace: Optional[str] = None) -> List[NamespacedMetric]:
+    def list_metrics(self, namespace: str | None = None) -> list[NamespacedMetric]:
         """List all metrics, optionally filtered by namespace."""
         if namespace is not None:
             return [m for m in self._metrics.values() if m.namespace == namespace]
         return list(self._metrics.values())
 
-    def compare_across_namespaces(self, metric_id: str) -> List[NamespacedMetric]:
+    def compare_across_namespaces(self, metric_id: str) -> list[NamespacedMetric]:
         """Find the same metric_id across different namespaces."""
         return [m for m in self._metrics.values() if m.metric_id == metric_id]
 
 
 def format_namespace_tree(registry: NamespaceRegistry) -> str:
     """Render a tree-style display of namespaces and their metrics."""
-    lines: List[str] = []
+    lines: list[str] = []
     namespaces = registry.list_namespaces()
     for i, ns in enumerate(namespaces):
         prefix = ""

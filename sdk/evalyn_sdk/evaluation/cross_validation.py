@@ -10,7 +10,8 @@ import math
 import random
 from collections import defaultdict
 from dataclasses import dataclass, field
-from typing import Any, Callable, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
+from collections.abc import Callable
 
 # ---------------------------------------------------------------------------
 # Dataclasses
@@ -24,9 +25,9 @@ class FoldResult:
     fold_index: int
     train_size: int
     test_size: int
-    metric_scores: Dict[str, float] = field(default_factory=dict)  # metric_id -> score
+    metric_scores: dict[str, float] = field(default_factory=dict)  # metric_id -> score
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "fold_index": self.fold_index,
             "train_size": self.train_size,
@@ -40,12 +41,12 @@ class CVReport:
     """Cross-validation report aggregating fold results."""
 
     num_folds: int
-    fold_results: List[FoldResult] = field(default_factory=list)
-    aggregate_scores: Dict[str, float] = field(default_factory=dict)  # metric_id -> mean
-    score_std_devs: Dict[str, float] = field(default_factory=dict)   # metric_id -> std dev
-    high_variance_items: List[str] = field(default_factory=list)
+    fold_results: list[FoldResult] = field(default_factory=list)
+    aggregate_scores: dict[str, float] = field(default_factory=dict)  # metric_id -> mean
+    score_std_devs: dict[str, float] = field(default_factory=dict)   # metric_id -> std dev
+    high_variance_items: list[str] = field(default_factory=list)
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "num_folds": self.num_folds,
             "fold_results": [fr.as_dict() for fr in self.fold_results],
@@ -55,7 +56,7 @@ class CVReport:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> CVReport:
+    def from_dict(cls, data: dict[str, Any]) -> CVReport:
         fold_results = [
             FoldResult(
                 fold_index=fr["fold_index"],
@@ -93,11 +94,11 @@ class CVReport:
 
 
 def create_folds(
-    items: List[Any],
+    items: list[Any],
     num_folds: int = 5,
-    seed: Optional[int] = None,
-    stratify_key: Optional[Callable] = None,
-) -> List[Tuple[List[Any], List[Any]]]:
+    seed: int | None = None,
+    stratify_key: Callable | None = None,
+) -> list[tuple[list[Any], list[Any]]]:
     """Split items into K folds. Each entry is (train_items, test_items).
 
     Args:
@@ -116,11 +117,11 @@ def create_folds(
 
     if stratify_key is not None:
         # Group items by stratum, shuffle each group, then distribute
-        strata: Dict[Any, List[Any]] = defaultdict(list)
+        strata: dict[Any, list[Any]] = defaultdict(list)
         for item in items:
             strata[stratify_key(item)].append(item)
         # Assign each stratum's items round-robin across folds
-        fold_buckets: List[List[Any]] = [[] for _ in range(num_folds)]
+        fold_buckets: list[list[Any]] = [[] for _ in range(num_folds)]
         for _key in sorted(strata.keys(), key=str):
             group = strata[_key]
             rng.shuffle(group)
@@ -134,7 +135,7 @@ def create_folds(
             fold_buckets[i % num_folds].append(item)
 
     # Build (train, test) pairs
-    folds: List[Tuple[List[Any], List[Any]]] = []
+    folds: list[tuple[list[Any], list[Any]]] = []
     for fold_idx in range(num_folds):
         test = fold_buckets[fold_idx]
         train = []
@@ -147,8 +148,8 @@ def create_folds(
 
 
 def aggregate_fold_results(
-    fold_results: List[FoldResult],
-) -> Tuple[Dict[str, float], Dict[str, float]]:
+    fold_results: list[FoldResult],
+) -> tuple[dict[str, float], dict[str, float]]:
     """Compute mean and std dev per metric across folds.
 
     Returns:
@@ -158,13 +159,13 @@ def aggregate_fold_results(
         return {}, {}
 
     # Collect scores per metric
-    scores_by_metric: Dict[str, List[float]] = defaultdict(list)
+    scores_by_metric: dict[str, list[float]] = defaultdict(list)
     for fr in fold_results:
         for metric_id, score in fr.metric_scores.items():
             scores_by_metric[metric_id].append(score)
 
-    means: Dict[str, float] = {}
-    std_devs: Dict[str, float] = {}
+    means: dict[str, float] = {}
+    std_devs: dict[str, float] = {}
     for metric_id, scores in scores_by_metric.items():
         n = len(scores)
         mean = sum(scores) / n
@@ -179,9 +180,9 @@ def aggregate_fold_results(
 
 
 def detect_high_variance_items(
-    fold_results: List[FoldResult],
+    fold_results: list[FoldResult],
     threshold: float = 0.1,
-) -> List[str]:
+) -> list[str]:
     """Find metrics with high score variance across folds.
 
     A metric is flagged if its std dev across folds exceeds the threshold.
@@ -194,7 +195,7 @@ def detect_high_variance_items(
 
 
 def build_cv_report(
-    fold_results: List[FoldResult],
+    fold_results: list[FoldResult],
     high_variance_threshold: float = 0.1,
 ) -> CVReport:
     """Build a cross-validation report from fold results.

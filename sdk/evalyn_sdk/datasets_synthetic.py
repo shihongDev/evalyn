@@ -41,7 +41,7 @@ _HARD_TEMPLATES = [
     "Rank them by latency, cost, and reliability with justification.",
 ]
 
-_DIFFICULTY_TEMPLATES: Dict[str, List[str]] = {
+_DIFFICULTY_TEMPLATES: dict[str, list[str]] = {
     "easy": _EASY_TEMPLATES,
     "medium": _MEDIUM_TEMPLATES,
     "hard": _HARD_TEMPLATES,
@@ -76,13 +76,13 @@ class SyntheticConfig:
     """Configuration for synthetic dataset generation."""
 
     num_items: int = 10
-    categories: List[str] = field(default_factory=lambda: ["general"])
-    difficulty_distribution: Dict[str, float] = field(
+    categories: list[str] = field(default_factory=lambda: ["general"])
+    difficulty_distribution: dict[str, float] = field(
         default_factory=lambda: {"easy": 0.3, "medium": 0.5, "hard": 0.2}
     )
-    seed: Optional[int] = None
+    seed: int | None = None
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "num_items": self.num_items,
             "categories": list(self.categories),
@@ -91,7 +91,7 @@ class SyntheticConfig:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> SyntheticConfig:
+    def from_dict(cls, data: dict[str, Any]) -> SyntheticConfig:
         return cls(
             num_items=data.get("num_items", 10),
             categories=data.get("categories", ["general"]),
@@ -111,9 +111,9 @@ class SyntheticItem:
     expected_output: str = ""
     category: str = "general"
     difficulty: str = "medium"
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    metadata: dict[str, Any] = field(default_factory=dict)
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "id": self.id,
             "input_text": self.input_text,
@@ -124,7 +124,7 @@ class SyntheticItem:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> SyntheticItem:
+    def from_dict(cls, data: dict[str, Any]) -> SyntheticItem:
         return cls(
             id=data["id"],
             input_text=data["input_text"],
@@ -139,23 +139,23 @@ class SyntheticItem:
 class SyntheticDataset:
     """A collection of synthetic evaluation items with config metadata."""
 
-    items: List[SyntheticItem] = field(default_factory=list)
-    config: Optional[SyntheticConfig] = None
+    items: list[SyntheticItem] = field(default_factory=list)
+    config: SyntheticConfig | None = None
 
     @property
     def count(self) -> int:
         return len(self.items)
 
     @property
-    def by_category(self) -> Dict[str, int]:
-        counts: Dict[str, int] = {}
+    def by_category(self) -> dict[str, int]:
+        counts: dict[str, int] = {}
         for item in self.items:
             counts[item.category] = counts.get(item.category, 0) + 1
         return counts
 
     @property
-    def by_difficulty(self) -> Dict[str, int]:
-        counts: Dict[str, int] = {}
+    def by_difficulty(self) -> dict[str, int]:
+        counts: dict[str, int] = {}
         for item in self.items:
             counts[item.difficulty] = counts.get(item.difficulty, 0) + 1
         return counts
@@ -168,14 +168,14 @@ class SyntheticDataset:
             lines.append(f"  [{diff}]: {n}")
         return "\n".join(lines)
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "items": [item.as_dict() for item in self.items],
             "config": self.config.as_dict() if self.config else None,
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> SyntheticDataset:
+    def from_dict(cls, data: dict[str, Any]) -> SyntheticDataset:
         items = [SyntheticItem.from_dict(d) for d in data.get("items", [])]
         config_data = data.get("config")
         config = SyntheticConfig.from_dict(config_data) if config_data else None
@@ -187,7 +187,7 @@ class SyntheticDataset:
 # ---------------------------------------------------------------------------
 
 
-def _make_rng(seed: Optional[int] = None) -> random.Random:
+def _make_rng(seed: int | None = None) -> random.Random:
     """Create a seeded Random instance."""
     return random.Random(seed)
 
@@ -201,7 +201,7 @@ def generate_synthetic_item(
     item_id: str,
     category: str = "general",
     difficulty: str = "medium",
-    seed: Optional[int] = None,
+    seed: int | None = None,
 ) -> SyntheticItem:
     """Generate a single synthetic evaluation item.
 
@@ -235,13 +235,13 @@ def generate_synthetic_dataset(config: SyntheticConfig) -> SyntheticDataset:
     the configured distribution.
     """
     rng = _make_rng(config.seed)
-    items: List[SyntheticItem] = []
+    items: list[SyntheticItem] = []
 
     if config.num_items == 0:
         return SyntheticDataset(items=items, config=config)
 
     # Build difficulty pool based on distribution
-    difficulties: List[str] = []
+    difficulties: list[str] = []
     for diff, weight in config.difficulty_distribution.items():
         count = max(1, round(weight * config.num_items))
         difficulties.extend([diff] * count)
@@ -271,10 +271,10 @@ def generate_synthetic_dataset(config: SyntheticConfig) -> SyntheticDataset:
 
 
 def generate_adversarial_items(
-    base_items: List[SyntheticItem],
+    base_items: list[SyntheticItem],
     num_adversarial: int = 5,
-    seed: Optional[int] = None,
-) -> List[SyntheticItem]:
+    seed: int | None = None,
+) -> list[SyntheticItem]:
     """Create adversarial variants of base items.
 
     Produces items with typos, edge cases, and boundary inputs.
@@ -283,7 +283,7 @@ def generate_adversarial_items(
         return []
 
     rng = _make_rng(seed)
-    adversarial: List[SyntheticItem] = []
+    adversarial: list[SyntheticItem] = []
 
     transforms = [
         ("typo", _add_typos),
@@ -318,7 +318,7 @@ def generate_adversarial_items(
 
 def validate_synthetic_dataset(
     dataset: SyntheticDataset,
-) -> Tuple[bool, List[str]]:
+) -> tuple[bool, list[str]]:
     """Validate a synthetic dataset.
 
     Checks:
@@ -328,7 +328,7 @@ def validate_synthetic_dataset(
 
     Returns (is_valid, list_of_errors).
     """
-    errors: List[str] = []
+    errors: list[str] = []
 
     # Check duplicate IDs
     seen_ids: set[str] = set()

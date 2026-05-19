@@ -15,12 +15,12 @@ class WhatIfScenario:
     """A what-if scenario with projected outcomes."""
 
     description: str
-    changes: Dict[str, float]  # metric_id -> improvement (absolute, e.g. 0.1 = +10%)
+    changes: dict[str, float]  # metric_id -> improvement (absolute, e.g. 0.1 = +10%)
     projected_pass_rate: float
     current_pass_rate: float
     delta: float
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "description": self.description,
             "changes": {k: round(v, 4) for k, v in self.changes.items()},
@@ -40,8 +40,8 @@ class WhatIfScenario:
 
 
 def simulate_improvement(
-    current_rates: Dict[str, float],
-    improvements: Dict[str, float],
+    current_rates: dict[str, float],
+    improvements: dict[str, float],
     description: str = "",
 ) -> WhatIfScenario:
     """Simulate the effect of improving specific metrics.
@@ -72,12 +72,12 @@ def simulate_improvement(
 
 
 def find_minimum_improvement(
-    current_rates: Dict[str, float],
+    current_rates: dict[str, float],
     target_pass_rate: float,
     metric_id: str,
     step: float = 0.01,
     max_improvement: float = 1.0,
-) -> Optional[WhatIfScenario]:
+) -> WhatIfScenario | None:
     """Find the minimum improvement on one metric to reach a target pass rate.
 
     Args:
@@ -117,9 +117,9 @@ def find_minimum_improvement(
 
 
 def find_best_metric_to_improve(
-    current_rates: Dict[str, float],
+    current_rates: dict[str, float],
     improvement: float = 0.1,
-) -> Optional[WhatIfScenario]:
+) -> WhatIfScenario | None:
     """Find which metric would give the biggest overall improvement.
 
     Simulates improving each metric by the same amount and returns
@@ -147,7 +147,7 @@ def find_best_metric_to_improve(
     return best
 
 
-def _compute_overall(rates: Dict[str, float]) -> float:
+def _compute_overall(rates: dict[str, float]) -> float:
     """Compute overall pass rate as average of per-metric rates."""
     if not rates:
         return 0.0

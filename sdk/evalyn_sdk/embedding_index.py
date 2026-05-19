@@ -16,7 +16,7 @@ from typing import Any, Dict, List, Optional, Tuple
 _WORD_RE = re.compile(r"[a-zA-Z0-9]+")
 
 
-def extract_features(text: str) -> List[str]:
+def extract_features(text: str) -> list[str]:
     """Extract lowercased word features from text.
 
     Words are alphanumeric tokens with minimum length 2, returned sorted.
@@ -25,7 +25,7 @@ def extract_features(text: str) -> List[str]:
     return sorted(set(w for w in words if len(w) >= 2))
 
 
-def compute_feature_hash(features: List[str]) -> str:
+def compute_feature_hash(features: list[str]) -> str:
     """Compute SHA256 hash of joined features."""
     joined = " ".join(features)
     return hashlib.sha256(joined.encode("utf-8")).hexdigest()
@@ -36,10 +36,10 @@ class EmbeddingEntry:
     """A single entry in the embedding index."""
 
     item_id: str
-    features: List[str]
+    features: list[str]
     feature_hash: str
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "item_id": self.item_id,
             "features": self.features,
@@ -47,7 +47,7 @@ class EmbeddingEntry:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> EmbeddingEntry:
+    def from_dict(cls, data: dict[str, Any]) -> EmbeddingEntry:
         return cls(
             item_id=data["item_id"],
             features=data.get("features", []),
@@ -68,7 +68,7 @@ class EmbeddingIndex:
     """In-memory word-set feature index for fast similarity search."""
 
     def __init__(self) -> None:
-        self._entries: Dict[str, EmbeddingEntry] = {}
+        self._entries: dict[str, EmbeddingEntry] = {}
 
     def add(self, item_id: str, text: str) -> None:
         """Extract word features from text and store under item_id."""
@@ -80,13 +80,13 @@ class EmbeddingIndex:
             feature_hash=fhash,
         )
 
-    def add_batch(self, items: Dict[str, str]) -> int:
+    def add_batch(self, items: dict[str, str]) -> int:
         """Add multiple items at once. Returns the count of items added."""
         for item_id, text in items.items():
             self.add(item_id, text)
         return len(items)
 
-    def get(self, item_id: str) -> Optional[EmbeddingEntry]:
+    def get(self, item_id: str) -> EmbeddingEntry | None:
         """Retrieve an entry by item_id, or None if not found."""
         return self._entries.get(item_id)
 
@@ -96,14 +96,14 @@ class EmbeddingIndex:
 
     def nearest_neighbors(
         self, query_text: str, k: int = 5
-    ) -> List[Tuple[str, float]]:
+    ) -> list[tuple[str, float]]:
         """Find k nearest neighbors by Jaccard similarity.
 
         Returns a list of (item_id, similarity) tuples sorted by
         descending similarity.
         """
         query_features = set(extract_features(query_text))
-        scored: List[Tuple[str, float]] = []
+        scored: list[tuple[str, float]] = []
         for entry in self._entries.values():
             sim = _jaccard_similarity(query_features, set(entry.features))
             scored.append((entry.item_id, sim))
@@ -112,14 +112,14 @@ class EmbeddingIndex:
 
     def find_duplicates(
         self, threshold: float = 0.95
-    ) -> List[Tuple[str, str, float]]:
+    ) -> list[tuple[str, str, float]]:
         """Find pairs of entries with Jaccard similarity >= threshold.
 
         Returns a list of (item_id_a, item_id_b, similarity) tuples
         sorted by descending similarity.
         """
         ids = sorted(self._entries.keys())
-        results: List[Tuple[str, str, float]] = []
+        results: list[tuple[str, str, float]] = []
         for i in range(len(ids)):
             entry_a = self._entries[ids[i]]
             set_a = set(entry_a.features)
@@ -156,7 +156,7 @@ class EmbeddingIndex:
         self._entries = loaded._entries
 
 
-def build_index_from_dataset(items: Dict[str, str]) -> EmbeddingIndex:
+def build_index_from_dataset(items: dict[str, str]) -> EmbeddingIndex:
     """Convenience function to build an index from a dict of id -> text."""
     index = EmbeddingIndex()
     index.add_batch(items)

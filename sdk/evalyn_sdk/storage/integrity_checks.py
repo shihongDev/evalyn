@@ -19,7 +19,7 @@ class IntegrityCheck:
     details: str = ""
     affected_rows: int = 0
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "name": self.name,
             "passed": self.passed,
@@ -32,12 +32,12 @@ class IntegrityCheck:
 class IntegrityReport:
     """Aggregated report of all integrity checks."""
 
-    checks: List[IntegrityCheck] = field(default_factory=list)
+    checks: list[IntegrityCheck] = field(default_factory=list)
     all_passed: bool = True
     total_checks: int = 0
     failed_checks: int = 0
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "checks": [c.as_dict() for c in self.checks],
             "all_passed": self.all_passed,
@@ -46,7 +46,7 @@ class IntegrityReport:
         }
 
     @classmethod
-    def from_dict(cls, d: Dict[str, Any]) -> IntegrityReport:
+    def from_dict(cls, d: dict[str, Any]) -> IntegrityReport:
         checks = [
             IntegrityCheck(**c) for c in d.get("checks", [])
         ]
@@ -58,7 +58,7 @@ class IntegrityReport:
         )
 
     def format_text(self) -> str:
-        lines: List[str] = []
+        lines: list[str] = []
         lines.append("Integrity Report")
         lines.append("-" * 40)
         lines.append(f"Total checks: {self.total_checks}")
@@ -80,7 +80,7 @@ class IntegrityReport:
 
 
 def check_orphan_references(
-    records: List[Dict[str, Any]],
+    records: list[dict[str, Any]],
     valid_ids: set,
     id_field: str = "parent_id",
 ) -> IntegrityCheck:
@@ -106,11 +106,11 @@ def check_orphan_references(
 
 
 def check_duplicate_ids(
-    records: List[Dict[str, Any]],
+    records: list[dict[str, Any]],
     id_field: str = "id",
 ) -> IntegrityCheck:
     """Find duplicate IDs in a record set."""
-    seen: Dict[Any, int] = {}
+    seen: dict[Any, int] = {}
     duplicates = 0
     for rec in records:
         val = rec.get(id_field)
@@ -137,8 +137,8 @@ def check_duplicate_ids(
 
 
 def check_required_fields(
-    records: List[Dict[str, Any]],
-    required: List[str],
+    records: list[dict[str, Any]],
+    required: list[str],
 ) -> IntegrityCheck:
     """Check all records have required fields with non-None values."""
     missing_count = 0
@@ -165,8 +165,8 @@ def check_required_fields(
 
 
 def check_data_types(
-    records: List[Dict[str, Any]],
-    field_types: Dict[str, type],
+    records: list[dict[str, Any]],
+    field_types: dict[str, type],
 ) -> IntegrityCheck:
     """Verify field types match expected types."""
     violations = 0
@@ -194,10 +194,10 @@ def check_data_types(
 
 
 def run_integrity_checks(
-    records: List[Dict[str, Any]],
+    records: list[dict[str, Any]],
     valid_parent_ids: set = None,
-    required_fields: List[str] = None,
-    field_types: Dict[str, type] = None,
+    required_fields: list[str] = None,
+    field_types: dict[str, type] = None,
 ) -> IntegrityReport:
     """Run all applicable integrity checks on a record set.
 
@@ -211,7 +211,7 @@ def run_integrity_checks(
     if field_types is None:
         field_types = {}
 
-    checks: List[IntegrityCheck] = []
+    checks: list[IntegrityCheck] = []
 
     # Always check for duplicate IDs
     checks.append(check_duplicate_ids(records))
@@ -239,9 +239,9 @@ def run_integrity_checks(
     )
 
 
-def suggest_fixes(report: IntegrityReport) -> List[str]:
+def suggest_fixes(report: IntegrityReport) -> list[str]:
     """Generate fix suggestions for failed integrity checks."""
-    suggestions: List[str] = []
+    suggestions: list[str] = []
     for check in report.checks:
         if check.passed:
             continue

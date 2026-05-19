@@ -25,7 +25,7 @@ class ArchivalConfig:
     archive_path: str = "archive"
     dry_run: bool = False
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "max_age_days": self.max_age_days,
             "archive_path": self.archive_path,
@@ -33,7 +33,7 @@ class ArchivalConfig:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> ArchivalConfig:
+    def from_dict(cls, data: dict[str, Any]) -> ArchivalConfig:
         return cls(
             max_age_days=data.get("max_age_days", 90),
             archive_path=data.get("archive_path", "archive"),
@@ -50,7 +50,7 @@ class ArchivalResult:
     total_size_bytes: int = 0
     archive_path: str = ""
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "archived_count": self.archived_count,
             "skipped_count": self.skipped_count,
@@ -59,7 +59,7 @@ class ArchivalResult:
         }
 
     def format_text(self) -> str:
-        lines: List[str] = []
+        lines: list[str] = []
         lines.append("Archival Result")
         lines.append("-" * 30)
         lines.append(f"  Archived: {self.archived_count}")
@@ -79,7 +79,7 @@ class ArchivedTrace:
     original_path: str = ""
     span_count: int = 0
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "trace_id": self.trace_id,
             "archived_at": _iso(self.archived_at),
@@ -88,7 +88,7 @@ class ArchivedTrace:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> ArchivedTrace:
+    def from_dict(cls, data: dict[str, Any]) -> ArchivedTrace:
         return cls(
             trace_id=data["trace_id"],
             archived_at=_parse_datetime(data.get("archived_at")),
@@ -108,15 +108,15 @@ def should_archive(trace_timestamp: datetime, max_age_days: int = 90) -> bool:
 
 
 def plan_archival(
-    traces: List[Dict[str, Any]],
+    traces: list[dict[str, Any]],
     config: ArchivalConfig,
-) -> Tuple[List[Dict[str, Any]], List[Dict[str, Any]]]:
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
     """Split traces into (to_archive, to_keep).
 
     Each trace dict has "id", "created_at" (ISO string or datetime), "span_count".
     """
-    to_archive: List[Dict[str, Any]] = []
-    to_keep: List[Dict[str, Any]] = []
+    to_archive: list[dict[str, Any]] = []
+    to_keep: list[dict[str, Any]] = []
     for t in traces:
         ts = _parse_datetime(t.get("created_at"))
         if should_archive(ts, config.max_age_days):
@@ -127,11 +127,11 @@ def plan_archival(
 
 
 def create_archive_manifest(
-    archived_traces: List[Dict[str, Any]],
-) -> List[ArchivedTrace]:
+    archived_traces: list[dict[str, Any]],
+) -> list[ArchivedTrace]:
     """Create a manifest of archived traces."""
     now = datetime.now(timezone.utc)
-    manifest: List[ArchivedTrace] = []
+    manifest: list[ArchivedTrace] = []
     for t in archived_traces:
         manifest.append(
             ArchivedTrace(
@@ -145,7 +145,7 @@ def create_archive_manifest(
 
 
 def estimate_archive_size(
-    traces: List[Dict[str, Any]],
+    traces: list[dict[str, Any]],
     avg_bytes_per_span: int = 500,
 ) -> int:
     """Estimate archive size in bytes based on span counts."""

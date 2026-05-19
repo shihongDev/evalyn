@@ -76,7 +76,7 @@ class Instrumentor(ABC):
         """Check if the SDK is currently instrumented."""
         ...
 
-    def get_hooks(self) -> Optional[Any]:
+    def get_hooks(self) -> Any | None:
         """
         Get hook adapter for hook-based instrumentors.
 

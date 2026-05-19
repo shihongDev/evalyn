@@ -42,9 +42,9 @@ class DryRunEstimate:
     estimated_time_with_workers: float  # adjusted for parallelism
 
     # Per-metric breakdown
-    metric_estimates: List[Dict[str, Any]] = field(default_factory=list)
+    metric_estimates: list[dict[str, Any]] = field(default_factory=list)
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "total_items": self.total_items,
             "total_metrics": self.total_metrics,
@@ -90,9 +90,9 @@ class DryRunEstimate:
 
 def estimate_eval_cost(
     item_count: int,
-    metrics: List[Any],
+    metrics: list[Any],
     provider: str = "gemini",
-    model: Optional[str] = None,
+    model: str | None = None,
     max_workers: int = 1,
     confidence_method: str = "none",
     confidence_samples: int = 3,

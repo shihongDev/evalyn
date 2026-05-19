@@ -50,7 +50,7 @@ class ProgressIndicator:
         self.width = width
         self._start_time = time.time()
 
-    def update(self, current: Optional[int] = None, extra: str = ""):
+    def update(self, current: int | None = None, extra: str = ""):
         """Update progress display."""
         if current is not None:
             self.current = current

@@ -27,7 +27,7 @@ class DebugEntry:
     reasoning: str = ""
     timestamp: str = ""
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "item_id": self.item_id,
             "metric_id": self.metric_id,
@@ -41,7 +41,7 @@ class DebugEntry:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> DebugEntry:
+    def from_dict(cls, data: dict[str, Any]) -> DebugEntry:
         return cls(
             item_id=data.get("item_id", ""),
             metric_id=data.get("metric_id", ""),
@@ -65,7 +65,7 @@ class DebugConfig:
     include_responses: bool = True
     max_text_length: int = 500
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "enabled": self.enabled,
             "log_path": self.log_path,
@@ -75,7 +75,7 @@ class DebugConfig:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> DebugConfig:
+    def from_dict(cls, data: dict[str, Any]) -> DebugConfig:
         return cls(
             enabled=data.get("enabled", False),
             log_path=data.get("log_path", ".evalyn/debug.jsonl"),
@@ -89,17 +89,17 @@ class DebugConfig:
 class DebugLog:
     """Collection of debug entries with configuration."""
 
-    entries: List[DebugEntry] = field(default_factory=list)
+    entries: list[DebugEntry] = field(default_factory=list)
     config: DebugConfig = field(default_factory=DebugConfig)
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "entries": [e.as_dict() for e in self.entries],
             "config": self.config.as_dict(),
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> DebugLog:
+    def from_dict(cls, data: dict[str, Any]) -> DebugLog:
         return cls(
             entries=[
                 DebugEntry.from_dict(e) for e in data.get("entries", [])

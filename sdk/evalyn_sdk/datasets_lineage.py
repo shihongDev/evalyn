@@ -18,7 +18,7 @@ class LineageRecord:
     parent_item_id: str = ""
     transformation: str = ""
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "item_id": self.item_id,
             "source_type": self.source_type,
@@ -29,7 +29,7 @@ class LineageRecord:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> LineageRecord:
+    def from_dict(cls, data: dict[str, Any]) -> LineageRecord:
         return cls(
             item_id=data.get("item_id", ""),
             source_type=data.get("source_type", "trace"),
@@ -45,10 +45,10 @@ class LineageChain:
     """Full ancestry chain for a single dataset item."""
 
     item_id: str
-    records: List[LineageRecord] = field(default_factory=list)
+    records: list[LineageRecord] = field(default_factory=list)
     depth: int = 0
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "item_id": self.item_id,
             "records": [r.as_dict() for r in self.records],
@@ -71,12 +71,12 @@ class LineageChain:
 class LineageReport:
     """Aggregate lineage report across all items."""
 
-    chains: List[LineageChain] = field(default_factory=list)
+    chains: list[LineageChain] = field(default_factory=list)
     total_items: int = 0
-    source_distribution: Dict[str, int] = field(default_factory=dict)
-    orphaned_items: List[str] = field(default_factory=list)
+    source_distribution: dict[str, int] = field(default_factory=dict)
+    orphaned_items: list[str] = field(default_factory=list)
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "chains": [c.as_dict() for c in self.chains],
             "total_items": self.total_items,
@@ -85,7 +85,7 @@ class LineageReport:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> LineageReport:
+    def from_dict(cls, data: dict[str, Any]) -> LineageReport:
         chains = [
             LineageChain(
                 item_id=c["item_id"],
@@ -141,14 +141,14 @@ def record_lineage(
 
 
 def build_lineage_chain(
-    item_id: str, records: List[LineageRecord]
+    item_id: str, records: list[LineageRecord]
 ) -> LineageChain:
     """Follow parent_item_id chain to build full lineage for an item."""
-    by_item: Dict[str, LineageRecord] = {}
+    by_item: dict[str, LineageRecord] = {}
     for rec in records:
         by_item[rec.item_id] = rec
 
-    chain: List[LineageRecord] = []
+    chain: list[LineageRecord] = []
     current = item_id
     seen: set[str] = set()
 
@@ -167,7 +167,7 @@ def build_lineage_chain(
     )
 
 
-def build_lineage_report(records: List[LineageRecord]) -> LineageReport:
+def build_lineage_report(records: list[LineageRecord]) -> LineageReport:
     """Aggregate lineage across all items into a report."""
     item_ids = list({rec.item_id for rec in records})
     chains = [build_lineage_chain(iid, records) for iid in sorted(item_ids)]
@@ -183,8 +183,8 @@ def build_lineage_report(records: List[LineageRecord]) -> LineageReport:
 
 
 def find_orphaned_items(
-    item_ids: List[str], records: List[LineageRecord]
-) -> List[str]:
+    item_ids: list[str], records: list[LineageRecord]
+) -> list[str]:
     """Return item IDs that have no lineage records."""
     recorded = {rec.item_id for rec in records}
     return sorted(iid for iid in item_ids if iid not in recorded)
@@ -195,7 +195,7 @@ def render_lineage_tree(chain: LineageChain) -> str:
     if not chain.records:
         return f"{chain.item_id} (no lineage)"
 
-    lines: List[str] = []
+    lines: list[str] = []
     for i, rec in enumerate(chain.records):
         prefix = "  " * i
         connector = "+-" if i == 0 else "`-"
@@ -209,10 +209,10 @@ def render_lineage_tree(chain: LineageChain) -> str:
 
 
 def compute_source_distribution(
-    records: List[LineageRecord],
-) -> Dict[str, int]:
+    records: list[LineageRecord],
+) -> dict[str, int]:
     """Count records by source_type."""
-    dist: Dict[str, int] = {}
+    dist: dict[str, int] = {}
     for rec in records:
         dist[rec.source_type] = dist.get(rec.source_type, 0) + 1
     return dist

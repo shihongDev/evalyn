@@ -28,10 +28,10 @@ class KeyConfig:
     """Configuration for a provider's API keys."""
 
     provider: str
-    keys: List[str]
+    keys: list[str]
     active_index: int = 0
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         """Serialize to dict (lossless). Use as_safe_dict() for logging."""
         return {
             "provider": self.provider,
@@ -39,7 +39,7 @@ class KeyConfig:
             "active_index": self.active_index,
         }
 
-    def as_safe_dict(self) -> Dict[str, Any]:
+    def as_safe_dict(self) -> dict[str, Any]:
         """Serialize with masked key values for safe logging/display."""
         return {
             "provider": self.provider,
@@ -48,7 +48,7 @@ class KeyConfig:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> KeyConfig:
+    def from_dict(cls, data: dict[str, Any]) -> KeyConfig:
         return cls(
             provider=data["provider"],
             keys=list(data.get("keys", [])),
@@ -66,7 +66,7 @@ class KeyRotationResult:
     success: bool
     error: str = ""
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "provider": self.provider,
             "old_key_suffix": self.old_key_suffix,
@@ -76,7 +76,7 @@ class KeyRotationResult:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> KeyRotationResult:
+    def from_dict(cls, data: dict[str, Any]) -> KeyRotationResult:
         return cls(
             provider=data["provider"],
             old_key_suffix=data["old_key_suffix"],
@@ -90,7 +90,7 @@ class RotationManager:
     """Manages API key rotation across providers."""
 
     def __init__(self) -> None:
-        self._configs: Dict[str, KeyConfig] = {}
+        self._configs: dict[str, KeyConfig] = {}
 
     def register_provider(self, provider: str, keys: list[str]) -> None:
         """Register keys for a provider."""

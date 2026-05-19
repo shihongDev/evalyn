@@ -21,10 +21,10 @@ class LeakageItem:
     """An item found in multiple splits."""
 
     item_id: str
-    found_in: List[str] = field(default_factory=list)
+    found_in: list[str] = field(default_factory=list)
     input_hash: str = ""
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "item_id": self.item_id,
             "found_in": self.found_in,
@@ -36,13 +36,13 @@ class LeakageItem:
 class ContaminationCheckResult:
     """Result of a cross-contamination check across splits."""
 
-    leaks: List[LeakageItem] = field(default_factory=list)
+    leaks: list[LeakageItem] = field(default_factory=list)
     total_checked: int = 0
     leaked_count: int = 0
     clean: bool = True
-    splits_checked: List[str] = field(default_factory=list)
+    splits_checked: list[str] = field(default_factory=list)
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "leaks": [lk.as_dict() for lk in self.leaks],
             "total_checked": self.total_checked,
@@ -52,7 +52,7 @@ class ContaminationCheckResult:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> ContaminationCheckResult:
+    def from_dict(cls, data: dict[str, Any]) -> ContaminationCheckResult:
         return cls(
             leaks=[
                 LeakageItem(
@@ -70,7 +70,7 @@ class ContaminationCheckResult:
 
     def format_text(self) -> str:
         """Human-readable summary of contamination check."""
-        lines: List[str] = []
+        lines: list[str] = []
         lines.append("Cross-Contamination Check")
         lines.append(f"Splits checked: {', '.join(self.splits_checked) or 'none'}")
         lines.append(f"Total items checked: {self.total_checked}")
@@ -95,7 +95,7 @@ def hash_item_content(text: str) -> str:
 
 
 def check_cross_contamination(
-    splits: Dict[str, List[Dict[str, Any]]],
+    splits: dict[str, list[dict[str, Any]]],
     input_field: str = "input",
 ) -> ContaminationCheckResult:
     """Check all splits for overlapping items by content hash.
@@ -110,7 +110,7 @@ def check_cross_contamination(
     """
     split_names = sorted(splits.keys())
     # Map: content_hash -> {split_name: [item_ids]}
-    hash_to_splits: Dict[str, Dict[str, List[str]]] = {}
+    hash_to_splits: dict[str, dict[str, list[str]]] = {}
     total_checked = 0
 
     for split_name in split_names:
@@ -126,7 +126,7 @@ def check_cross_contamination(
                 hash_to_splits[h][split_name] = []
             hash_to_splits[h][split_name].append(item_id)
 
-    leaks: List[LeakageItem] = []
+    leaks: list[LeakageItem] = []
     for h, split_map in hash_to_splits.items():
         if len(split_map) > 1:
             # This content appears in multiple splits
@@ -146,19 +146,19 @@ def check_cross_contamination(
 
 
 def find_duplicate_items(
-    items_a: List[Dict[str, Any]],
-    items_b: List[Dict[str, Any]],
+    items_a: list[dict[str, Any]],
+    items_b: list[dict[str, Any]],
     input_field: str = "input",
-) -> List[LeakageItem]:
+) -> list[LeakageItem]:
     """Find items with the same input hash in both lists."""
-    hashes_a: Dict[str, str] = {}  # hash -> item_id
+    hashes_a: dict[str, str] = {}  # hash -> item_id
     for idx, item in enumerate(items_a):
         raw = item.get(input_field, "")
         text = raw if isinstance(raw, str) else str(raw)
         h = hash_item_content(text)
         hashes_a[h] = item.get("id", f"a-{idx}")
 
-    duplicates: List[LeakageItem] = []
+    duplicates: list[LeakageItem] = []
     for idx, item in enumerate(items_b):
         raw = item.get(input_field, "")
         text = raw if isinstance(raw, str) else str(raw)
@@ -177,9 +177,9 @@ def find_duplicate_items(
 
 
 def compute_overlap_rate(
-    splits: Dict[str, List[Dict[str, Any]]],
+    splits: dict[str, list[dict[str, Any]]],
     input_field: str = "input",
-) -> Dict[str, float]:
+) -> dict[str, float]:
     """Per-pair overlap percentage.
 
     Returns a dict keyed by "splitA-splitB" with overlap as a fraction
@@ -187,7 +187,7 @@ def compute_overlap_rate(
     """
     split_names = sorted(splits.keys())
     # Pre-compute hash sets per split
-    split_hashes: Dict[str, set] = {}
+    split_hashes: dict[str, set] = {}
     for name in split_names:
         hashes = set()
         for item in splits[name]:
@@ -196,7 +196,7 @@ def compute_overlap_rate(
             hashes.add(hash_item_content(text))
         split_hashes[name] = hashes
 
-    result: Dict[str, float] = {}
+    result: dict[str, float] = {}
     for i, name_a in enumerate(split_names):
         for name_b in split_names[i + 1 :]:
             overlap = len(split_hashes[name_a] & split_hashes[name_b])
@@ -207,12 +207,12 @@ def compute_overlap_rate(
     return result
 
 
-def suggest_decontamination(result: ContaminationCheckResult) -> List[str]:
+def suggest_decontamination(result: ContaminationCheckResult) -> list[str]:
     """Suggestions for removing leaked items."""
     if result.clean:
         return ["No decontamination needed - splits are clean."]
 
-    suggestions: List[str] = []
+    suggestions: list[str] = []
     suggestions.append(
         f"Found {result.leaked_count} leaked item(s) across splits."
     )

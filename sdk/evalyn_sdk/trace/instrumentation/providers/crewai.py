@@ -62,7 +62,7 @@ def _import_base_event_listener() -> Any:
     return None
 
 
-def _import_core_events() -> Optional[Dict[str, type]]:
+def _import_core_events() -> dict[str, type] | None:
     """Import core event classes. Returns dict of name->class or None."""
     try:
         from crewai.events import (
@@ -140,9 +140,9 @@ def _import_core_events() -> Optional[Dict[str, type]]:
         return None
 
 
-def _import_optional_events() -> Dict[str, type]:
+def _import_optional_events() -> dict[str, type]:
     """Import optional event classes that may not exist in all versions."""
-    events: Dict[str, type] = {}
+    events: dict[str, type] = {}
 
     # Memory events
     try:
@@ -656,7 +656,7 @@ class _SpanTracker:
 
     def __init__(self) -> None:
         self._lock = threading.Lock()
-        self._open_spans: Dict[tuple, _OpenSpan] = {}
+        self._open_spans: dict[tuple, _OpenSpan] = {}
 
     def has_span(self, key: tuple) -> bool:
         with self._lock:
@@ -667,7 +667,7 @@ class _SpanTracker:
         key: tuple,
         name: str,
         span_type: str,
-        attributes: Optional[Dict[str, Any]] = None,
+        attributes: dict[str, Any] | None = None,
     ) -> None:
         parent_span_id = span_context.get_current_span_id()
         span = Span.new(
@@ -692,7 +692,7 @@ class _SpanTracker:
         self,
         key: tuple,
         status: str = "ok",
-        attributes: Optional[Dict[str, Any]] = None,
+        attributes: dict[str, Any] | None = None,
     ) -> None:
         with self._lock:
             open_span = self._open_spans.pop(key, None)
@@ -761,7 +761,7 @@ def _truncate_messages(messages: Any) -> Any:
     return truncated
 
 
-def _extract_token_usage(output: Any) -> Optional[Dict[str, Any]]:
+def _extract_token_usage(output: Any) -> dict[str, Any] | None:
     """Extract token usage from CrewOutput."""
     if output is None:
         return None

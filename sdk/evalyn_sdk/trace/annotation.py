@@ -6,11 +6,11 @@ from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
 
-def _iso(dt: Optional[datetime]) -> Optional[str]:
+def _iso(dt: datetime | None) -> str | None:
     return dt.isoformat() if dt else None
 
 
-def _parse_datetime(raw: Optional[str]) -> Optional[datetime]:
+def _parse_datetime(raw: str | None) -> datetime | None:
     if raw is None:
         return None
     return datetime.fromisoformat(raw)
@@ -21,8 +21,8 @@ class TraceAnnotation:
     """A post-hoc annotation attached to a trace span."""
 
     span_id: str
-    notes: List[str] = field(default_factory=list)
-    tags: List[str] = field(default_factory=list)
+    notes: list[str] = field(default_factory=list)
+    tags: list[str] = field(default_factory=list)
     created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     updated_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
 
@@ -45,7 +45,7 @@ class TraceAnnotation:
             return True
         return False
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "span_id": self.span_id,
             "notes": list(self.notes),
@@ -55,7 +55,7 @@ class TraceAnnotation:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> TraceAnnotation:
+    def from_dict(cls, data: dict[str, Any]) -> TraceAnnotation:
         return cls(
             span_id=data["span_id"],
             notes=data.get("notes", []),
@@ -71,13 +71,13 @@ class TraceAnnotation:
 class AnnotationStore:
     """A keyed collection of trace annotations."""
 
-    annotations: Dict[str, TraceAnnotation] = field(default_factory=dict)
+    annotations: dict[str, TraceAnnotation] = field(default_factory=dict)
 
     def annotate(
         self,
         span_id: str,
-        note: Optional[str] = None,
-        tag: Optional[str] = None,
+        note: str | None = None,
+        tag: str | None = None,
     ) -> TraceAnnotation:
         """Create or update an annotation for the given span."""
         if span_id not in self.annotations:
@@ -89,15 +89,15 @@ class AnnotationStore:
             ann.add_tag(tag)
         return ann
 
-    def get(self, span_id: str) -> Optional[TraceAnnotation]:
+    def get(self, span_id: str) -> TraceAnnotation | None:
         """Look up an annotation by span_id."""
         return self.annotations.get(span_id)
 
-    def find_by_tag(self, tag: str) -> List[TraceAnnotation]:
+    def find_by_tag(self, tag: str) -> list[TraceAnnotation]:
         """Return all annotations that carry the given tag."""
         return [a for a in self.annotations.values() if tag in a.tags]
 
-    def find_by_note_keyword(self, keyword: str) -> List[TraceAnnotation]:
+    def find_by_note_keyword(self, keyword: str) -> list[TraceAnnotation]:
         """Return annotations where any note contains the keyword."""
         return [
             a
@@ -116,7 +116,7 @@ class AnnotationStore:
     def count(self) -> int:
         return len(self.annotations)
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "annotations": {
                 sid: ann.as_dict() for sid, ann in self.annotations.items()
@@ -124,7 +124,7 @@ class AnnotationStore:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> AnnotationStore:
+    def from_dict(cls, data: dict[str, Any]) -> AnnotationStore:
         annotations = {
             sid: TraceAnnotation.from_dict(ad)
             for sid, ad in data.get("annotations", {}).items()

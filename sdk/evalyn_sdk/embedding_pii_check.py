@@ -26,7 +26,7 @@ class PIIPattern:
     description: str
     severity: str  # "high" / "medium" / "low"
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "pattern_name": self.pattern_name,
             "regex": self.regex,
@@ -35,7 +35,7 @@ class PIIPattern:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> PIIPattern:
+    def from_dict(cls, data: dict[str, Any]) -> PIIPattern:
         return cls(
             pattern_name=data["pattern_name"],
             regex=data["regex"],
@@ -49,13 +49,13 @@ class PIIDetectionResult:
     """Result of scanning a single text item for PII."""
 
     text_id: str
-    pii_found: List[str]
+    pii_found: list[str]
     pii_count: int
     has_embedding: bool
     risk_level: str  # "critical" / "high" / "medium" / "low" / "none"
-    recommendations: List[str]
+    recommendations: list[str]
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "text_id": self.text_id,
             "pii_found": list(self.pii_found),
@@ -66,7 +66,7 @@ class PIIDetectionResult:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> PIIDetectionResult:
+    def from_dict(cls, data: dict[str, Any]) -> PIIDetectionResult:
         return cls(
             text_id=data["text_id"],
             pii_found=list(data.get("pii_found", [])),
@@ -81,13 +81,13 @@ class PIIDetectionResult:
 class PIISafetyReport:
     """Aggregated PII safety report for a dataset."""
 
-    results: List[PIIDetectionResult]
+    results: list[PIIDetectionResult]
     total_items: int
     items_with_pii: int
     items_at_risk: int
-    summary: Dict[str, Any]
+    summary: dict[str, Any]
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "results": [r.as_dict() for r in self.results],
             "total_items": self.total_items,
@@ -97,7 +97,7 @@ class PIISafetyReport:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> PIISafetyReport:
+    def from_dict(cls, data: dict[str, Any]) -> PIISafetyReport:
         return cls(
             results=[
                 PIIDetectionResult.from_dict(r) for r in data.get("results", [])
@@ -113,7 +113,7 @@ class PIISafetyReport:
 # Default PII Patterns
 # ---------------------------------------------------------------------------
 
-DEFAULT_PII_PATTERNS: List[PIIPattern] = [
+DEFAULT_PII_PATTERNS: list[PIIPattern] = [
     PIIPattern(
         pattern_name="email",
         regex=r"[a-zA-Z0-9._%+\-]{1,64}@[a-zA-Z0-9.\-]{1,253}\.[a-zA-Z]{2,10}",
@@ -172,25 +172,25 @@ DEFAULT_PII_PATTERNS: List[PIIPattern] = [
 
 def detect_pii(
     text: str,
-    patterns: Optional[List[PIIPattern]] = None,
-) -> List[str]:
+    patterns: list[PIIPattern] | None = None,
+) -> list[str]:
     """Return list of pattern names that matched in *text*."""
     if patterns is None:
         patterns = DEFAULT_PII_PATTERNS
-    found: List[str] = []
+    found: list[str] = []
     for pat in patterns:
         if re.search(pat.regex, text):
             found.append(pat.pattern_name)
     return found
 
 
-def _compute_risk_level(pii_found: List[str], has_embedding: bool,
-                        patterns: List[PIIPattern]) -> str:
+def _compute_risk_level(pii_found: list[str], has_embedding: bool,
+                        patterns: list[PIIPattern]) -> str:
     """Determine risk level from PII findings and embedding presence."""
     if not pii_found:
         return "none"
 
-    severity_map: Dict[str, str] = {p.pattern_name: p.severity for p in patterns}
+    severity_map: dict[str, str] = {p.pattern_name: p.severity for p in patterns}
     severities = [severity_map.get(name, "low") for name in pii_found]
 
     has_high = "high" in severities
@@ -210,10 +210,10 @@ def _compute_risk_level(pii_found: List[str], has_embedding: bool,
         return "low"
 
 
-def _build_recommendations(risk_level: str, pii_found: List[str],
-                           has_embedding: bool) -> List[str]:
+def _build_recommendations(risk_level: str, pii_found: list[str],
+                           has_embedding: bool) -> list[str]:
     """Build contextual recommendations for a single item."""
-    recs: List[str] = []
+    recs: list[str] = []
 
     if risk_level == "none":
         return recs
@@ -258,7 +258,7 @@ def assess_embedding_risk(
     text: str,
     has_embedding: bool,
     text_id: str = "",
-    patterns: Optional[List[PIIPattern]] = None,
+    patterns: list[PIIPattern] | None = None,
 ) -> PIIDetectionResult:
     """Full risk assessment for a single text item."""
     if patterns is None:
@@ -279,12 +279,12 @@ def assess_embedding_risk(
 
 
 def check_dataset_pii_safety(
-    items: List[Dict[str, Any]],
+    items: list[dict[str, Any]],
     text_field: str = "input",
     embedding_field: str = "embedding",
 ) -> PIISafetyReport:
     """Check an entire dataset for PII-plus-embedding risks."""
-    results: List[PIIDetectionResult] = []
+    results: list[PIIDetectionResult] = []
 
     for idx, item in enumerate(items):
         text = item.get(text_field, "")
@@ -303,14 +303,14 @@ def check_dataset_pii_safety(
         1 for r in results if r.risk_level in ("critical", "high")
     )
 
-    risk_counts: Dict[str, int] = {}
-    pattern_counts: Dict[str, int] = {}
+    risk_counts: dict[str, int] = {}
+    pattern_counts: dict[str, int] = {}
     for r in results:
         risk_counts[r.risk_level] = risk_counts.get(r.risk_level, 0) + 1
         for p in r.pii_found:
             pattern_counts[p] = pattern_counts.get(p, 0) + 1
 
-    summary: Dict[str, Any] = {
+    summary: dict[str, Any] = {
         "risk_distribution": risk_counts,
         "pattern_distribution": pattern_counts,
     }
@@ -326,7 +326,7 @@ def check_dataset_pii_safety(
 
 def format_pii_report(report: PIISafetyReport) -> str:
     """Format a PIISafetyReport as a human-readable string."""
-    lines: List[str] = []
+    lines: list[str] = []
     lines.append("PII Safety Report")
     lines.append("=" * 40)
     lines.append(f"Total items scanned: {report.total_items}")
@@ -365,9 +365,9 @@ def format_pii_report(report: PIISafetyReport) -> str:
     return "\n".join(lines)
 
 
-def suggest_mitigations(result: PIIDetectionResult) -> List[str]:
+def suggest_mitigations(result: PIIDetectionResult) -> list[str]:
     """Return mitigation suggestions based on risk level and PII types."""
-    suggestions: List[str] = []
+    suggestions: list[str] = []
 
     if result.risk_level == "none":
         suggestions.append("No PII detected - no mitigations needed.")

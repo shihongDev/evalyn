@@ -20,11 +20,11 @@ class VersionInfo:
     """Version check result."""
 
     current_version: str
-    latest_version: Optional[str]
+    latest_version: str | None
     update_available: bool
     checked_at: str  # ISO 8601 timestamp
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "current_version": self.current_version,
             "latest_version": self.latest_version,
@@ -33,7 +33,7 @@ class VersionInfo:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> VersionInfo:
+    def from_dict(cls, data: dict[str, Any]) -> VersionInfo:
         return cls(
             current_version=data["current_version"],
             latest_version=data.get("latest_version"),
@@ -151,7 +151,7 @@ def should_check_updates(config_path: str, interval_hours: float = 24.0) -> bool
 
 def save_check_timestamp(config_path: str) -> None:
     """Save the current time to the cache file at config_path."""
-    data: Dict[str, Any] = {}
+    data: dict[str, Any] = {}
     try:
         with open(config_path) as f:
             data = json.load(f)

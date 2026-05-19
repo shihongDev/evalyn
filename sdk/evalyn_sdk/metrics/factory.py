@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any, Dict, List, Optional
+from collections.abc import Callable
 
 from ..models import Metric
 from .objective import (
@@ -104,7 +105,7 @@ from .objective import (
 from .subjective import SUBJECTIVE_REGISTRY
 
 
-def _tpl_by_id(templates: List[dict]) -> Dict[str, dict]:
+def _tpl_by_id(templates: list[dict]) -> dict[str, dict]:
     return {t["id"]: t for t in templates}
 
 
@@ -118,7 +119,7 @@ def _safe_float(value: Any, default: float) -> float:
         return default
 
 
-def _normalize_rubric(rubric: Any) -> List[str]:
+def _normalize_rubric(rubric: Any) -> list[str]:
     """Normalize rubric to a list of strings."""
     if not rubric:
         return []
@@ -310,12 +311,12 @@ def _wrap_with_deepconf_confidence(
     return Metric(base_metric.spec, handler_with_confidence)
 
 
-def list_template_ids() -> List[str]:
+def list_template_ids() -> list[str]:
     """Return all known template ids (objective + subjective)."""
     return sorted(list(_OBJECTIVE_TPL.keys()) + list(_SUBJECTIVE_TPL.keys()))
 
 
-def _apply_unit_types(metric: Metric, config: Optional[Dict[str, Any]]) -> Metric:
+def _apply_unit_types(metric: Metric, config: dict[str, Any] | None) -> Metric:
     """Apply unit_types from config to metric's spec if present."""
     if config and "unit_types" in config:
         unit_types = config["unit_types"]
@@ -328,10 +329,10 @@ def _apply_unit_types(metric: Metric, config: Optional[Dict[str, Any]]) -> Metri
 
 
 def build_objective_metric(
-    metric_id: str, config: Optional[Dict[str, Any]] = None
+    metric_id: str, config: dict[str, Any] | None = None
 ) -> Metric:
     cfg = config or {}
-    builders: Dict[str, Callable[[Dict[str, Any]], Metric]] = {
+    builders: dict[str, Callable[[dict[str, Any]], Metric]] = {
         # Efficiency
         "latency_ms": lambda c: latency_metric(),
         "cost": lambda c: cost_metric(),
@@ -530,11 +531,11 @@ def build_objective_metric(
 
 def build_subjective_metric(
     metric_id: str,
-    config: Optional[Dict[str, Any]] = None,
+    config: dict[str, Any] | None = None,
     *,
-    judge: Optional[LLMJudge] = None,
-    description: Optional[str] = None,
-    api_key: Optional[str] = None,
+    judge: LLMJudge | None = None,
+    description: str | None = None,
+    api_key: str | None = None,
     provider: str = "gemini",
     confidence_method: str = "none",
     confidence_samples: int = 3,
@@ -657,15 +658,15 @@ def build_subjective_metric(
 
 
 def build_metrics_from_specs(
-    specs_data: List[Dict[str, Any]],
+    specs_data: list[dict[str, Any]],
     *,
-    api_key: Optional[str] = None,
+    api_key: str | None = None,
     provider: str = "gemini",
-    calibrated_prompts: Optional[Dict[str, str]] = None,
+    calibrated_prompts: dict[str, str] | None = None,
     confidence_method: str = "none",
     confidence_samples: int = 3,
-    on_error: Optional[Callable[[str, Exception], None]] = None,
-) -> List:
+    on_error: Callable[[str, Exception], None] | None = None,
+) -> list:
     """Build metric instances from a list of spec dicts.
 
     Shared logic used by both CLI run-eval and pipeline steps.

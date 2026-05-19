@@ -27,7 +27,7 @@ class MetricROI:
     projected_overall_lift: float = 0.0
     priority_score: float = 0.0
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "metric_id": self.metric_id,
             "current_pass_rate": self.current_pass_rate,
@@ -42,12 +42,12 @@ class MetricROI:
 class PriorityReport:
     """Full improvement priority ranking report."""
 
-    rankings: List[MetricROI] = field(default_factory=list)
+    rankings: list[MetricROI] = field(default_factory=list)
     top_priority: str = ""
     total_metrics: int = 0
     max_projected_lift: float = 0.0
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "rankings": [r.as_dict() for r in self.rankings],
             "top_priority": self.top_priority,
@@ -56,7 +56,7 @@ class PriorityReport:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> PriorityReport:
+    def from_dict(cls, data: dict[str, Any]) -> PriorityReport:
         rankings = []
         for r in data.get("rankings", []):
             rankings.append(
@@ -116,8 +116,8 @@ def compute_priority_score(headroom: float, weight: float, item_count: int) -> f
 
 def project_overall_lift(
     metric_id: str,
-    current_rates: Dict[str, float],
-    weights: Dict[str, float] | None = None,
+    current_rates: dict[str, float],
+    weights: dict[str, float] | None = None,
     improvement: float = 0.5,
 ) -> float:
     """Project how much overall weighted pass rate would increase if metric_id improved.
@@ -163,9 +163,9 @@ def project_overall_lift(
 
 
 def rank_improvements(
-    metric_rates: Dict[str, float],
-    weights: Dict[str, float] | None = None,
-    item_counts: Dict[str, int] | None = None,
+    metric_rates: dict[str, float],
+    weights: dict[str, float] | None = None,
+    item_counts: dict[str, int] | None = None,
 ) -> PriorityReport:
     """Produce a full improvement priority ranking.
 
@@ -182,7 +182,7 @@ def rank_improvements(
     if item_counts is None:
         item_counts = {}
 
-    rankings: List[MetricROI] = []
+    rankings: list[MetricROI] = []
     for mid, rate in metric_rates.items():
         w = weights.get(mid, 1.0)
         count = item_counts.get(mid, 1)
@@ -222,7 +222,7 @@ def render_priority_chart(report: PriorityReport, width: int = 60) -> str:
     if max_score == 0:
         max_score = 1.0
 
-    lines: List[str] = ["PRIORITY CHART", "=" * width]
+    lines: list[str] = ["PRIORITY CHART", "=" * width]
     for r in report.rankings:
         bar_len = int((r.priority_score / max_score) * (width - 30))
         bar_len = max(bar_len, 0)
@@ -233,9 +233,9 @@ def render_priority_chart(report: PriorityReport, width: int = 60) -> str:
 
 def suggest_improvements(
     report: PriorityReport, max_suggestions: int = 3
-) -> List[str]:
+) -> list[str]:
     """Return top improvement suggestions as human-readable strings."""
-    suggestions: List[str] = []
+    suggestions: list[str] = []
     for r in report.rankings[:max_suggestions]:
         pct = r.current_pass_rate * 100
         suggestions.append(

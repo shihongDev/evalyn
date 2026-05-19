@@ -27,7 +27,7 @@ class CloudConfig:
     region: str = ""
     credentials_env: str = ""
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "provider": self.provider,
             "bucket": self.bucket,
@@ -37,7 +37,7 @@ class CloudConfig:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> CloudConfig:
+    def from_dict(cls, data: dict[str, Any]) -> CloudConfig:
         return cls(
             provider=data.get("provider", "local"),
             bucket=data.get("bucket", ""),
@@ -56,7 +56,7 @@ class CloudObject:
     last_modified: str = ""
     content_type: str = "application/json"
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "key": self.key,
             "size_bytes": self.size_bytes,
@@ -65,7 +65,7 @@ class CloudObject:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> CloudObject:
+    def from_dict(cls, data: dict[str, Any]) -> CloudObject:
         return cls(
             key=data.get("key", ""),
             size_bytes=data.get("size_bytes", 0),
@@ -84,7 +84,7 @@ class CloudOperationResult:
     error: str = ""
     duration_ms: float = 0.0
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "success": self.success,
             "operation": self.operation,
@@ -107,7 +107,7 @@ class LocalCloudSimulator:
 
     def __init__(self, base_dir: str) -> None:
         self.base_dir = base_dir
-        self._objects: Dict[str, bytes] = {}
+        self._objects: dict[str, bytes] = {}
 
     def put(self, key: str, data: bytes) -> CloudOperationResult:
         """Store an object."""
@@ -121,7 +121,7 @@ class LocalCloudSimulator:
             duration_ms=elapsed,
         )
 
-    def get(self, key: str) -> Tuple[Optional[bytes], CloudOperationResult]:
+    def get(self, key: str) -> tuple[bytes | None, CloudOperationResult]:
         """Retrieve an object by key."""
         start = time.monotonic()
         data = self._objects.get(key)
@@ -162,9 +162,9 @@ class LocalCloudSimulator:
             duration_ms=elapsed,
         )
 
-    def list_objects(self, prefix: str = "") -> List[CloudObject]:
+    def list_objects(self, prefix: str = "") -> list[CloudObject]:
         """List objects, optionally filtered by key prefix."""
-        results: List[CloudObject] = []
+        results: list[CloudObject] = []
         for key, data in sorted(self._objects.items()):
             if prefix and not key.startswith(prefix):
                 continue
@@ -180,7 +180,7 @@ class LocalCloudSimulator:
         """Check whether an object exists."""
         return key in self._objects
 
-    def get_stats(self) -> Dict[str, Any]:
+    def get_stats(self) -> dict[str, Any]:
         """Return object count and total size."""
         total_size = sum(len(v) for v in self._objects.values())
         return {
@@ -203,9 +203,9 @@ def create_cloud_backend(config: CloudConfig) -> LocalCloudSimulator:
     return LocalCloudSimulator(base_dir=config.prefix)
 
 
-def validate_cloud_config(config: CloudConfig) -> Tuple[bool, List[str]]:
+def validate_cloud_config(config: CloudConfig) -> tuple[bool, list[str]]:
     """Validate a cloud config and return (valid, errors)."""
-    errors: List[str] = []
+    errors: list[str] = []
     if config.provider not in ("local", "s3", "gcs"):
         errors.append(f"unsupported provider: {config.provider}")
     if config.provider in ("s3", "gcs") and not config.bucket:
@@ -217,7 +217,7 @@ def validate_cloud_config(config: CloudConfig) -> Tuple[bool, List[str]]:
 
 def estimate_cloud_cost(
     total_bytes: int, provider: str = "s3"
-) -> Dict[str, float]:
+) -> dict[str, float]:
     """Estimate monthly cloud storage cost.
 
     Uses approximate public pricing (USD):

@@ -2,7 +2,8 @@
 from __future__ import annotations
 
 import time
-from typing import Any, Callable, Dict, Iterator, TypeVar
+from typing import Any, Dict, TypeVar
+from collections.abc import Callable, Iterator
 
 T = TypeVar("T")
 
@@ -49,7 +50,7 @@ class StreamingSpanWrapper:
             return 0.0
         return (self._last_chunk_time - self._first_chunk_time) * 1000
 
-    def as_span_attributes(self) -> Dict[str, Any]:
+    def as_span_attributes(self) -> dict[str, Any]:
         return {
             "streaming": True,
             "time_to_first_token_ms": round(self.time_to_first_token_ms, 2),

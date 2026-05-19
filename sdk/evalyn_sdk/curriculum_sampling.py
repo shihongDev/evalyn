@@ -7,7 +7,8 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass, field
-from typing import Any, Callable, Dict, List, Tuple
+from typing import Any, Dict, List, Tuple
+from collections.abc import Callable
 
 
 @dataclass
@@ -18,7 +19,7 @@ class DifficultyEstimate:
     difficulty: float  # 0.0 (easy) to 1.0 (hard)
     source: str  # "length", "complexity", "score"
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "item_id": self.item_id,
             "difficulty": self.difficulty,
@@ -26,7 +27,7 @@ class DifficultyEstimate:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> DifficultyEstimate:
+    def from_dict(cls, data: dict[str, Any]) -> DifficultyEstimate:
         return cls(
             item_id=data["item_id"],
             difficulty=data["difficulty"],
@@ -42,7 +43,7 @@ class CurriculumConfig:
     early_stop_threshold: float = 0.5  # stop if pass rate drops below this
     batch_size: int = 10
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "order": self.order,
             "early_stop_threshold": self.early_stop_threshold,
@@ -50,7 +51,7 @@ class CurriculumConfig:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> CurriculumConfig:
+    def from_dict(cls, data: dict[str, Any]) -> CurriculumConfig:
         return cls(
             order=data.get("order", "easy_first"),
             early_stop_threshold=data.get("early_stop_threshold", 0.5),
@@ -63,12 +64,12 @@ class CurriculumBatch:
     """A single batch in a curriculum evaluation."""
 
     batch_index: int
-    item_ids: List[str] = field(default_factory=list)
-    difficulty_range: Tuple[float, float] = (0.0, 0.0)
+    item_ids: list[str] = field(default_factory=list)
+    difficulty_range: tuple[float, float] = (0.0, 0.0)
     pass_rate: float = 0.0
     should_stop: bool = False
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "batch_index": self.batch_index,
             "item_ids": self.item_ids,
@@ -78,7 +79,7 @@ class CurriculumBatch:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> CurriculumBatch:
+    def from_dict(cls, data: dict[str, Any]) -> CurriculumBatch:
         dr = data.get("difficulty_range", [0.0, 0.0])
         return cls(
             batch_index=data["batch_index"],
@@ -93,13 +94,13 @@ class CurriculumBatch:
 class CurriculumResult:
     """Result of a full curriculum evaluation run."""
 
-    batches: List[CurriculumBatch] = field(default_factory=list)
+    batches: list[CurriculumBatch] = field(default_factory=list)
     total_items: int = 0
     items_evaluated: int = 0
     stopped_early: bool = False
     final_batch_index: int = 0
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "batches": [b.as_dict() for b in self.batches],
             "total_items": self.total_items,
@@ -109,7 +110,7 @@ class CurriculumResult:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> CurriculumResult:
+    def from_dict(cls, data: dict[str, Any]) -> CurriculumResult:
         return cls(
             batches=[
                 CurriculumBatch.from_dict(b) for b in data.get("batches", [])
@@ -127,8 +128,8 @@ class CurriculumResult:
 
 
 def estimate_difficulty_by_length(
-    items: Dict[str, str],
-) -> List[DifficultyEstimate]:
+    items: dict[str, str],
+) -> list[DifficultyEstimate]:
     """Estimate difficulty by normalizing text lengths to 0-1 range.
 
     Longer text is considered harder. Empty input returns empty list.
@@ -150,8 +151,8 @@ def estimate_difficulty_by_length(
 
 
 def estimate_difficulty_by_complexity(
-    items: Dict[str, str],
-) -> List[DifficultyEstimate]:
+    items: dict[str, str],
+) -> list[DifficultyEstimate]:
     """Estimate difficulty using word count, average word length, and sentence count.
 
     Each feature is normalized to 0-1 and averaged. Higher values mean harder.
@@ -159,7 +160,7 @@ def estimate_difficulty_by_complexity(
     if not items:
         return []
 
-    def _features(text: str) -> Tuple[int, float, int]:
+    def _features(text: str) -> tuple[int, float, int]:
         words = text.split()
         word_count = len(words)
         avg_word_len = (
@@ -174,13 +175,13 @@ def estimate_difficulty_by_complexity(
     avg_lens = [f[1] for f in features.values()]
     sent_counts = [f[2] for f in features.values()]
 
-    def _normalize(val: float, vals: List[float]) -> float:
+    def _normalize(val: float, vals: list[float]) -> float:
         lo, hi = min(vals), max(vals)
         if hi == lo:
             return 0.0
         return (val - lo) / (hi - lo)
 
-    results: List[DifficultyEstimate] = []
+    results: list[DifficultyEstimate] = []
     for k in items:
         wc, awl, sc = features[k]
         norm_wc = _normalize(wc, word_counts)
@@ -194,8 +195,8 @@ def estimate_difficulty_by_complexity(
 
 
 def estimate_difficulty_by_scores(
-    scores: Dict[str, float],
-) -> List[DifficultyEstimate]:
+    scores: dict[str, float],
+) -> list[DifficultyEstimate]:
     """Estimate difficulty using inverse score: low score means hard.
 
     Scores are inverted and normalized to 0-1. A score of 0.0 maps to difficulty 1.0.
@@ -205,7 +206,7 @@ def estimate_difficulty_by_scores(
     min_score = min(scores.values())
     max_score = max(scores.values())
     span = max_score - min_score
-    results: List[DifficultyEstimate] = []
+    results: list[DifficultyEstimate] = []
     for k, s in scores.items():
         if span > 0:
             difficulty = 1.0 - (s - min_score) / span
@@ -223,9 +224,9 @@ def estimate_difficulty_by_scores(
 
 
 def order_curriculum(
-    estimates: List[DifficultyEstimate],
+    estimates: list[DifficultyEstimate],
     config: CurriculumConfig,
-) -> List[str]:
+) -> list[str]:
     """Return item_ids sorted by difficulty according to config.order."""
     reverse = config.order == "hard_first"
     sorted_estimates = sorted(estimates, key=lambda e: e.difficulty, reverse=reverse)
@@ -233,15 +234,15 @@ def order_curriculum(
 
 
 def create_batches(
-    ordered_ids: List[str],
-    estimates: List[DifficultyEstimate],
+    ordered_ids: list[str],
+    estimates: list[DifficultyEstimate],
     batch_size: int = 10,
-) -> List[CurriculumBatch]:
+) -> list[CurriculumBatch]:
     """Split ordered item ids into batches with difficulty ranges."""
     if not ordered_ids:
         return []
     difficulty_map = {e.item_id: e.difficulty for e in estimates}
-    batches: List[CurriculumBatch] = []
+    batches: list[CurriculumBatch] = []
     for i in range(0, len(ordered_ids), batch_size):
         chunk = ordered_ids[i : i + batch_size]
         diffs = [difficulty_map.get(cid, 0.0) for cid in chunk]
@@ -269,8 +270,8 @@ def check_early_stop(
 
 
 def run_curriculum(
-    items: Dict[str, str],
-    evaluate_fn: Callable[[List[str]], Dict[str, float]],
+    items: dict[str, str],
+    evaluate_fn: Callable[[list[str]], dict[str, float]],
     config: CurriculumConfig | None = None,
 ) -> CurriculumResult:
     """Full curriculum pipeline: estimate, order, batch, evaluate, check early stop.
@@ -312,7 +313,7 @@ def run_curriculum(
 
 def format_curriculum_report(result: CurriculumResult) -> str:
     """Format a human-readable curriculum evaluation report."""
-    lines: List[str] = []
+    lines: list[str] = []
     lines.append("Curriculum Evaluation Report")
     lines.append("=" * 40)
     lines.append(f"Total items: {result.total_items}")

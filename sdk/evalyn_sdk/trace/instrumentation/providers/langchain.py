@@ -18,7 +18,7 @@ class LangChainInstrumentor(Instrumentor):
     """Instrumentor for LangChain SDK."""
 
     _instrumented = False
-    _handler: Optional[Any] = None
+    _handler: Any | None = None
 
     @property
     def name(self) -> str:
@@ -47,7 +47,7 @@ class LangChainInstrumentor(Instrumentor):
         class EvalynCallbackHandler(BaseCallbackHandler):
             def __init__(self):
                 # Maps run_id to (start_time, model_name, request_messages)
-                self._start_times: Dict[str, Any] = {}
+                self._start_times: dict[str, Any] = {}
 
             def on_llm_start(self, serialized, prompts, **kwargs):
                 run_id = str(kwargs.get("run_id", ""))
@@ -172,6 +172,6 @@ class LangChainInstrumentor(Instrumentor):
         self._instrumented = False
         return True
 
-    def get_handler(self) -> Optional[Any]:
+    def get_handler(self) -> Any | None:
         """Get the LangChain callback handler for use with chains."""
         return self._handler

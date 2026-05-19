@@ -10,7 +10,7 @@ import importlib.metadata
 from dataclasses import dataclass, field
 from typing import Any, Dict, List
 
-KNOWN_COMPATIBLE_VERSIONS: Dict[str, List[str]] = {
+KNOWN_COMPATIBLE_VERSIONS: dict[str, list[str]] = {
     "google-generativeai": ["0.8.0", "0.8.1", "0.8.2", "0.8.3"],
     "openai": ["1.50.0", "1.51.0", "1.52.0", "1.55.0", "1.57.0"],
     "anthropic": ["0.39.0", "0.40.0", "0.41.0", "0.42.0"],
@@ -26,7 +26,7 @@ class TestedVersion:
     tested_at: str = ""
     status: str = "compatible"  # "compatible" / "untested" / "incompatible"
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "provider": self.provider,
             "version": self.version,
@@ -35,7 +35,7 @@ class TestedVersion:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> TestedVersion:
+    def from_dict(cls, data: dict[str, Any]) -> TestedVersion:
         return cls(
             provider=data["provider"],
             version=data["version"],
@@ -50,11 +50,11 @@ class CompatibilityEntry:
 
     provider: str
     current_version: str
-    tested_versions: List[str] = field(default_factory=list)
+    tested_versions: list[str] = field(default_factory=list)
     is_tested: bool = False
     warning: str = ""
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "provider": self.provider,
             "current_version": self.current_version,
@@ -68,11 +68,11 @@ class CompatibilityEntry:
 class CompatibilityReport:
     """Full compatibility report across all known providers."""
 
-    entries: List[CompatibilityEntry] = field(default_factory=list)
+    entries: list[CompatibilityEntry] = field(default_factory=list)
     all_compatible: bool = True
-    warnings: List[str] = field(default_factory=list)
+    warnings: list[str] = field(default_factory=list)
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "entries": [e.as_dict() for e in self.entries],
             "all_compatible": self.all_compatible,
@@ -80,7 +80,7 @@ class CompatibilityReport:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> CompatibilityReport:
+    def from_dict(cls, data: dict[str, Any]) -> CompatibilityReport:
         entries = [
             CompatibilityEntry(
                 provider=e["provider"],
@@ -98,7 +98,7 @@ class CompatibilityReport:
         )
 
     def format_text(self) -> str:
-        lines: List[str] = []
+        lines: list[str] = []
         lines.append("Compatibility Report")
         lines.append("-" * 40)
         for entry in self.entries:
@@ -162,8 +162,8 @@ def check_compatibility(provider: str) -> CompatibilityEntry:
 
 def generate_compatibility_report() -> CompatibilityReport:
     """Check all known providers and return a full compatibility report."""
-    entries: List[CompatibilityEntry] = []
-    warnings: List[str] = []
+    entries: list[CompatibilityEntry] = []
+    warnings: list[str] = []
     all_compatible = True
 
     for provider in KNOWN_COMPATIBLE_VERSIONS:

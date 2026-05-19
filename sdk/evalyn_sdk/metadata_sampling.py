@@ -21,7 +21,7 @@ class SamplingRate:
     rate: float  # 0.0 to 1.0
     description: str = ""
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "field_value": self.field_value,
             "rate": self.rate,
@@ -29,7 +29,7 @@ class SamplingRate:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> SamplingRate:
+    def from_dict(cls, data: dict[str, Any]) -> SamplingRate:
         return cls(
             field_value=data["field_value"],
             rate=data["rate"],
@@ -42,11 +42,11 @@ class MetadataConfig:
     """Configuration for metadata-conditional sampling."""
 
     field_name: str
-    rates: List[SamplingRate] = field(default_factory=list)
+    rates: list[SamplingRate] = field(default_factory=list)
     default_rate: float = 0.5
-    seed: Optional[int] = None
+    seed: int | None = None
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "field_name": self.field_name,
             "rates": [r.as_dict() for r in self.rates],
@@ -55,7 +55,7 @@ class MetadataConfig:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> MetadataConfig:
+    def from_dict(cls, data: dict[str, Any]) -> MetadataConfig:
         return cls(
             field_name=data["field_name"],
             rates=[SamplingRate.from_dict(r) for r in data.get("rates", [])],
@@ -68,12 +68,12 @@ class MetadataConfig:
 class MetadataResult:
     """Result of a metadata-conditional sampling run."""
 
-    selected_ids: List[str] = field(default_factory=list)
-    per_value_counts: Dict[str, Dict[str, Any]] = field(default_factory=dict)
+    selected_ids: list[str] = field(default_factory=list)
+    per_value_counts: dict[str, dict[str, Any]] = field(default_factory=dict)
     total_pool: int = 0
     total_selected: int = 0
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "selected_ids": list(self.selected_ids),
             "per_value_counts": dict(self.per_value_counts),
@@ -82,7 +82,7 @@ class MetadataResult:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> MetadataResult:
+    def from_dict(cls, data: dict[str, Any]) -> MetadataResult:
         return cls(
             selected_ids=data.get("selected_ids", []),
             per_value_counts=data.get("per_value_counts", {}),

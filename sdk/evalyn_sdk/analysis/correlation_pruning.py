@@ -21,7 +21,7 @@ class CorrelationPair:
     correlation: float  # Pearson r
     relationship: str   # "redundant", "tradeoff", "independent"
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "metric_a": self.metric_a,
             "metric_b": self.metric_b,
@@ -34,12 +34,12 @@ class CorrelationPair:
 class PruningRecommendation:
     """Recommendation for which metrics to keep/drop."""
 
-    keep: List[str] = field(default_factory=list)
-    drop: List[str] = field(default_factory=list)
-    redundant_pairs: List[CorrelationPair] = field(default_factory=list)
+    keep: list[str] = field(default_factory=list)
+    drop: list[str] = field(default_factory=list)
+    redundant_pairs: list[CorrelationPair] = field(default_factory=list)
     estimated_cost_savings: float = 0.0  # fraction of subjective cost saved
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "keep": list(self.keep),
             "drop": list(self.drop),
@@ -69,9 +69,9 @@ class PruningRecommendation:
 
 
 def compute_correlations(
-    metric_scores: Dict[str, List[float]],
+    metric_scores: dict[str, list[float]],
     min_samples: int = 5,
-) -> List[CorrelationPair]:
+) -> list[CorrelationPair]:
     """Compute pairwise Pearson correlations between metrics.
 
     Args:
@@ -114,8 +114,8 @@ def compute_correlations(
 
 
 def recommend_pruning(
-    correlations: List[CorrelationPair],
-    metric_types: Optional[Dict[str, str]] = None,
+    correlations: list[CorrelationPair],
+    metric_types: dict[str, str] | None = None,
     redundancy_threshold: float = 0.7,
 ) -> PruningRecommendation:
     """Recommend which metrics to drop based on correlations.
@@ -145,7 +145,7 @@ def recommend_pruning(
         return PruningRecommendation(keep=sorted(all_metrics))
 
     # Count how many redundant pairs each metric appears in
-    redundancy_count: Dict[str, int] = {}
+    redundancy_count: dict[str, int] = {}
     for p in redundant:
         redundancy_count[p.metric_a] = redundancy_count.get(p.metric_a, 0) + 1
         redundancy_count[p.metric_b] = redundancy_count.get(p.metric_b, 0) + 1
@@ -193,7 +193,7 @@ def recommend_pruning(
     )
 
 
-def _pearson_r(x: List[float], y: List[float]) -> Optional[float]:
+def _pearson_r(x: list[float], y: list[float]) -> float | None:
     """Compute Pearson correlation coefficient."""
     n = len(x)
     if n < 2:

@@ -22,7 +22,7 @@ class ConfigSource:
     value: Any
     source: str  # "global", "project", "env", "flag", "default"
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "key": self.key,
             "value": self.value,
@@ -30,7 +30,7 @@ class ConfigSource:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> ConfigSource:
+    def from_dict(cls, data: dict[str, Any]) -> ConfigSource:
         return cls(
             key=data["key"],
             value=data["value"],
@@ -42,17 +42,17 @@ class ConfigSource:
 class MergedConfig:
     """All resolved configuration entries with source tracking."""
 
-    entries: List[ConfigSource] = field(default_factory=list)
-    sources_used: List[str] = field(default_factory=list)
+    entries: list[ConfigSource] = field(default_factory=list)
+    sources_used: list[str] = field(default_factory=list)
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "entries": [e.as_dict() for e in self.entries],
             "sources_used": list(self.sources_used),
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> MergedConfig:
+    def from_dict(cls, data: dict[str, Any]) -> MergedConfig:
         return cls(
             entries=[ConfigSource.from_dict(e) for e in data.get("entries", [])],
             sources_used=list(data.get("sources_used", [])),
@@ -60,11 +60,11 @@ class MergedConfig:
 
 
 def merge_configs(
-    global_config: Dict[str, Any],
-    project_config: Dict[str, Any],
-    env_overrides: Dict[str, Any],
-    flag_overrides: Dict[str, Any],
-    defaults: Dict[str, Any],
+    global_config: dict[str, Any],
+    project_config: dict[str, Any],
+    env_overrides: dict[str, Any],
+    flag_overrides: dict[str, Any],
+    defaults: dict[str, Any],
 ) -> MergedConfig:
     """Merge configs with priority: flag > env > project > global > default.
 
@@ -79,7 +79,7 @@ def merge_configs(
     all_keys.update(flag_overrides.keys())
 
     # Layers ordered from highest to lowest priority
-    layers: List[tuple[str, Dict[str, Any]]] = [
+    layers: list[tuple[str, dict[str, Any]]] = [
         ("flag", flag_overrides),
         ("env", env_overrides),
         ("project", project_config),
@@ -87,7 +87,7 @@ def merge_configs(
         ("default", defaults),
     ]
 
-    entries: List[ConfigSource] = []
+    entries: list[ConfigSource] = []
     sources_used: set[str] = set()
 
     for key in sorted(all_keys):
@@ -103,13 +103,13 @@ def merge_configs(
     )
 
 
-def get_env_overrides(prefix: str = "EVALYN_") -> Dict[str, str]:
+def get_env_overrides(prefix: str = "EVALYN_") -> dict[str, str]:
     """Read environment variables with the given prefix.
 
     Strips the prefix to produce the key name, lowercased.
     Example: EVALYN_PROVIDER -> provider
     """
-    result: Dict[str, str] = {}
+    result: dict[str, str] = {}
     for key, value in os.environ.items():
         if key.startswith(prefix):
             stripped = key[len(prefix):].lower()
@@ -118,7 +118,7 @@ def get_env_overrides(prefix: str = "EVALYN_") -> Dict[str, str]:
     return result
 
 
-def get_effective_value(key: str, config: MergedConfig) -> Optional[ConfigSource]:
+def get_effective_value(key: str, config: MergedConfig) -> ConfigSource | None:
     """Look up a specific key in the merged config."""
     for entry in config.entries:
         if entry.key == key:
@@ -149,7 +149,7 @@ def format_config_show(config: MergedConfig) -> str:
     val_width = max(val_width, 5)
     src_width = max(src_width, 6)
 
-    lines: List[str] = []
+    lines: list[str] = []
     header = f"{'Key':<{key_width}}  {'Value':<{val_width}}  {'Source':<{src_width}}"
     lines.append(header)
     lines.append("-" * len(header))

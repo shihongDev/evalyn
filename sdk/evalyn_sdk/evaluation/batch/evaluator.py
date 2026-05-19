@@ -22,7 +22,8 @@ import time
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
-from typing import Callable, Optional, TypeAlias
+from typing import Optional, TypeAlias
+from collections.abc import Callable
 
 from ...models import DatasetItem, FunctionCall, Metric, MetricResult
 from ...parsing import _extract_json_object, _parse_passed, _safe_trace_excerpt
@@ -39,8 +40,8 @@ class BatchEvalProgress:
     total_requests: int
     completed_requests: int
     elapsed_seconds: float
-    job_id: Optional[str] = None
-    eta_seconds: Optional[float] = None
+    job_id: str | None = None
+    eta_seconds: float | None = None
 
 
 ProgressCallback: TypeAlias = Callable[[BatchEvalProgress], None]
@@ -63,10 +64,10 @@ class BatchEvaluator:
     def __init__(
         self,
         provider: str = "gemini",
-        model: Optional[str] = None,
-        api_key: Optional[str] = None,
+        model: str | None = None,
+        api_key: str | None = None,
         poll_interval: float = 30.0,
-        timeout: Optional[float] = None,
+        timeout: float | None = None,
     ):
         """Initialize batch evaluator.
 
@@ -170,8 +171,8 @@ Evaluate the OUTPUT given the INPUT. Return ONLY a JSON object with:
         self,
         prepared: list[tuple[DatasetItem, FunctionCall]],
         metrics: list[Metric],
-        progress_callback: Optional[ProgressCallback] = None,
-        checkpoint_path: Optional[Path] = None,
+        progress_callback: ProgressCallback | None = None,
+        checkpoint_path: Path | None = None,
     ) -> list[MetricResult]:
         """Run batch evaluation on prepared items.
 
@@ -337,7 +338,7 @@ Evaluate the OUTPUT given the INPUT. Return ONLY a JSON object with:
         self,
         checkpoint_path: Path,
         request_map: dict[str, tuple[Metric, DatasetItem, FunctionCall]],
-        progress_callback: Optional[ProgressCallback] = None,
+        progress_callback: ProgressCallback | None = None,
     ) -> list[MetricResult]:
         """Resume evaluation from checkpoint.
 

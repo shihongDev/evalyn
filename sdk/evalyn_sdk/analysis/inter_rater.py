@@ -17,12 +17,12 @@ class AgreementStats:
     num_raters: int
     num_items: int
     raw_agreement: float          # fraction of items where all raters agree
-    cohens_kappa: Optional[float] = None  # for 2 raters (binary)
-    fleiss_kappa: Optional[float] = None  # for N raters (binary)
-    items_with_disagreement: List[str] = field(default_factory=list)
+    cohens_kappa: float | None = None  # for 2 raters (binary)
+    fleiss_kappa: float | None = None  # for N raters (binary)
+    items_with_disagreement: list[str] = field(default_factory=list)
 
-    def as_dict(self) -> Dict[str, Any]:
-        d: Dict[str, Any] = {
+    def as_dict(self) -> dict[str, Any]:
+        d: dict[str, Any] = {
             "num_raters": self.num_raters,
             "num_items": self.num_items,
             "raw_agreement": round(self.raw_agreement, 4),
@@ -66,7 +66,7 @@ class AgreementStats:
 
 
 def compute_agreement(
-    ratings: Dict[str, Dict[str, bool]],
+    ratings: dict[str, dict[str, bool]],
 ) -> AgreementStats:
     """Compute inter-rater agreement from binary ratings.
 
@@ -129,7 +129,7 @@ def compute_agreement(
     return stats
 
 
-def _cohens_kappa(rater_a: List[bool], rater_b: List[bool]) -> float:
+def _cohens_kappa(rater_a: list[bool], rater_b: list[bool]) -> float:
     """Compute Cohen's kappa for two binary raters."""
     n = len(rater_a)
     if n == 0:
@@ -155,7 +155,7 @@ def _cohens_kappa(rater_a: List[bool], rater_b: List[bool]) -> float:
     return (po - pe) / (1 - pe)
 
 
-def _fleiss_kappa(item_ratings: List[List[bool]]) -> float:
+def _fleiss_kappa(item_ratings: list[list[bool]]) -> float:
     """Compute Fleiss' kappa for N raters on binary categories."""
     n_items = len(item_ratings)
     if n_items == 0:

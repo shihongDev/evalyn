@@ -13,10 +13,10 @@ class ReplayInput:
 
     span_id: str
     original_model: str
-    input_messages: List[Dict[str, str]] = field(default_factory=list)
+    input_messages: list[dict[str, str]] = field(default_factory=list)
     original_output: str = ""
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "span_id": self.span_id,
             "original_model": self.original_model,
@@ -25,7 +25,7 @@ class ReplayInput:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> ReplayInput:
+    def from_dict(cls, data: dict[str, Any]) -> ReplayInput:
         return cls(
             span_id=data["span_id"],
             original_model=data["original_model"],
@@ -44,7 +44,7 @@ class ReplayOutput:
     cost_usd: float = 0.0
     duration_ms: float = 0.0
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "span_id": self.span_id,
             "replayed_model": self.replayed_model,
@@ -65,7 +65,7 @@ class ReplayComparison:
     similarity: float = 0.0
     cost_delta: float = 0.0
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "span_id": self.span_id,
             "original_output": self.original_output,
@@ -76,7 +76,7 @@ class ReplayComparison:
         }
 
     def format_text(self) -> str:
-        lines: List[str] = []
+        lines: list[str] = []
         lines.append(f"Span: {self.span_id}")
         lines.append(f"  Similarity: {self.similarity:.2%}")
         if self.cost_delta != 0:
@@ -92,11 +92,11 @@ class ReplayComparison:
 class TraceReplayPlan:
     """Plan for replaying trace spans against a target model."""
 
-    inputs: List[ReplayInput] = field(default_factory=list)
+    inputs: list[ReplayInput] = field(default_factory=list)
     target_model: str = ""
     estimated_calls: int = 0
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "inputs": [i.as_dict() for i in self.inputs],
             "target_model": self.target_model,
@@ -104,7 +104,7 @@ class TraceReplayPlan:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> TraceReplayPlan:
+    def from_dict(cls, data: dict[str, Any]) -> TraceReplayPlan:
         return cls(
             inputs=[ReplayInput.from_dict(i) for i in data.get("inputs", [])],
             target_model=data.get("target_model", ""),
@@ -112,7 +112,7 @@ class TraceReplayPlan:
         )
 
     def format_text(self) -> str:
-        lines: List[str] = []
+        lines: list[str] = []
         lines.append(f"Replay plan: {self.estimated_calls} calls to {self.target_model}")
         for inp in self.inputs:
             msg_count = len(inp.input_messages)
@@ -127,11 +127,11 @@ class TraceReplayPlan:
 class TraceReplayReport:
     """Aggregated report from replaying a trace."""
 
-    comparisons: List[ReplayComparison] = field(default_factory=list)
+    comparisons: list[ReplayComparison] = field(default_factory=list)
     avg_similarity: float = 0.0
     total_cost_delta: float = 0.0
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "comparisons": [c.as_dict() for c in self.comparisons],
             "avg_similarity": self.avg_similarity,
@@ -139,7 +139,7 @@ class TraceReplayReport:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> TraceReplayReport:
+    def from_dict(cls, data: dict[str, Any]) -> TraceReplayReport:
         comparisons = [
             ReplayComparison(**c) if isinstance(c, dict) and "span_id" in c else c
             for c in data.get("comparisons", [])
@@ -151,7 +151,7 @@ class TraceReplayReport:
         )
 
     def format_text(self) -> str:
-        lines: List[str] = []
+        lines: list[str] = []
         lines.append(f"Replay report: {len(self.comparisons)} comparisons")
         lines.append(f"  Average similarity: {self.avg_similarity:.2%}")
         lines.append(f"  Total cost delta: {self.total_cost_delta:+.4f} USD")
@@ -161,13 +161,13 @@ class TraceReplayReport:
         return "\n".join(lines)
 
 
-def extract_replay_inputs(spans: List[Span]) -> List[ReplayInput]:
+def extract_replay_inputs(spans: list[Span]) -> list[ReplayInput]:
     """Extract input messages from LLM spans for replay.
 
     Looks for 'input', 'messages', or 'prompt' in span attributes.
     Only processes spans with span_type 'llm_call'.
     """
-    results: List[ReplayInput] = []
+    results: list[ReplayInput] = []
     for span in spans:
         if span.span_type != "llm_call":
             continue
@@ -176,7 +176,7 @@ def extract_replay_inputs(spans: List[Span]) -> List[ReplayInput]:
         model = str(attrs.get("model", ""))
 
         # Extract messages from attributes
-        messages: List[Dict[str, str]] = []
+        messages: list[dict[str, str]] = []
         if "messages" in attrs and isinstance(attrs["messages"], list):
             messages = attrs["messages"]
         elif "input" in attrs:
@@ -199,7 +199,7 @@ def extract_replay_inputs(spans: List[Span]) -> List[ReplayInput]:
     return results
 
 
-def build_replay_plan(inputs: List[ReplayInput], target_model: str) -> TraceReplayPlan:
+def build_replay_plan(inputs: list[ReplayInput], target_model: str) -> TraceReplayPlan:
     """Build a replay plan from extracted inputs."""
     return TraceReplayPlan(
         inputs=list(inputs),
@@ -242,7 +242,7 @@ def compare_replay(original: ReplayInput, replayed: ReplayOutput) -> ReplayCompa
     )
 
 
-def build_replay_report(comparisons: List[ReplayComparison]) -> TraceReplayReport:
+def build_replay_report(comparisons: list[ReplayComparison]) -> TraceReplayReport:
     """Aggregate comparisons into a replay report."""
     if not comparisons:
         return TraceReplayReport()

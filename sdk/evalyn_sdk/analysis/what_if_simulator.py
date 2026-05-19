@@ -22,7 +22,7 @@ class WhatIfScenario:
     improvement_pct: float
     description: str = ""
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "metric_id": self.metric_id,
             "improvement_pct": self.improvement_pct,
@@ -40,7 +40,7 @@ class WhatIfResult:
     delta: float = 0.0
     feasibility: str = "possible"
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "scenario": self.scenario.as_dict(),
             "original_pass_rate": round(self.original_pass_rate, 4),
@@ -66,11 +66,11 @@ class WhatIfResult:
 class WhatIfReport:
     """Report containing multiple what-if simulation results."""
 
-    results: List[WhatIfResult] = field(default_factory=list)
-    best_scenario: Optional[str] = None
+    results: list[WhatIfResult] = field(default_factory=list)
+    best_scenario: str | None = None
     total_scenarios: int = 0
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "results": [r.as_dict() for r in self.results],
             "best_scenario": self.best_scenario,
@@ -78,7 +78,7 @@ class WhatIfReport:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> WhatIfReport:
+    def from_dict(cls, data: dict[str, Any]) -> WhatIfReport:
         results = []
         for r in data.get("results", []):
             scenario_data = r.get("scenario", {})
@@ -119,8 +119,8 @@ class WhatIfReport:
 
 
 def _compute_weighted_rate(
-    rates: Dict[str, float],
-    weights: Dict[str, float],
+    rates: dict[str, float],
+    weights: dict[str, float],
 ) -> float:
     """Compute weighted average pass rate.
 
@@ -160,9 +160,9 @@ def classify_feasibility(improvement_pct: float) -> str:
 
 def simulate_improvement(
     metric_id: str,
-    current_rates: Dict[str, float],
+    current_rates: dict[str, float],
     improvement_pct: float,
-    weights: Optional[Dict[str, float]] = None,
+    weights: dict[str, float] | None = None,
 ) -> WhatIfResult:
     """Project new overall pass rate if a metric improved by improvement_pct.
 
@@ -204,9 +204,9 @@ def simulate_improvement(
 
 
 def simulate_multi_improvement(
-    scenarios: List[WhatIfScenario],
-    current_rates: Dict[str, float],
-    weights: Optional[Dict[str, float]] = None,
+    scenarios: list[WhatIfScenario],
+    current_rates: dict[str, float],
+    weights: dict[str, float] | None = None,
 ) -> WhatIfReport:
     """Simulate multiple improvements simultaneously.
 
@@ -220,7 +220,7 @@ def simulate_multi_improvement(
     """
     if weights is None:
         weights = {}
-    results: List[WhatIfResult] = []
+    results: list[WhatIfResult] = []
 
     for scenario in scenarios:
         result = simulate_improvement(
@@ -234,7 +234,7 @@ def simulate_multi_improvement(
             result.scenario.description = scenario.description
         results.append(result)
 
-    best_scenario_name: Optional[str] = None
+    best_scenario_name: str | None = None
     if results:
         best = max(results, key=lambda r: r.delta)
         best_scenario_name = best.scenario.description or best.scenario.metric_id
@@ -248,9 +248,9 @@ def simulate_multi_improvement(
 
 def find_minimum_improvement(
     metric_id: str,
-    current_rates: Dict[str, float],
+    current_rates: dict[str, float],
     target_pass_rate: float,
-    weights: Optional[Dict[str, float]] = None,
+    weights: dict[str, float] | None = None,
 ) -> float:
     """Binary search for minimum improvement pct needed to reach target pass rate.
 
@@ -305,7 +305,7 @@ def render_what_if_chart(report: WhatIfReport, width: int = 60) -> str:
     if not report.results:
         return "No scenarios to display."
 
-    lines: List[str] = []
+    lines: list[str] = []
     lines.append("What-If Scenario Comparison")
     lines.append("=" * width)
 
@@ -336,8 +336,8 @@ def render_what_if_chart(report: WhatIfReport, width: int = 60) -> str:
 
 
 def find_best_roi_metric(
-    current_rates: Dict[str, float],
-    weights: Optional[Dict[str, float]] = None,
+    current_rates: dict[str, float],
+    weights: dict[str, float] | None = None,
 ) -> str:
     """Find which metric gives the most lift per percentage point of improvement.
 

@@ -13,7 +13,7 @@ from typing import Any, Dict, List
 # Type map for validation
 # ---------------------------------------------------------------------------
 
-_TYPE_MAP: Dict[str, type] = {
+_TYPE_MAP: dict[str, type] = {
     "str": str,
     "int": int,
     "float": float,
@@ -22,7 +22,7 @@ _TYPE_MAP: Dict[str, type] = {
     "dict": dict,
 }
 
-_PYTHON_TYPE_TO_FIELD: Dict[type, str] = {v: k for k, v in _TYPE_MAP.items()}
+_PYTHON_TYPE_TO_FIELD: dict[type, str] = {v: k for k, v in _TYPE_MAP.items()}
 
 
 # ---------------------------------------------------------------------------
@@ -37,11 +37,11 @@ class FieldSchema:
     name: str
     field_type: str = "str"
     required: bool = False
-    allowed_values: List[Any] = field(default_factory=list)
+    allowed_values: list[Any] = field(default_factory=list)
     default: Any = None
     description: str = ""
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "name": self.name,
             "field_type": self.field_type,
@@ -52,7 +52,7 @@ class FieldSchema:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> FieldSchema:
+    def from_dict(cls, data: dict[str, Any]) -> FieldSchema:
         return cls(
             name=data["name"],
             field_type=data.get("field_type", "str"),
@@ -68,18 +68,18 @@ class MetadataSchema:
     """Schema describing expected metadata fields for a dataset."""
 
     name: str = ""
-    fields: List[FieldSchema] = field(default_factory=list)
+    fields: list[FieldSchema] = field(default_factory=list)
     version: int = 1
 
     @property
-    def required_fields(self) -> List[str]:
+    def required_fields(self) -> list[str]:
         return [f.name for f in self.fields if f.required]
 
     @property
-    def field_names(self) -> List[str]:
+    def field_names(self) -> list[str]:
         return [f.name for f in self.fields]
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "name": self.name,
             "fields": [f.as_dict() for f in self.fields],
@@ -87,7 +87,7 @@ class MetadataSchema:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> MetadataSchema:
+    def from_dict(cls, data: dict[str, Any]) -> MetadataSchema:
         return cls(
             name=data.get("name", ""),
             fields=[FieldSchema.from_dict(f) for f in data.get("fields", [])],
@@ -104,7 +104,7 @@ class ValidationError:
     error: str
     severity: str = "error"
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "item_id": self.item_id,
             "field": self.field,
@@ -118,11 +118,11 @@ class SchemaValidationResult:
     """Aggregated result of validating a dataset against a schema."""
 
     valid: bool
-    errors: List[ValidationError] = field(default_factory=list)
-    warnings: List[ValidationError] = field(default_factory=list)
+    errors: list[ValidationError] = field(default_factory=list)
+    warnings: list[ValidationError] = field(default_factory=list)
     items_checked: int = 0
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "valid": self.valid,
             "errors": [e.as_dict() for e in self.errors],
@@ -131,7 +131,7 @@ class SchemaValidationResult:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> SchemaValidationResult:
+    def from_dict(cls, data: dict[str, Any]) -> SchemaValidationResult:
         errors = [
             ValidationError(
                 item_id=e["item_id"],
@@ -159,7 +159,7 @@ class SchemaValidationResult:
 
     def format_text(self) -> str:
         """Format the validation result as human-readable text."""
-        lines: List[str] = []
+        lines: list[str] = []
         status = "VALID" if self.valid else "INVALID"
         lines.append(f"Schema validation: {status} ({self.items_checked} items checked)")
         if self.errors:
@@ -178,7 +178,7 @@ class SchemaValidationResult:
 # ---------------------------------------------------------------------------
 
 
-def create_schema(name: str, fields: List[Dict[str, Any]]) -> MetadataSchema:
+def create_schema(name: str, fields: list[dict[str, Any]]) -> MetadataSchema:
     """Build a MetadataSchema from a name and a list of field dicts."""
     return MetadataSchema(
         name=name,
@@ -186,7 +186,7 @@ def create_schema(name: str, fields: List[Dict[str, Any]]) -> MetadataSchema:
     )
 
 
-def validate_item(item: Dict[str, Any], schema: MetadataSchema) -> List[ValidationError]:
+def validate_item(item: dict[str, Any], schema: MetadataSchema) -> list[ValidationError]:
     """Validate one item's metadata against a schema.
 
     The item dict is expected to have an "id" key and a "metadata" key
@@ -198,7 +198,7 @@ def validate_item(item: Dict[str, Any], schema: MetadataSchema) -> List[Validati
     if metadata is None:
         metadata = {k: v for k, v in item.items() if k != "id"}
 
-    errors: List[ValidationError] = []
+    errors: list[ValidationError] = []
 
     for fs in schema.fields:
         value = metadata.get(fs.name)
@@ -241,11 +241,11 @@ def validate_item(item: Dict[str, Any], schema: MetadataSchema) -> List[Validati
 
 
 def validate_dataset(
-    items: List[Dict[str, Any]], schema: MetadataSchema
+    items: list[dict[str, Any]], schema: MetadataSchema
 ) -> SchemaValidationResult:
     """Validate all items in a dataset against a schema."""
-    all_errors: List[ValidationError] = []
-    all_warnings: List[ValidationError] = []
+    all_errors: list[ValidationError] = []
+    all_warnings: list[ValidationError] = []
 
     for item in items:
         item_errors = validate_item(item, schema)
@@ -264,7 +264,7 @@ def validate_dataset(
 
 
 def infer_schema(
-    items: List[Dict[str, Any]], metadata_field: str = "metadata"
+    items: list[dict[str, Any]], metadata_field: str = "metadata"
 ) -> MetadataSchema:
     """Infer a MetadataSchema from items by inspecting metadata fields and types.
 
@@ -275,8 +275,8 @@ def infer_schema(
     if not items:
         return MetadataSchema(name="inferred")
 
-    field_types: Dict[str, Dict[str, int]] = {}
-    field_counts: Dict[str, int] = {}
+    field_types: dict[str, dict[str, int]] = {}
+    field_counts: dict[str, int] = {}
 
     for item in items:
         metadata = item.get(metadata_field)
@@ -294,7 +294,7 @@ def infer_schema(
             field_types[key][ft] = field_types[key].get(ft, 0) + 1
 
     total_items = len(items)
-    fields: List[FieldSchema] = []
+    fields: list[FieldSchema] = []
 
     for name in sorted(field_types.keys()):
         # Pick the most common type
@@ -312,8 +312,8 @@ def infer_schema(
 
 
 def apply_defaults(
-    item: Dict[str, Any], schema: MetadataSchema
-) -> Dict[str, Any]:
+    item: dict[str, Any], schema: MetadataSchema
+) -> dict[str, Any]:
     """Apply default values for missing metadata fields.
 
     Returns a new dict (shallow copy) with defaults filled in.

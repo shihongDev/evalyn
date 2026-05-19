@@ -4,7 +4,8 @@ import json
 import math
 import re
 from functools import lru_cache
-from typing import Any, Dict, List, Optional, Sequence, Tuple
+from typing import Any, Dict, List, Optional, Tuple
+from collections.abc import Sequence
 
 from ..models import DatasetItem, FunctionCall, Metric, MetricResult, MetricSpec
 
@@ -25,9 +26,9 @@ def _make_result(
     spec: MetricSpec,
     item: DatasetItem,
     call: FunctionCall,
-    score: Optional[float],
-    passed: Optional[bool],
-    details: Optional[Dict[str, Any]] = None,
+    score: float | None,
+    passed: bool | None,
+    details: dict[str, Any] | None = None,
 ) -> MetricResult:
     """Factory for MetricResult with common boilerplate."""
     return MetricResult(
@@ -778,7 +779,7 @@ OBJECTIVE_REGISTRY = [
 # live at once (call.output, item.output, item.expected).
 # Thread-safe under CPython GIL (dict ops are atomic); worst case
 # under contention is a harmless cache miss.
-_as_text_id_cache: Dict[int, Tuple[Any, str]] = {}
+_as_text_id_cache: dict[int, tuple[Any, str]] = {}
 _AS_TEXT_CACHE_MAX = 8
 
 
@@ -830,7 +831,7 @@ def _get_output(call: FunctionCall, item: DatasetItem) -> str:
 
 
 @lru_cache(maxsize=256)
-def _tokenize(text: str) -> Tuple[str, ...]:
+def _tokenize(text: str) -> tuple[str, ...]:
     """Tokenize text into alphanumeric tokens (lowercased).
 
     Cached because many objective metrics tokenize the same output text
@@ -845,8 +846,8 @@ def _tokenize(text: str) -> Tuple[str, ...]:
     return tuple(_TOKEN_RE.findall(text.lower()))
 
 
-def _ngram_counts(tokens: Sequence[str], n: int) -> Dict[Tuple[str, ...], int]:
-    counts: Dict[Tuple[str, ...], int] = {}
+def _ngram_counts(tokens: Sequence[str], n: int) -> dict[tuple[str, ...], int]:
+    counts: dict[tuple[str, ...], int] = {}
     if n <= 0:
         return counts
     for i in range(len(tokens) - n + 1):
@@ -911,7 +912,7 @@ def _rouge_l_f1(candidate: str, reference: str) -> float:
     return 2 * precision * recall / (precision + recall)
 
 
-def _parse_json_value(value: Any) -> Tuple[Any, Optional[str]]:
+def _parse_json_value(value: Any) -> tuple[Any, str | None]:
     if value is None:
         return None, "empty"
     if isinstance(value, (dict, list)):
@@ -927,7 +928,7 @@ def _parse_json_value(value: Any) -> Tuple[Any, Optional[str]]:
         return None, str(exc)
 
 
-def _get_by_path(obj: Any, path: str) -> Tuple[bool, Any]:
+def _get_by_path(obj: Any, path: str) -> tuple[bool, Any]:
     """
     Basic JSON path resolver for dot paths with optional [index], e.g.:
       a.b[0].c
@@ -957,7 +958,7 @@ def _get_by_path(obj: Any, path: str) -> Tuple[bool, Any]:
     return True, cur
 
 
-def _coerce_number(value: Any) -> Optional[float]:
+def _coerce_number(value: Any) -> float | None:
     if value is None:
         return None
     if isinstance(value, (int, float)) and not isinstance(value, bool):
@@ -973,7 +974,7 @@ def _coerce_number(value: Any) -> Optional[float]:
     return None
 
 
-def _extract_number(value: Any, output_field: Optional[str] = None) -> Optional[float]:
+def _extract_number(value: Any, output_field: str | None = None) -> float | None:
     if output_field and isinstance(value, dict) and output_field in value:
         return _coerce_number(value.get(output_field))
     return _coerce_number(value)
@@ -990,9 +991,9 @@ def _check_min_max_bounds(
     item: DatasetItem,
     min_key: str,
     max_key: str,
-    default_min: Optional[int],
-    default_max: Optional[int],
-) -> Tuple[bool, Optional[int], Optional[int]]:
+    default_min: int | None,
+    default_max: int | None,
+) -> tuple[bool, int | None, int | None]:
     """Check if count is within min/max bounds from item metadata or defaults."""
     min_v = item.metadata.get(min_key, default_min)
     max_v = item.metadata.get(max_key, default_max)
@@ -1045,7 +1046,7 @@ def exact_match_metric(
 
 def substring_metric(
     metric_id: str = "substring",
-    needle: Optional[str] = None,
+    needle: str | None = None,
     expected_field: str = "expected_substring",
 ) -> Metric:
     spec = MetricSpec(
@@ -1195,7 +1196,7 @@ def register_builtin_metrics(registry) -> None:
         registry.register(metric)
 
 
-def _ngrams(tokens: List[str], n: int) -> List[tuple]:
+def _ngrams(tokens: list[str], n: int) -> list[tuple]:
     return [tuple(tokens[i : i + n]) for i in range(len(tokens) - n + 1)]
 
 
@@ -1206,7 +1207,7 @@ def _simple_bleu(candidate: str, reference: str, max_n: int = 4) -> float:
     if not cand_tokens or not ref_tokens:
         return 0.0
 
-    precisions: List[float] = []
+    precisions: list[float] = []
     for n in range(1, max_n + 1):
         cand_ngrams = _ngrams(cand_tokens, n)
         ref_ngrams = _ngrams(ref_tokens, n)
@@ -1341,7 +1342,7 @@ def json_valid_metric(metric_id: str = "json_valid") -> Metric:
 
 
 def regex_match_metric(
-    metric_id: str = "regex_match", pattern: Optional[str] = None
+    metric_id: str = "regex_match", pattern: str | None = None
 ) -> Metric:
     spec = MetricSpec(
         id=metric_id,
@@ -1371,7 +1372,7 @@ def regex_match_metric(
 
 def token_length_metric(
     metric_id: str = "token_length",
-    max_chars: Optional[int] = None,
+    max_chars: int | None = None,
 ) -> Metric:
     spec = MetricSpec(
         id=metric_id,
@@ -1596,7 +1597,7 @@ def jaccard_similarity_metric(metric_id: str = "jaccard_similarity") -> Metric:
 def numeric_mae_metric(
     metric_id: str = "numeric_mae",
     expected_field: str = "expected",
-    output_field: Optional[str] = None,
+    output_field: str | None = None,
 ) -> Metric:
     spec = MetricSpec(
         id=metric_id,
@@ -1638,7 +1639,7 @@ def numeric_mae_metric(
 def numeric_rmse_metric(
     metric_id: str = "numeric_rmse",
     expected_field: str = "expected",
-    output_field: Optional[str] = None,
+    output_field: str | None = None,
 ) -> Metric:
     spec = MetricSpec(
         id=metric_id,
@@ -1681,7 +1682,7 @@ def numeric_rmse_metric(
 def numeric_rel_error_metric(
     metric_id: str = "numeric_rel_error",
     expected_field: str = "expected",
-    output_field: Optional[str] = None,
+    output_field: str | None = None,
 ) -> Metric:
     spec = MetricSpec(
         id=metric_id,
@@ -1724,7 +1725,7 @@ def numeric_rel_error_metric(
 def numeric_within_tolerance_metric(
     metric_id: str = "numeric_within_tolerance",
     expected_field: str = "expected",
-    output_field: Optional[str] = None,
+    output_field: str | None = None,
     tolerance: float = 0.0,
 ) -> Metric:
     spec = MetricSpec(
@@ -1781,7 +1782,7 @@ def numeric_within_tolerance_metric(
 
 
 def json_schema_keys_metric(
-    metric_id: str = "json_schema_keys", required_keys: Optional[List[str]] = None
+    metric_id: str = "json_schema_keys", required_keys: list[str] | None = None
 ) -> Metric:
     spec = MetricSpec(
         id=metric_id,
@@ -1819,7 +1820,7 @@ def json_schema_keys_metric(
 
 
 def json_types_match_metric(
-    metric_id: str = "json_types_match", schema: Optional[dict] = None
+    metric_id: str = "json_types_match", schema: dict | None = None
 ) -> Metric:
     spec = MetricSpec(
         id=metric_id,
@@ -1882,7 +1883,7 @@ def json_types_match_metric(
 
 
 def json_path_present_metric(
-    metric_id: str = "json_path_present", paths: Optional[List[str]] = None
+    metric_id: str = "json_path_present", paths: list[str] | None = None
 ) -> Metric:
     spec = MetricSpec(
         id=metric_id,
@@ -1920,7 +1921,7 @@ def json_path_present_metric(
 
 def regex_capture_count_metric(
     metric_id: str = "regex_capture_count",
-    pattern: Optional[str] = None,
+    pattern: str | None = None,
     min_count: int = 1,
 ) -> Metric:
     spec = MetricSpec(
@@ -2029,7 +2030,7 @@ def output_nonempty_metric(metric_id: str = "output_nonempty") -> Metric:
 def output_length_range_metric(
     metric_id: str = "output_length_range",
     min_chars: int = 0,
-    max_chars: Optional[int] = None,
+    max_chars: int | None = None,
 ) -> Metric:
     spec = MetricSpec(
         id=metric_id,
@@ -2242,8 +2243,8 @@ def syntax_valid_metric(
 
 def code_complexity_metric(
     metric_id: str = "code_complexity",
-    max_lines: Optional[int] = None,
-    max_depth: Optional[int] = None,
+    max_lines: int | None = None,
+    max_depth: int | None = None,
 ) -> Metric:
     spec = MetricSpec(
         id=metric_id,
@@ -2318,7 +2319,7 @@ def _count_syllables(word: str) -> int:
     return max(1, count)
 
 
-def _split_sentences(text: str) -> List[str]:
+def _split_sentences(text: str) -> list[str]:
     """Split text into sentences."""
     # Simple sentence splitter
     sentences = re.split(r"[.!?]+", text)
@@ -2326,7 +2327,7 @@ def _split_sentences(text: str) -> List[str]:
 
 
 def flesch_kincaid_metric(
-    metric_id: str = "flesch_kincaid", max_grade: Optional[float] = None
+    metric_id: str = "flesch_kincaid", max_grade: float | None = None
 ) -> Metric:
     spec = MetricSpec(
         id=metric_id,
@@ -2377,8 +2378,8 @@ def flesch_kincaid_metric(
 
 def sentence_count_metric(
     metric_id: str = "sentence_count",
-    min_count: Optional[int] = None,
-    max_count: Optional[int] = None,
+    min_count: int | None = None,
+    max_count: int | None = None,
 ) -> Metric:
     spec = MetricSpec(
         id=metric_id,
@@ -2410,7 +2411,7 @@ def sentence_count_metric(
 
 
 def avg_sentence_length_metric(
-    metric_id: str = "avg_sentence_length", max_avg: Optional[float] = None
+    metric_id: str = "avg_sentence_length", max_avg: float | None = None
 ) -> Metric:
     spec = MetricSpec(
         id=metric_id,
@@ -2455,7 +2456,7 @@ def avg_sentence_length_metric(
 
 
 def distinct_1_metric(
-    metric_id: str = "distinct_1", min_ratio: Optional[float] = None
+    metric_id: str = "distinct_1", min_ratio: float | None = None
 ) -> Metric:
     spec = MetricSpec(
         id=metric_id,
@@ -2497,7 +2498,7 @@ def distinct_1_metric(
 
 
 def distinct_2_metric(
-    metric_id: str = "distinct_2", min_ratio: Optional[float] = None
+    metric_id: str = "distinct_2", min_ratio: float | None = None
 ) -> Metric:
     spec = MetricSpec(
         id=metric_id,
@@ -2542,7 +2543,7 @@ def distinct_2_metric(
 
 
 def vocabulary_richness_metric(
-    metric_id: str = "vocabulary_richness", min_ratio: Optional[float] = None
+    metric_id: str = "vocabulary_richness", min_ratio: float | None = None
 ) -> Metric:
     spec = MetricSpec(
         id=metric_id,
@@ -2590,8 +2591,8 @@ def vocabulary_richness_metric(
 
 def compression_ratio_metric(
     metric_id: str = "compression_ratio",
-    min_ratio: Optional[float] = None,
-    max_ratio: Optional[float] = None,
+    min_ratio: float | None = None,
+    max_ratio: float | None = None,
 ) -> Metric:
     spec = MetricSpec(
         id=metric_id,
@@ -2978,8 +2979,8 @@ def sql_valid_metric(metric_id: str = "sql_valid") -> Metric:
 
 def bullet_count_metric(
     metric_id: str = "bullet_count",
-    min_count: Optional[int] = None,
-    max_count: Optional[int] = None,
+    min_count: int | None = None,
+    max_count: int | None = None,
 ) -> Metric:
     spec = MetricSpec(
         id=metric_id,
@@ -3002,8 +3003,8 @@ def bullet_count_metric(
 
 def heading_count_metric(
     metric_id: str = "heading_count",
-    min_count: Optional[int] = None,
-    max_count: Optional[int] = None,
+    min_count: int | None = None,
+    max_count: int | None = None,
 ) -> Metric:
     spec = MetricSpec(
         id=metric_id,
@@ -3026,8 +3027,8 @@ def heading_count_metric(
 
 def code_block_count_metric(
     metric_id: str = "code_block_count",
-    min_count: Optional[int] = None,
-    max_count: Optional[int] = None,
+    min_count: int | None = None,
+    max_count: int | None = None,
 ) -> Metric:
     spec = MetricSpec(
         id=metric_id,
@@ -3049,7 +3050,7 @@ def code_block_count_metric(
 
 
 def table_count_metric(
-    metric_id: str = "table_count", min_count: Optional[int] = None
+    metric_id: str = "table_count", min_count: int | None = None
 ) -> Metric:
     spec = MetricSpec(
         id=metric_id,
@@ -3072,8 +3073,8 @@ def table_count_metric(
 
 def paragraph_count_metric(
     metric_id: str = "paragraph_count",
-    min_count: Optional[int] = None,
-    max_count: Optional[int] = None,
+    min_count: int | None = None,
+    max_count: int | None = None,
 ) -> Metric:
     spec = MetricSpec(
         id=metric_id,
@@ -3097,8 +3098,8 @@ def paragraph_count_metric(
 
 def word_count_metric(
     metric_id: str = "word_count",
-    min_count: Optional[int] = None,
-    max_count: Optional[int] = None,
+    min_count: int | None = None,
+    max_count: int | None = None,
 ) -> Metric:
     spec = MetricSpec(
         id=metric_id,
@@ -3126,7 +3127,7 @@ def word_count_metric(
 
 
 def repetition_ratio_metric(
-    metric_id: str = "repetition_ratio", n: int = 3, max_ratio: Optional[float] = None
+    metric_id: str = "repetition_ratio", n: int = 3, max_ratio: float | None = None
 ) -> Metric:
     spec = MetricSpec(
         id=metric_id,
@@ -3163,7 +3164,7 @@ def repetition_ratio_metric(
 
 
 def duplicate_line_ratio_metric(
-    metric_id: str = "duplicate_line_ratio", max_ratio: Optional[float] = None
+    metric_id: str = "duplicate_line_ratio", max_ratio: float | None = None
 ) -> Metric:
     spec = MetricSpec(
         id=metric_id,
@@ -3200,7 +3201,7 @@ def duplicate_line_ratio_metric(
 
 
 def hedging_count_metric(
-    metric_id: str = "hedging_count", max_count: Optional[int] = None
+    metric_id: str = "hedging_count", max_count: int | None = None
 ) -> Metric:
     spec = MetricSpec(
         id=metric_id,
@@ -3241,8 +3242,8 @@ def hedging_count_metric(
 
 def question_count_metric(
     metric_id: str = "question_count",
-    min_count: Optional[int] = None,
-    max_count: Optional[int] = None,
+    min_count: int | None = None,
+    max_count: int | None = None,
 ) -> Metric:
     spec = MetricSpec(
         id=metric_id,
@@ -3299,7 +3300,7 @@ def confidence_markers_metric(metric_id: str = "confidence_markers") -> Metric:
 
 
 def comment_ratio_metric(
-    metric_id: str = "comment_ratio", min_ratio: Optional[float] = None
+    metric_id: str = "comment_ratio", min_ratio: float | None = None
 ) -> Metric:
     spec = MetricSpec(
         id=metric_id,
@@ -3343,8 +3344,8 @@ def comment_ratio_metric(
 
 def function_count_metric(
     metric_id: str = "function_count",
-    min_count: Optional[int] = None,
-    max_count: Optional[int] = None,
+    min_count: int | None = None,
+    max_count: int | None = None,
 ) -> Metric:
     spec = MetricSpec(
         id=metric_id,
@@ -3374,7 +3375,7 @@ def function_count_metric(
 
 
 def import_count_metric(
-    metric_id: str = "import_count", max_count: Optional[int] = None
+    metric_id: str = "import_count", max_count: int | None = None
 ) -> Metric:
     spec = MetricSpec(
         id=metric_id,
@@ -3408,7 +3409,7 @@ def import_count_metric(
 
 
 def ascii_ratio_metric(
-    metric_id: str = "ascii_ratio", min_ratio: Optional[float] = None
+    metric_id: str = "ascii_ratio", min_ratio: float | None = None
 ) -> Metric:
     spec = MetricSpec(
         id=metric_id,
@@ -3435,7 +3436,7 @@ def ascii_ratio_metric(
 
 
 def uppercase_ratio_metric(
-    metric_id: str = "uppercase_ratio", max_ratio: Optional[float] = None
+    metric_id: str = "uppercase_ratio", max_ratio: float | None = None
 ) -> Metric:
     spec = MetricSpec(
         id=metric_id,
@@ -3485,7 +3486,7 @@ def numeric_density_metric(metric_id: str = "numeric_density") -> Metric:
 
 
 def whitespace_ratio_metric(
-    metric_id: str = "whitespace_ratio", max_ratio: Optional[float] = None
+    metric_id: str = "whitespace_ratio", max_ratio: float | None = None
 ) -> Metric:
     spec = MetricSpec(
         id=metric_id,
@@ -3517,7 +3518,7 @@ def whitespace_ratio_metric(
 
 
 def prefix_match_metric(
-    metric_id: str = "prefix_match", prefix: Optional[str] = None
+    metric_id: str = "prefix_match", prefix: str | None = None
 ) -> Metric:
     spec = MetricSpec(
         id=metric_id,
@@ -3539,7 +3540,7 @@ def prefix_match_metric(
 
 
 def suffix_match_metric(
-    metric_id: str = "suffix_match", suffix: Optional[str] = None
+    metric_id: str = "suffix_match", suffix: str | None = None
 ) -> Metric:
     spec = MetricSpec(
         id=metric_id,
@@ -3561,7 +3562,7 @@ def suffix_match_metric(
 
 
 def contains_all_metric(
-    metric_id: str = "contains_all", substrings: Optional[List[str]] = None
+    metric_id: str = "contains_all", substrings: list[str] | None = None
 ) -> Metric:
     spec = MetricSpec(
         id=metric_id,
@@ -3589,7 +3590,7 @@ def contains_all_metric(
 
 
 def contains_none_metric(
-    metric_id: str = "contains_none", forbidden: Optional[List[str]] = None
+    metric_id: str = "contains_none", forbidden: list[str] | None = None
 ) -> Metric:
     spec = MetricSpec(
         id=metric_id,
@@ -3623,8 +3624,8 @@ def contains_none_metric(
 
 def numbered_list_count_metric(
     metric_id: str = "numbered_list_count",
-    min_count: Optional[int] = None,
-    max_count: Optional[int] = None,
+    min_count: int | None = None,
+    max_count: int | None = None,
 ) -> Metric:
     spec = MetricSpec(
         id=metric_id,
@@ -3647,8 +3648,8 @@ def numbered_list_count_metric(
 
 def list_item_count_metric(
     metric_id: str = "list_item_count",
-    min_count: Optional[int] = None,
-    max_count: Optional[int] = None,
+    min_count: int | None = None,
+    max_count: int | None = None,
 ) -> Metric:
     spec = MetricSpec(
         id=metric_id,
@@ -3686,7 +3687,7 @@ def list_item_count_metric(
 
 
 def emoji_count_metric(
-    metric_id: str = "emoji_count", max_count: Optional[int] = None
+    metric_id: str = "emoji_count", max_count: int | None = None
 ) -> Metric:
     spec = MetricSpec(
         id=metric_id,
@@ -3726,7 +3727,7 @@ def emoji_count_metric(
 
 
 def link_density_metric(
-    metric_id: str = "link_density", max_ratio: Optional[float] = None
+    metric_id: str = "link_density", max_ratio: float | None = None
 ) -> Metric:
     spec = MetricSpec(
         id=metric_id,
@@ -3884,7 +3885,7 @@ def prompt_injection_metric(
 # =============================================================================
 
 
-def _get_tool_spans(call: FunctionCall) -> List:
+def _get_tool_spans(call: FunctionCall) -> list:
     """Extract tool call spans from a FunctionCall."""
     return [
         s for s in (call.spans or [])

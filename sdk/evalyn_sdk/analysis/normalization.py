@@ -17,14 +17,14 @@ class NormalizedScores:
 
     metric_id: str
     method: str  # "z_score" or "min_max"
-    original_scores: List[float] = field(default_factory=list)
-    normalized_scores: List[float] = field(default_factory=list)
+    original_scores: list[float] = field(default_factory=list)
+    normalized_scores: list[float] = field(default_factory=list)
     original_mean: float = 0.0
     original_std: float = 0.0
     original_min: float = 0.0
     original_max: float = 0.0
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "metric_id": self.metric_id,
             "method": self.method,
@@ -38,8 +38,8 @@ class NormalizedScores:
 
 
 def normalize_z_score(
-    scores_by_metric: Dict[str, List[float]],
-) -> Dict[str, NormalizedScores]:
+    scores_by_metric: dict[str, list[float]],
+) -> dict[str, NormalizedScores]:
     """Z-score normalize metric scores (mean=0, std=1).
 
     Useful for comparing metrics on different scales. A z-score of 2
@@ -85,10 +85,10 @@ def normalize_z_score(
 
 
 def normalize_min_max(
-    scores_by_metric: Dict[str, List[float]],
+    scores_by_metric: dict[str, list[float]],
     target_min: float = 0.0,
     target_max: float = 1.0,
-) -> Dict[str, NormalizedScores]:
+) -> dict[str, NormalizedScores]:
     """Min-max normalize scores to [target_min, target_max] range.
 
     Maps the lowest score to target_min and highest to target_max.
@@ -141,9 +141,9 @@ def normalize_min_max(
 
 
 def normalize_run_scores(
-    metric_results: List,
+    metric_results: list,
     method: str = "min_max",
-) -> Dict[str, NormalizedScores]:
+) -> dict[str, NormalizedScores]:
     """Normalize scores from an evaluation run.
 
     Convenience function that extracts scores from MetricResult objects
@@ -156,7 +156,7 @@ def normalize_run_scores(
     Returns:
         Dict of metric_id -> NormalizedScores.
     """
-    scores_by_metric: Dict[str, List[float]] = {}
+    scores_by_metric: dict[str, list[float]] = {}
     for mr in metric_results:
         if mr.score is not None:
             scores_by_metric.setdefault(mr.metric_id, []).append(mr.score)

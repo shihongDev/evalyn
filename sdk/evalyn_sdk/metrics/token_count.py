@@ -34,7 +34,7 @@ class MetricTokenEstimate:
             return 0
         return (self.prompt_tokens + self.input_tokens_per_item + self.output_tokens_per_item) * item_count
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "metric_id": self.metric_id,
             "type": self.metric_type,
@@ -86,9 +86,9 @@ def estimate_metric_tokens(metric_spec) -> MetricTokenEstimate:
 
 
 def estimate_all_tokens(
-    metric_specs: List,
+    metric_specs: list,
     item_count: int = 0,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Estimate total token usage across all metrics.
 
     Args:

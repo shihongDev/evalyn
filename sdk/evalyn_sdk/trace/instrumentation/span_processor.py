@@ -32,9 +32,9 @@ class EvalynSpanProcessor:
     """
 
     def __init__(self):
-        self._parent_id_map: Dict[str, str] = {}  # OTEL span_id -> Evalyn span_id
+        self._parent_id_map: dict[str, str] = {}  # OTEL span_id -> Evalyn span_id
 
-    def on_start(self, span: Any, parent_context: Optional[Any] = None) -> None:
+    def on_start(self, span: Any, parent_context: Any | None = None) -> None:
         """Called when a span starts."""
         # We mainly process on_end, but can use on_start for parent tracking
         pass

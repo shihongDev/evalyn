@@ -20,7 +20,7 @@ def truncate_text(text: str, max_len: int = 300) -> str:
     return text if len(text) <= max_len else text[:max_len] + "..."
 
 
-def get_bool_input(prompt: str, allow_skip: bool = True) -> Optional[bool]:
+def get_bool_input(prompt: str, allow_skip: bool = True) -> bool | None:
     """Get yes/no input from user.
 
     Args:
@@ -47,7 +47,7 @@ def get_bool_input(prompt: str, allow_skip: bool = True) -> Optional[bool]:
 
 def get_int_input(
     prompt: str, min_val: int, max_val: int, allow_skip: bool = True
-) -> Optional[int]:
+) -> int | None:
     """Get integer input within range from user.
 
     Args:
@@ -97,7 +97,7 @@ def get_str_input(prompt: str) -> str:
         return ""
 
 
-def get_confidence(prompt: str = "Confidence (1-5, Enter to skip): ") -> Optional[int]:
+def get_confidence(prompt: str = "Confidence (1-5, Enter to skip): ") -> int | None:
     """Get confidence score 1-5 from user with recursive retry.
 
     Args:

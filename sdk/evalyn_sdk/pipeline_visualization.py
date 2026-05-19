@@ -14,7 +14,7 @@ from typing import Dict, List
 # Status markers
 # ---------------------------------------------------------------------------
 
-_STATUS_MARKERS: Dict[str, str] = {
+_STATUS_MARKERS: dict[str, str] = {
     "complete": "[OK]",
     "failed": "[!!]",
     "running": "[>>]",
@@ -42,7 +42,7 @@ class PipelineStep:
     description: str = ""
     status: str = "pending"
 
-    def as_dict(self) -> Dict[str, str]:
+    def as_dict(self) -> dict[str, str]:
         return {
             "step_id": self.step_id,
             "name": self.name,
@@ -51,7 +51,7 @@ class PipelineStep:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, str]) -> PipelineStep:
+    def from_dict(cls, data: dict[str, str]) -> PipelineStep:
         return cls(
             step_id=data["step_id"],
             name=data["name"],
@@ -65,7 +65,7 @@ class Pipeline:
     """An ordered sequence of pipeline steps."""
 
     name: str
-    steps: List[PipelineStep] = field(default_factory=list)
+    steps: list[PipelineStep] = field(default_factory=list)
 
     def as_dict(self) -> dict:
         return {
@@ -86,7 +86,7 @@ class Pipeline:
 # ---------------------------------------------------------------------------
 
 
-def render_box(text: str, width: int = 20) -> List[str]:
+def render_box(text: str, width: int = 20) -> list[str]:
     """Render text inside an ASCII box.
 
     Returns a list of strings (lines) forming the box.
@@ -114,7 +114,7 @@ def render_horizontal(pipeline: Pipeline) -> str:
     if not pipeline.steps:
         return "(empty pipeline)"
 
-    parts: List[str] = []
+    parts: list[str] = []
     for i, step in enumerate(pipeline.steps):
         marker = get_status_marker(step.status)
         segment = f"{marker} [{step.name}]"
@@ -139,7 +139,7 @@ def render_vertical(pipeline: Pipeline) -> str:
     if not pipeline.steps:
         return "(empty pipeline)"
 
-    lines: List[str] = []
+    lines: list[str] = []
     max_name_len = max(len(s.name) for s in pipeline.steps)
     box_width = max(max_name_len, 10)
 
@@ -186,7 +186,7 @@ def render_pipeline(pipeline: Pipeline, orientation: str = "vertical") -> str:
 # ---------------------------------------------------------------------------
 
 
-def create_evalyn_pipeline(steps: List[str]) -> Pipeline:
+def create_evalyn_pipeline(steps: list[str]) -> Pipeline:
     """Create a standard evalyn pipeline from a list of step names.
 
     Each step gets a step_id derived from its position (e.g. "step_0").

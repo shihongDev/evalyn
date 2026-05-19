@@ -16,7 +16,7 @@ class SessionTurn:
     model: str = ""
     span_id: str = ""
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "index": self.index,
             "role": self.role,
@@ -26,7 +26,7 @@ class SessionTurn:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> SessionTurn:
+    def from_dict(cls, data: dict[str, Any]) -> SessionTurn:
         return cls(
             index=data["index"],
             role=data["role"],
@@ -41,11 +41,11 @@ class SessionReplayPlan:
     """Plan for replaying a full session against a target model."""
 
     session_id: str
-    turns: List[SessionTurn] = field(default_factory=list)
+    turns: list[SessionTurn] = field(default_factory=list)
     target_model: str = ""
     total_turns: int = 0
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "session_id": self.session_id,
             "turns": [t.as_dict() for t in self.turns],
@@ -54,7 +54,7 @@ class SessionReplayPlan:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> SessionReplayPlan:
+    def from_dict(cls, data: dict[str, Any]) -> SessionReplayPlan:
         return cls(
             session_id=data["session_id"],
             turns=[SessionTurn.from_dict(t) for t in data.get("turns", [])],
@@ -63,7 +63,7 @@ class SessionReplayPlan:
         )
 
     def format_text(self) -> str:
-        lines: List[str] = []
+        lines: list[str] = []
         lines.append(
             f"Session replay plan: {self.session_id} - "
             f"{self.total_turns} turns to {self.target_model}"
@@ -84,7 +84,7 @@ class TurnComparison:
     replayed_content: str
     similarity: float = 0.0
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "turn_index": self.turn_index,
             "original_content": self.original_content,
@@ -98,11 +98,11 @@ class SessionReplayReport:
     """Aggregated report from replaying a full session."""
 
     session_id: str
-    comparisons: List[TurnComparison] = field(default_factory=list)
+    comparisons: list[TurnComparison] = field(default_factory=list)
     avg_similarity: float = 0.0
     total_turns: int = 0
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "session_id": self.session_id,
             "comparisons": [c.as_dict() for c in self.comparisons],
@@ -111,7 +111,7 @@ class SessionReplayReport:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> SessionReplayReport:
+    def from_dict(cls, data: dict[str, Any]) -> SessionReplayReport:
         comparisons = [
             TurnComparison(**c) if isinstance(c, dict) and "turn_index" in c else c
             for c in data.get("comparisons", [])
@@ -124,7 +124,7 @@ class SessionReplayReport:
         )
 
     def format_text(self) -> str:
-        lines: List[str] = []
+        lines: list[str] = []
         lines.append(f"Session replay report: {self.session_id}")
         lines.append(f"  Total turns: {self.total_turns}")
         lines.append(f"  Average similarity: {self.avg_similarity:.2%}")
@@ -159,12 +159,12 @@ def _compute_word_similarity(a: str, b: str) -> float:
     return len(intersection) / len(union)
 
 
-def extract_session_turns(spans: List[Span], session_id: str = "") -> List[SessionTurn]:
+def extract_session_turns(spans: list[Span], session_id: str = "") -> list[SessionTurn]:
     """Extract session turns from spans, ordered by timestamp.
 
     Looks for 'role' and 'content' or 'input'/'output' in span attributes.
     """
-    turns: List[SessionTurn] = []
+    turns: list[SessionTurn] = []
 
     # Sort spans by start_time for chronological ordering
     sorted_spans = sorted(spans, key=lambda s: s.start_time)
@@ -211,7 +211,7 @@ def extract_session_turns(spans: List[Span], session_id: str = "") -> List[Sessi
 
 
 def build_session_replay_plan(
-    turns: List[SessionTurn], target_model: str
+    turns: list[SessionTurn], target_model: str
 ) -> SessionReplayPlan:
     """Build a session replay plan from extracted turns."""
     session_id = ""
@@ -237,7 +237,7 @@ def compare_turn(original: SessionTurn, replayed_content: str) -> TurnComparison
 
 
 def build_session_replay_report(
-    session_id: str, comparisons: List[TurnComparison]
+    session_id: str, comparisons: list[TurnComparison]
 ) -> SessionReplayReport:
     """Aggregate turn comparisons into a session replay report."""
     if not comparisons:

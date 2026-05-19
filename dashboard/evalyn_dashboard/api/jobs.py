@@ -830,7 +830,7 @@ async def delete_job(request: Request, job_id: str) -> JSONResponse:
     try:
         removed = jm.purge(job_id)
     except ValueError as exc:
-        raise HTTPException(status_code=409, detail=str(exc))
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
     if not removed:
         raise HTTPException(status_code=404, detail=f"unknown job: {job_id}")
     # Audit log: the row is gone. Postmortem queries like "where

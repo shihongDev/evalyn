@@ -24,7 +24,7 @@ class ModelTier:
     cost_per_1k_tokens: float
     quality_ceiling: float = 1.0
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "tier_name": self.tier_name,
             "model_id": self.model_id,
@@ -33,7 +33,7 @@ class ModelTier:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> ModelTier:
+    def from_dict(cls, data: dict[str, Any]) -> ModelTier:
         return cls(
             tier_name=data["tier_name"],
             model_id=data["model_id"],
@@ -52,7 +52,7 @@ class RoutingDecision:
     confidence: float
     escalated: bool = False
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "item_id": self.item_id,
             "assigned_tier": self.assigned_tier,
@@ -62,7 +62,7 @@ class RoutingDecision:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> RoutingDecision:
+    def from_dict(cls, data: dict[str, Any]) -> RoutingDecision:
         return cls(
             item_id=data["item_id"],
             assigned_tier=data["assigned_tier"],
@@ -76,11 +76,11 @@ class RoutingDecision:
 class CascadeConfig:
     """Configuration for cascade routing."""
 
-    tiers: List[ModelTier]
-    difficulty_thresholds: List[float]  # boundaries between tiers
+    tiers: list[ModelTier]
+    difficulty_thresholds: list[float]  # boundaries between tiers
     escalation_threshold: float = 0.3  # escalate if quality below this
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "tiers": [t.as_dict() for t in self.tiers],
             "difficulty_thresholds": list(self.difficulty_thresholds),
@@ -88,7 +88,7 @@ class CascadeConfig:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> CascadeConfig:
+    def from_dict(cls, data: dict[str, Any]) -> CascadeConfig:
         return cls(
             tiers=[ModelTier.from_dict(d) for d in data["tiers"]],
             difficulty_thresholds=list(data["difficulty_thresholds"]),
@@ -100,12 +100,12 @@ class CascadeConfig:
 class CascadeReport:
     """Summary of cascade routing for a batch."""
 
-    decisions: List[RoutingDecision]
-    tier_distribution: Dict[str, int]
+    decisions: list[RoutingDecision]
+    tier_distribution: dict[str, int]
     estimated_cost_savings: float  # 0-1 range
     total_items: int
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "decisions": [d.as_dict() for d in self.decisions],
             "tier_distribution": dict(self.tier_distribution),
@@ -114,7 +114,7 @@ class CascadeReport:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> CascadeReport:
+    def from_dict(cls, data: dict[str, Any]) -> CascadeReport:
         return cls(
             decisions=[RoutingDecision.from_dict(d) for d in data["decisions"]],
             tier_distribution=dict(data["tier_distribution"]),
@@ -127,7 +127,7 @@ class CascadeReport:
 # Default Tiers
 # ---------------------------------------------------------------------------
 
-DEFAULT_TIERS: List[ModelTier] = [
+DEFAULT_TIERS: list[ModelTier] = [
     ModelTier(
         tier_name="fast",
         model_id="gpt-4o-mini",
@@ -255,7 +255,7 @@ def route_batch(
 ) -> CascadeReport:
     """Route a batch of items and produce a report."""
     decisions: list[RoutingDecision] = []
-    tier_dist: Dict[str, int] = {}
+    tier_dist: dict[str, int] = {}
 
     for i, item in enumerate(items):
         item_id = item.get("id", str(i))

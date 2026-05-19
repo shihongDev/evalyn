@@ -23,11 +23,11 @@ class ChangelogEntry:
 
     operation: str
     timestamp: str
-    parameters: Dict[str, Any] = field(default_factory=dict)
+    parameters: dict[str, Any] = field(default_factory=dict)
     items_affected: int = 0
     description: str = ""
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "operation": self.operation,
             "timestamp": self.timestamp,
@@ -37,7 +37,7 @@ class ChangelogEntry:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> ChangelogEntry:
+    def from_dict(cls, data: dict[str, Any]) -> ChangelogEntry:
         return cls(
             operation=data["operation"],
             timestamp=data["timestamp"],
@@ -51,17 +51,17 @@ class ChangelogEntry:
 class DatasetChangelog:
     """Ordered log of dataset operations."""
 
-    entries: List[ChangelogEntry] = field(default_factory=list)
+    entries: list[ChangelogEntry] = field(default_factory=list)
     dataset_name: str = ""
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "dataset_name": self.dataset_name,
             "entries": [e.as_dict() for e in self.entries],
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> DatasetChangelog:
+    def from_dict(cls, data: dict[str, Any]) -> DatasetChangelog:
         return cls(
             dataset_name=data.get("dataset_name", ""),
             entries=[ChangelogEntry.from_dict(e) for e in data.get("entries", [])],
@@ -70,7 +70,7 @@ class DatasetChangelog:
     def add_entry(
         self,
         operation: str,
-        parameters: Optional[Dict[str, Any]] = None,
+        parameters: dict[str, Any] | None = None,
         items_affected: int = 0,
         description: str = "",
     ) -> None:
@@ -84,7 +84,7 @@ class DatasetChangelog:
         )
         self.entries.append(entry)
 
-    def get_entries_by_operation(self, operation: str) -> List[ChangelogEntry]:
+    def get_entries_by_operation(self, operation: str) -> list[ChangelogEntry]:
         """Filter entries by operation name."""
         return [e for e in self.entries if e.operation == operation]
 
@@ -93,7 +93,7 @@ class DatasetChangelog:
         return len(self.entries)
 
     @property
-    def latest(self) -> Optional[ChangelogEntry]:
+    def latest(self) -> ChangelogEntry | None:
         """Most recent entry, or None if empty."""
         if not self.entries:
             return None
@@ -101,7 +101,7 @@ class DatasetChangelog:
 
     def format_text(self) -> str:
         """Human-readable multi-line summary."""
-        lines: List[str] = []
+        lines: list[str] = []
         lines.append(f"Dataset Changelog: {self.dataset_name or '(unnamed)'}")
         lines.append(f"Total entries: {self.count}")
         lines.append("")
@@ -139,7 +139,7 @@ def record_build(
     changelog: DatasetChangelog,
     source: str,
     item_count: int,
-    params: Optional[Dict[str, Any]] = None,
+    params: dict[str, Any] | None = None,
 ) -> DatasetChangelog:
     """Record a build operation."""
     changelog.add_entry(
@@ -173,7 +173,7 @@ def record_filter(
 
 def record_merge(
     changelog: DatasetChangelog,
-    sources: List[str],
+    sources: list[str],
     result_count: int,
 ) -> DatasetChangelog:
     """Record a merge operation."""
@@ -188,7 +188,7 @@ def record_merge(
 
 def render_changelog(changelog: DatasetChangelog, max_entries: int = 20) -> str:
     """Formatted text of the most recent entries."""
-    lines: List[str] = []
+    lines: list[str] = []
     lines.append(f"Changelog: {changelog.dataset_name or '(unnamed)'}")
     recent = changelog.entries[-max_entries:] if changelog.entries else []
     for entry in recent:

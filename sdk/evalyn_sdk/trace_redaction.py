@@ -25,9 +25,9 @@ class RedactionRule:
     pattern: str  # regex pattern
     replacement: str = "[REDACTED]"
     description: str = ""
-    applies_to: List[str] = field(default_factory=lambda: ["all"])
+    applies_to: list[str] = field(default_factory=lambda: ["all"])
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "rule_id": self.rule_id,
             "pattern": self.pattern,
@@ -37,7 +37,7 @@ class RedactionRule:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> RedactionRule:
+    def from_dict(cls, data: dict[str, Any]) -> RedactionRule:
         return cls(
             rule_id=data["rule_id"],
             pattern=data["pattern"],
@@ -53,13 +53,13 @@ class RedactionPolicy:
 
     policy_id: str
     name: str
-    rules: List[RedactionRule] = field(default_factory=list)
+    rules: list[RedactionRule] = field(default_factory=list)
     truncate_after: int = 0  # 0 means no truncation
     keep_first_n: int = 0
     keep_last_n: int = 0
     mode: str = "strict"  # "strict" or "relaxed"
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "policy_id": self.policy_id,
             "name": self.name,
@@ -71,7 +71,7 @@ class RedactionPolicy:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> RedactionPolicy:
+    def from_dict(cls, data: dict[str, Any]) -> RedactionPolicy:
         return cls(
             policy_id=data["policy_id"],
             name=data["name"],
@@ -89,10 +89,10 @@ class RedactionResult:
 
     original_length: int
     redacted_length: int
-    rules_applied: List[str] = field(default_factory=list)
+    rules_applied: list[str] = field(default_factory=list)
     truncated: bool = False
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "original_length": self.original_length,
             "redacted_length": self.redacted_length,
@@ -101,7 +101,7 @@ class RedactionResult:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> RedactionResult:
+    def from_dict(cls, data: dict[str, Any]) -> RedactionResult:
         return cls(
             original_length=data.get("original_length", 0),
             redacted_length=data.get("redacted_length", 0),
@@ -118,7 +118,7 @@ class RedactionAuditEntry:
     field_name: str
     result: RedactionResult
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "trace_id": self.trace_id,
             "field_name": self.field_name,
@@ -126,7 +126,7 @@ class RedactionAuditEntry:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> RedactionAuditEntry:
+    def from_dict(cls, data: dict[str, Any]) -> RedactionAuditEntry:
         return cls(
             trace_id=data["trace_id"],
             field_name=data["field_name"],
@@ -143,7 +143,7 @@ def apply_redaction(
     text: str,
     policy: RedactionPolicy,
     field_name: str = "all",
-) -> Tuple[str, RedactionResult]:
+) -> tuple[str, RedactionResult]:
     """Apply all matching rules from a policy to the given text.
 
     A rule matches if ``field_name`` is in the rule's ``applies_to`` list
@@ -152,7 +152,7 @@ def apply_redaction(
     Returns the redacted text and a result summary.
     """
     original_length = len(text)
-    rules_applied: List[str] = []
+    rules_applied: list[str] = []
     result_text = text
 
     for rule in policy.rules:
@@ -282,7 +282,7 @@ def build_default_policy(mode: str = "strict") -> RedactionPolicy:
     )
 
 
-def generate_redaction_audit(entries: List[RedactionAuditEntry]) -> Dict[str, Any]:
+def generate_redaction_audit(entries: list[RedactionAuditEntry]) -> dict[str, Any]:
     """Produce summary statistics from a list of audit entries.
 
     Returns a dict with: total_traces, total_redactions, bytes_saved,
@@ -291,7 +291,7 @@ def generate_redaction_audit(entries: List[RedactionAuditEntry]) -> Dict[str, An
     trace_ids = set()
     total_redactions = 0
     bytes_saved = 0
-    rule_counts: Dict[str, int] = {}
+    rule_counts: dict[str, int] = {}
 
     for entry in entries:
         trace_ids.add(entry.trace_id)
@@ -313,9 +313,9 @@ def generate_redaction_audit(entries: List[RedactionAuditEntry]) -> Dict[str, An
     }
 
 
-def format_redaction_audit(audit: Dict[str, Any]) -> str:
+def format_redaction_audit(audit: dict[str, Any]) -> str:
     """Format an audit summary dict as a human-readable report."""
-    lines: List[str] = []
+    lines: list[str] = []
     lines.append("Redaction Audit Report")
     lines.append("=" * 40)
     lines.append(f"Total traces processed: {audit.get('total_traces', 0)}")

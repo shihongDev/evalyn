@@ -28,7 +28,7 @@ class NormalityResult:
     p_value_approx: float = 0.0
     sample_size: int = 0
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "metric_id": self.metric_id,
             "is_normal": self.is_normal,
@@ -40,7 +40,7 @@ class NormalityResult:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> NormalityResult:
+    def from_dict(cls, data: dict[str, Any]) -> NormalityResult:
         return cls(
             metric_id=data["metric_id"],
             is_normal=data["is_normal"],
@@ -56,12 +56,12 @@ class NormalityResult:
 class NormalityReport:
     """Normality test report across all metrics."""
 
-    results: List[NormalityResult] = field(default_factory=list)
+    results: list[NormalityResult] = field(default_factory=list)
     normal_count: int = 0
     non_normal_count: int = 0
     total_metrics: int = 0
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "results": [r.as_dict() for r in self.results],
             "normal_count": self.normal_count,
@@ -70,7 +70,7 @@ class NormalityReport:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> NormalityReport:
+    def from_dict(cls, data: dict[str, Any]) -> NormalityReport:
         results = [NormalityResult.from_dict(r) for r in data.get("results", [])]
         return cls(
             results=results,
@@ -122,7 +122,7 @@ def _chi2_cdf_2(x: float) -> float:
 # ---------------------------------------------------------------------------
 
 
-def compute_skewness(values: List[float]) -> float:
+def compute_skewness(values: list[float]) -> float:
     """Compute sample skewness.
 
     Uses the adjusted Fisher-Pearson formula:
@@ -137,17 +137,14 @@ def compute_skewness(values: List[float]) -> float:
         return 0.0
     std = math.sqrt(m2)
     m3 = sum((x - mean) ** 3 for x in values) / n
-    skew_pop = m3 / (std ** 3)
     # Adjusted for sample: G1 = (n / ((n-1)(n-2))) * n * m3 / std^3
     # Simplification: G1 = (n^2 / ((n-1)(n-2))) * (m3 / std^3)
-    # Actually the standard adjustment is:
-    # G1 = (sqrt(n*(n-1)) / (n-2)) * skew_pop
     adjustment = (n / ((n - 1) * (n - 2)))
     g1 = adjustment * n * m3 / (std ** 3)
     return g1
 
 
-def compute_kurtosis(values: List[float]) -> float:
+def compute_kurtosis(values: list[float]) -> float:
     """Compute excess kurtosis (normal distribution = 0).
 
     Uses sample excess kurtosis formula.
@@ -168,7 +165,7 @@ def compute_kurtosis(values: List[float]) -> float:
     return g2
 
 
-def jarque_bera_test(values: List[float]) -> Tuple[float, float]:
+def jarque_bera_test(values: list[float]) -> tuple[float, float]:
     """Compute Jarque-Bera statistic and approximate p-value.
 
     JB = (n/6) * (S^2 + K^2/4)
@@ -191,7 +188,7 @@ def jarque_bera_test(values: List[float]) -> Tuple[float, float]:
 
 def check_normality(
     metric_id: str,
-    scores: List[float],
+    scores: list[float],
     alpha: float = 0.05,
 ) -> NormalityResult:
     """Run full normality test on a metric's score distribution."""
@@ -217,7 +214,7 @@ def check_normality(
 
 
 def check_all_normality(
-    metric_scores: Dict[str, List[float]],
+    metric_scores: dict[str, list[float]],
     alpha: float = 0.05,
 ) -> NormalityReport:
     """Run normality tests on all metrics."""
@@ -234,11 +231,11 @@ def check_all_normality(
     )
 
 
-def suggest_transformations(result: NormalityResult) -> List[str]:
+def suggest_transformations(result: NormalityResult) -> list[str]:
     """Suggest normalizing transforms based on skewness and kurtosis."""
     if result.is_normal:
         return []
-    suggestions: List[str] = []
+    suggestions: list[str] = []
     skew = result.skewness
     kurt = result.kurtosis
     abs_skew = abs(skew)

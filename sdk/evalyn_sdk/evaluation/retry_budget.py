@@ -17,9 +17,9 @@ logger = logging.getLogger(__name__)
 class RetryBudgetConfig:
     """Configuration for retry budget limits."""
 
-    max_retries_total: Optional[int] = None  # None = unlimited
+    max_retries_total: int | None = None  # None = unlimited
     max_retries_per_item: int = 3
-    max_retries_per_metric: Optional[int] = None  # None = unlimited
+    max_retries_per_metric: int | None = None  # None = unlimited
 
     def is_configured(self) -> bool:
         return self.max_retries_total is not None
@@ -36,11 +36,11 @@ class RetryBudget:
             # ... retry the evaluation
     """
 
-    def __init__(self, config: Optional[RetryBudgetConfig] = None):
+    def __init__(self, config: RetryBudgetConfig | None = None):
         self.config = config or RetryBudgetConfig()
         self._total_retries: int = 0
-        self._per_item: Dict[str, int] = {}
-        self._per_metric: Dict[str, int] = {}
+        self._per_item: dict[str, int] = {}
+        self._per_metric: dict[str, int] = {}
 
     @property
     def total_retries(self) -> int:
@@ -54,7 +54,7 @@ class RetryBudget:
         return self._total_retries >= self.config.max_retries_total
 
     @property
-    def retries_remaining(self) -> Optional[int]:
+    def retries_remaining(self) -> int | None:
         """Remaining retry budget, or None if unlimited."""
         if self.config.max_retries_total is None:
             return None
@@ -99,9 +99,9 @@ class RetryBudget:
         self._per_item[item_id] = self._per_item.get(item_id, 0) + 1
         self._per_metric[metric_id] = self._per_metric.get(metric_id, 0) + 1
 
-    def summary(self) -> Dict[str, Any]:
+    def summary(self) -> dict[str, Any]:
         """Return retry budget usage summary."""
-        d: Dict[str, Any] = {
+        d: dict[str, Any] = {
             "total_retries": self._total_retries,
             "budget_exhausted": self.budget_exhausted,
             "items_retried": len(self._per_item),

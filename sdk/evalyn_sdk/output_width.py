@@ -19,7 +19,7 @@ class WidthConfig:
     min_width: int = 40
     default_width: int = 80
 
-    def as_dict(self) -> Dict[str, object]:
+    def as_dict(self) -> dict[str, object]:
         return {
             "max_width": self.max_width,
             "min_width": self.min_width,
@@ -27,7 +27,7 @@ class WidthConfig:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, object]) -> WidthConfig:
+    def from_dict(cls, data: dict[str, object]) -> WidthConfig:
         return cls(
             max_width=int(data.get("max_width", 0)),
             min_width=int(data.get("min_width", 40)),
@@ -43,7 +43,7 @@ def get_terminal_width() -> int:
         return 80
 
 
-def get_effective_width(config: Optional[WidthConfig] = None) -> int:
+def get_effective_width(config: WidthConfig | None = None) -> int:
     """Return the effective output width, clamped to min_width.
 
     If config.max_width is 0 (or config is None), auto-detect from terminal.
@@ -60,13 +60,13 @@ def get_effective_width(config: Optional[WidthConfig] = None) -> int:
 
 
 def truncate_table_row(
-    columns: List[str], widths: List[int], separator: str = " | "
+    columns: list[str], widths: list[int], separator: str = " | "
 ) -> str:
     """Truncate each column to its designated width and join with separator.
 
     Columns wider than their width get an ellipsis suffix.
     """
-    parts: List[str] = []
+    parts: list[str] = []
     for col, w in zip(columns, widths):
         if w < 1:
             w = 1
@@ -82,11 +82,11 @@ def truncate_table_row(
 
 
 def compute_column_widths(
-    headers: List[str],
-    rows: List[List[str]],
+    headers: list[str],
+    rows: list[list[str]],
     max_width: int,
     separator: str = " | ",
-) -> List[int]:
+) -> list[int]:
     """Distribute available width proportionally based on content.
 
     Each column gets at least 5 characters.
@@ -98,7 +98,7 @@ def compute_column_widths(
     min_per_col = 5
 
     # Compute natural (max content) width for each column
-    natural: List[int] = []
+    natural: list[int] = []
     for i in range(n_cols):
         col_max = len(headers[i])
         for row in rows:
@@ -131,7 +131,7 @@ def compute_column_widths(
         return natural
 
     # Distribute proportionally, ensuring minimum
-    widths: List[int] = []
+    widths: list[int] = []
     for nat in natural:
         w = max(min_per_col, int(available * nat / total_natural))
         widths.append(w)
@@ -159,9 +159,9 @@ def compute_column_widths(
 
 
 def format_table(
-    headers: List[str],
-    rows: List[List[str]],
-    config: Optional[WidthConfig] = None,
+    headers: list[str],
+    rows: list[list[str]],
+    config: WidthConfig | None = None,
 ) -> str:
     """Format a full table respecting terminal width.
 
@@ -174,7 +174,7 @@ def format_table(
     separator = " | "
     col_widths = compute_column_widths(headers, rows, width, separator)
 
-    lines: List[str] = []
+    lines: list[str] = []
     # Header
     lines.append(truncate_table_row(headers, col_widths, separator))
     # Separator line
@@ -189,7 +189,7 @@ def format_table(
     return "\n".join(lines)
 
 
-def wrap_paragraph(text: str, width: Optional[int] = None) -> str:
+def wrap_paragraph(text: str, width: int | None = None) -> str:
     """Word-wrap text to the given or terminal width."""
     if width is None:
         width = get_effective_width()
@@ -197,7 +197,7 @@ def wrap_paragraph(text: str, width: Optional[int] = None) -> str:
 
 
 def format_progress_bar(
-    progress: float, width: Optional[int] = None, label: str = ""
+    progress: float, width: int | None = None, label: str = ""
 ) -> str:
     """Render a progress bar fitting terminal width.
 

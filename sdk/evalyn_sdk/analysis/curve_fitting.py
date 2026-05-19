@@ -25,11 +25,11 @@ class DistributionFit:
     kurtosis: float       # 3 = normal, >3 = heavy-tailed, <3 = light-tailed
     distribution_type: str  # "normal", "bimodal", "uniform", "skewed_left", "skewed_right"
     is_bimodal: bool = False
-    mode_1: Optional[float] = None
-    mode_2: Optional[float] = None
+    mode_1: float | None = None
+    mode_2: float | None = None
 
-    def as_dict(self) -> Dict[str, Any]:
-        d: Dict[str, Any] = {
+    def as_dict(self) -> dict[str, Any]:
+        d: dict[str, Any] = {
             "metric_id": self.metric_id,
             "sample_count": self.sample_count,
             "mean": round(self.mean, 4),
@@ -59,7 +59,7 @@ class DistributionFit:
 
 def fit_distribution(
     metric_id: str,
-    scores: List[float],
+    scores: list[float],
 ) -> DistributionFit:
     """Fit a distribution to a metric's scores.
 
@@ -152,8 +152,8 @@ def fit_distribution(
 
 
 def fit_all_metrics(
-    scores_by_metric: Dict[str, List[float]],
-) -> Dict[str, DistributionFit]:
+    scores_by_metric: dict[str, list[float]],
+) -> dict[str, DistributionFit]:
     """Fit distributions for all metrics.
 
     Args:
@@ -168,7 +168,7 @@ def fit_all_metrics(
     }
 
 
-def _detect_bimodality(scores: List[float], num_bins: int = 10) -> tuple:
+def _detect_bimodality(scores: list[float], num_bins: int = 10) -> tuple:
     """Detect bimodal distribution using histogram analysis.
 
     Returns (is_bimodal, mode_1, mode_2).

@@ -84,7 +84,7 @@ class SemanticKernelInstrumentor(Instrumentor):
     """Instrumentor for Microsoft Semantic Kernel."""
 
     _instrumented = False
-    _originals: Dict[str, Any] = {}
+    _originals: dict[str, Any] = {}
 
     @property
     def name(self) -> str:

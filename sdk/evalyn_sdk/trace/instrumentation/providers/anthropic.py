@@ -71,8 +71,8 @@ class AnthropicInstrumentor(Instrumentor):
     """Instrumentor for Anthropic SDK (claude client, not Agent SDK)."""
 
     _instrumented = False
-    _original_create: Optional[Any] = None
-    _original_acreate: Optional[Any] = None
+    _original_create: Any | None = None
+    _original_acreate: Any | None = None
 
     @property
     def name(self) -> str:

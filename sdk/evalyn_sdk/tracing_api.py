@@ -14,7 +14,8 @@ Usage:
 from __future__ import annotations
 
 from contextlib import contextmanager
-from typing import Any, Generator
+from typing import Any
+from collections.abc import Generator
 
 from .trace.context import span as _internal_span
 

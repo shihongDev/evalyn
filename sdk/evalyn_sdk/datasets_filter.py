@@ -100,7 +100,7 @@ class FilterExpression:
 class CompoundFilter:
     """A compound filter combining multiple expressions with AND/OR."""
 
-    def __init__(self, expressions: List[FilterExpression], logic: str = "and"):
+    def __init__(self, expressions: list[FilterExpression], logic: str = "and"):
         self.expressions = expressions
         self.logic = logic.lower()
 
@@ -164,7 +164,7 @@ def parse_filter(query: str) -> CompoundFilter:
     return CompoundFilter(expressions, logic)
 
 
-def _parse_single_expression(expr_str: str) -> Optional[FilterExpression]:
+def _parse_single_expression(expr_str: str) -> FilterExpression | None:
     """Parse a single 'field op value' expression."""
     # Try operators from longest to shortest to avoid partial matches
     operators = [
@@ -208,7 +208,7 @@ def _parse_single_expression(expr_str: str) -> Optional[FilterExpression]:
     return None
 
 
-def filter_items(items: List, query: str) -> List:
+def filter_items(items: list, query: str) -> list:
     """Filter dataset items using a query string.
 
     Args:

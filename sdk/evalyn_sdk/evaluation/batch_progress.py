@@ -23,7 +23,7 @@ class ProgressUpdate:
     eta_ms: float = 0.0
     status: str = "running"
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "job_id": self.job_id,
             "completed": self.completed,
@@ -53,7 +53,7 @@ class ProgressConfig:
     show_eta: bool = True
     show_bar: bool = True
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "poll_interval_ms": self.poll_interval_ms,
             "show_eta": self.show_eta,
@@ -61,7 +61,7 @@ class ProgressConfig:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> ProgressConfig:
+    def from_dict(cls, data: dict[str, Any]) -> ProgressConfig:
         return cls(
             poll_interval_ms=data.get("poll_interval_ms", 1000.0),
             show_eta=data.get("show_eta", True),
@@ -76,14 +76,14 @@ class ProgressTracker:
         self,
         job_id: str,
         total: int,
-        config: Optional[ProgressConfig] = None,
+        config: ProgressConfig | None = None,
     ):
         self._job_id = job_id
         self._total = total
         self._config = config or ProgressConfig()
         self._completed = 0
-        self._first_update_time: Optional[float] = None
-        self._last_update_time: Optional[float] = None
+        self._first_update_time: float | None = None
+        self._last_update_time: float | None = None
         self._start_time = time.monotonic()
 
     def update(self, completed: int) -> ProgressUpdate:

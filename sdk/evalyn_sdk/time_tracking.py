@@ -70,7 +70,7 @@ class TimingStats:
 class TimingReport:
     """Full timing report with per-command stats and totals."""
 
-    stats: List[TimingStats]
+    stats: list[TimingStats]
     total_commands: int
     total_time_seconds: float
 
@@ -105,11 +105,11 @@ def log_timing(log_path: str, entry: TimingEntry) -> None:
         f.write(json.dumps(entry.as_dict()) + "\n")
 
 
-def read_timing_log(log_path: str) -> List[TimingEntry]:
+def read_timing_log(log_path: str) -> list[TimingEntry]:
     """Read all TimingEntry records from a JSONL timing log."""
     if not os.path.exists(log_path):
         return []
-    entries: List[TimingEntry] = []
+    entries: list[TimingEntry] = []
     with open(log_path) as f:
         for line in f:
             line = line.strip()
@@ -119,12 +119,12 @@ def read_timing_log(log_path: str) -> List[TimingEntry]:
     return entries
 
 
-def compute_stats(entries: List[TimingEntry]) -> List[TimingStats]:
+def compute_stats(entries: list[TimingEntry]) -> list[TimingStats]:
     """Aggregate per-command timing statistics. Sorted by total_seconds descending."""
-    buckets: Dict[str, List[float]] = {}
+    buckets: dict[str, list[float]] = {}
     for e in entries:
         buckets.setdefault(e.command, []).append(e.duration_seconds)
-    result: List[TimingStats] = []
+    result: list[TimingStats] = []
     for cmd, durations in buckets.items():
         total = sum(durations)
         count = len(durations)
@@ -142,7 +142,7 @@ def compute_stats(entries: List[TimingEntry]) -> List[TimingStats]:
     return result
 
 
-def build_timing_report(entries: List[TimingEntry]) -> TimingReport:
+def build_timing_report(entries: list[TimingEntry]) -> TimingReport:
     """Build a full TimingReport from a list of entries."""
     stats = compute_stats(entries)
     total_commands = len(entries)
@@ -154,7 +154,7 @@ def build_timing_report(entries: List[TimingEntry]) -> TimingReport:
     )
 
 
-def identify_slowest(stats: List[TimingStats], n: int = 5) -> List[TimingStats]:
+def identify_slowest(stats: list[TimingStats], n: int = 5) -> list[TimingStats]:
     """Return the top N slowest commands by average duration."""
     ranked = sorted(stats, key=lambda s: s.avg_seconds, reverse=True)
     return ranked[:n]
@@ -162,7 +162,7 @@ def identify_slowest(stats: List[TimingStats], n: int = 5) -> List[TimingStats]:
 
 def format_timing_report(report: TimingReport) -> str:
     """Format a TimingReport as a human-readable table."""
-    lines: List[str] = []
+    lines: list[str] = []
     lines.append("Timing Report")
     lines.append("=" * 72)
     header = f"{'Command':<20} {'Count':>6} {'Total(s)':>10} {'Avg(s)':>10} {'Min(s)':>10} {'Max(s)':>10}"

@@ -22,9 +22,9 @@ class EvolutionStrategy:
 
     strategy_id: str  # "depth" or "breadth"
     description: str
-    transforms: List[str]
+    transforms: list[str]
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "strategy_id": self.strategy_id,
             "description": self.description,
@@ -32,7 +32,7 @@ class EvolutionStrategy:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> EvolutionStrategy:
+    def from_dict(cls, data: dict[str, Any]) -> EvolutionStrategy:
         return cls(
             strategy_id=data["strategy_id"],
             description=data["description"],
@@ -51,7 +51,7 @@ class EvolvedItem:
     quality_score: float = 0.0
     accepted: bool = True
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "original_text": self.original_text,
             "evolved_text": self.evolved_text,
@@ -62,7 +62,7 @@ class EvolvedItem:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> EvolvedItem:
+    def from_dict(cls, data: dict[str, Any]) -> EvolvedItem:
         return cls(
             original_text=data["original_text"],
             evolved_text=data["evolved_text"],
@@ -79,9 +79,9 @@ class EvolutionConfig:
 
     max_generations: int = 3
     quality_threshold: float = 0.3
-    strategies: List[str] = field(default_factory=lambda: ["depth", "breadth"])
+    strategies: list[str] = field(default_factory=lambda: ["depth", "breadth"])
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "max_generations": self.max_generations,
             "quality_threshold": self.quality_threshold,
@@ -89,7 +89,7 @@ class EvolutionConfig:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> EvolutionConfig:
+    def from_dict(cls, data: dict[str, Any]) -> EvolutionConfig:
         return cls(
             max_generations=data.get("max_generations", 3),
             quality_threshold=data.get("quality_threshold", 0.3),
@@ -101,13 +101,13 @@ class EvolutionConfig:
 class EvolutionReport:
     """Summary of a batch evolution run."""
 
-    items: List[EvolvedItem]
+    items: list[EvolvedItem]
     total_evolved: int
     accepted_count: int
     rejected_count: int
     avg_quality: float
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "items": [item.as_dict() for item in self.items],
             "total_evolved": self.total_evolved,
@@ -117,7 +117,7 @@ class EvolutionReport:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> EvolutionReport:
+    def from_dict(cls, data: dict[str, Any]) -> EvolutionReport:
         return cls(
             items=[EvolvedItem.from_dict(d) for d in data["items"]],
             total_evolved=data["total_evolved"],
@@ -131,7 +131,7 @@ class EvolutionReport:
 # Transform Catalogs
 # ---------------------------------------------------------------------------
 
-DEPTH_TRANSFORMS: List[str] = [
+DEPTH_TRANSFORMS: list[str] = [
     "add_constraint",
     "add_reasoning_step",
     "add_edge_case",
@@ -139,7 +139,7 @@ DEPTH_TRANSFORMS: List[str] = [
     "add_conditional",
 ]
 
-BREADTH_TRANSFORMS: List[str] = [
+BREADTH_TRANSFORMS: list[str] = [
     "topic_variation",
     "domain_transfer",
     "rephrase",
@@ -160,7 +160,7 @@ BREADTH_STRATEGY = EvolutionStrategy(
     transforms=list(BREADTH_TRANSFORMS),
 )
 
-_STRATEGIES: Dict[str, EvolutionStrategy] = {
+_STRATEGIES: dict[str, EvolutionStrategy] = {
     "depth": DEPTH_STRATEGY,
     "breadth": BREADTH_STRATEGY,
 }

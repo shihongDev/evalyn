@@ -15,7 +15,7 @@ class ThinkingBlock:
     token_count: int = 0
     duration_ms: float = 0.0
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "text": self.text,
             "token_count": self.token_count,
@@ -23,7 +23,7 @@ class ThinkingBlock:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> ThinkingBlock:
+    def from_dict(cls, data: dict[str, Any]) -> ThinkingBlock:
         return cls(
             text=data.get("text", ""),
             token_count=data.get("token_count", 0),
@@ -35,13 +35,13 @@ class ThinkingBlock:
 class ThinkingAnalysis:
     """Aggregate analysis of thinking blocks."""
 
-    blocks: List[ThinkingBlock] = field(default_factory=list)
+    blocks: list[ThinkingBlock] = field(default_factory=list)
     total_tokens: int = 0
     total_blocks: int = 0
     avg_block_length: float = 0.0
     has_thinking: bool = False
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "blocks": [b.as_dict() for b in self.blocks],
             "total_tokens": self.total_tokens,
@@ -51,7 +51,7 @@ class ThinkingAnalysis:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> ThinkingAnalysis:
+    def from_dict(cls, data: dict[str, Any]) -> ThinkingAnalysis:
         return cls(
             blocks=[ThinkingBlock.from_dict(b) for b in data.get("blocks", [])],
             total_tokens=data.get("total_tokens", 0),
@@ -77,13 +77,13 @@ class ThinkingAnalysis:
         return "\n".join(lines)
 
 
-def extract_thinking_blocks(response_data: Dict[str, Any]) -> List[ThinkingBlock]:
+def extract_thinking_blocks(response_data: dict[str, Any]) -> list[ThinkingBlock]:
     """Extract thinking blocks from a Claude API response.
 
     Looks for content items with type == "thinking" in response_data["content"].
     """
     content = response_data.get("content", [])
-    blocks: List[ThinkingBlock] = []
+    blocks: list[ThinkingBlock] = []
     for item in content:
         if not isinstance(item, dict):
             continue
@@ -100,7 +100,7 @@ def extract_thinking_blocks(response_data: Dict[str, Any]) -> List[ThinkingBlock
     return blocks
 
 
-def analyze_thinking(blocks: List[ThinkingBlock]) -> ThinkingAnalysis:
+def analyze_thinking(blocks: list[ThinkingBlock]) -> ThinkingAnalysis:
     """Compute aggregate statistics from a list of thinking blocks."""
     if not blocks:
         return ThinkingAnalysis()
@@ -118,7 +118,7 @@ def analyze_thinking(blocks: List[ThinkingBlock]) -> ThinkingAnalysis:
 
 
 def inject_thinking_into_span(
-    span: Span, blocks: List[ThinkingBlock]
+    span: Span, blocks: list[ThinkingBlock]
 ) -> Span:
     """Add thinking blocks to span attributes under 'anthropic.thinking'.
 
@@ -130,7 +130,7 @@ def inject_thinking_into_span(
     return new_span
 
 
-def extract_thinking_from_span(span: Span) -> Optional[ThinkingAnalysis]:
+def extract_thinking_from_span(span: Span) -> ThinkingAnalysis | None:
     """Extract ThinkingAnalysis from a span's attributes.
 
     Returns None if the span has no thinking data.
@@ -149,7 +149,7 @@ def has_thinking(span: Span) -> bool:
     return raw.get("has_thinking", False)
 
 
-def compute_thinking_overhead(spans: List[Span]) -> Dict[str, Any]:
+def compute_thinking_overhead(spans: list[Span]) -> dict[str, Any]:
     """Aggregate thinking statistics across multiple spans.
 
     Returns a dict with:

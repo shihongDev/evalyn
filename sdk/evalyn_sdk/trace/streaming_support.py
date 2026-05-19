@@ -16,7 +16,7 @@ class StreamChunk:
     timestamp_ms: float = 0.0
     token_count: int = 0
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "index": self.index,
             "content": self.content,
@@ -25,7 +25,7 @@ class StreamChunk:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> StreamChunk:
+    def from_dict(cls, data: dict[str, Any]) -> StreamChunk:
         return cls(
             index=data["index"],
             content=data.get("content", ""),
@@ -38,7 +38,7 @@ class StreamChunk:
 class StreamCapture:
     """Captured streaming LLM response data."""
 
-    chunks: List[StreamChunk] = field(default_factory=list)
+    chunks: list[StreamChunk] = field(default_factory=list)
     total_tokens: int = 0
     first_token_ms: float = 0.0
     last_token_ms: float = 0.0
@@ -67,7 +67,7 @@ class StreamCapture:
             return 0.0
         return self.total_tokens / (dur / 1000.0)
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "chunks": [c.as_dict() for c in self.chunks],
             "total_tokens": self.total_tokens,
@@ -77,7 +77,7 @@ class StreamCapture:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> StreamCapture:
+    def from_dict(cls, data: dict[str, Any]) -> StreamCapture:
         return cls(
             chunks=[StreamChunk.from_dict(c) for c in data.get("chunks", [])],
             total_tokens=data.get("total_tokens", 0),
@@ -96,7 +96,7 @@ class StreamingStats:
     avg_tokens_per_second: float = 0.0
     avg_chunks: float = 0.0
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "total_streams": self.total_streams,
             "avg_ttft_ms": self.avg_ttft_ms,
@@ -158,7 +158,7 @@ def inject_stream_into_span(span: Span, capture: StreamCapture) -> Span:
     return new_span
 
 
-def extract_stream_from_span(span: Span) -> Optional[StreamCapture]:
+def extract_stream_from_span(span: Span) -> StreamCapture | None:
     """Extract StreamCapture from span attributes. Returns None if not present."""
     raw = span.attributes.get("stream_capture")
     if not raw or not isinstance(raw, dict):
@@ -166,7 +166,7 @@ def extract_stream_from_span(span: Span) -> Optional[StreamCapture]:
     return StreamCapture.from_dict(raw)
 
 
-def compute_streaming_stats(captures: List[StreamCapture]) -> StreamingStats:
+def compute_streaming_stats(captures: list[StreamCapture]) -> StreamingStats:
     """Aggregate statistics across streaming captures."""
     if not captures:
         return StreamingStats()

@@ -15,7 +15,7 @@ from typing import Any, Dict, List
 # Constants
 # ---------------------------------------------------------------------------
 
-FAILURE_CATEGORIES: Dict[str, str] = {
+FAILURE_CATEGORIES: dict[str, str] = {
     "prompt": "Prompt-related failures (unclear instructions, missing context)",
     "model": "Model-related failures (hallucination, refusal, wrong format)",
     "data": "Data-related failures (corrupted input, edge case, ambiguous)",
@@ -24,7 +24,7 @@ FAILURE_CATEGORIES: Dict[str, str] = {
     "other": "Uncategorized failures",
 }
 
-_FIX_SUGGESTIONS: Dict[str, List[str]] = {
+_FIX_SUGGESTIONS: dict[str, list[str]] = {
     "prompt": [
         "Add more context or examples to the prompt",
         "Clarify instructions with explicit formatting requirements",
@@ -70,9 +70,9 @@ class FailureCategory:
     name: str
     description: str = ""
     item_count: int = 0
-    examples: List[str] = field(default_factory=list)
+    examples: list[str] = field(default_factory=list)
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "name": self.name,
             "description": self.description,
@@ -91,7 +91,7 @@ class CategorizedFailure:
     confidence: float = 0.0
     evidence: str = ""
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "item_id": self.item_id,
             "category": self.category,
@@ -105,12 +105,12 @@ class CategorizedFailure:
 class TaxonomyReport:
     """Aggregated taxonomy report across all failures."""
 
-    categories: List[FailureCategory] = field(default_factory=list)
-    categorized: List[CategorizedFailure] = field(default_factory=list)
+    categories: list[FailureCategory] = field(default_factory=list)
+    categorized: list[CategorizedFailure] = field(default_factory=list)
     uncategorized_count: int = 0
     total_failures: int = 0
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "categories": [c.as_dict() for c in self.categories],
             "categorized": [c.as_dict() for c in self.categorized],
@@ -119,7 +119,7 @@ class TaxonomyReport:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> TaxonomyReport:
+    def from_dict(cls, data: dict[str, Any]) -> TaxonomyReport:
         return cls(
             categories=[
                 FailureCategory(
@@ -146,7 +146,7 @@ class TaxonomyReport:
 
     def format_text(self) -> str:
         """Format report as human-readable text."""
-        lines: List[str] = []
+        lines: list[str] = []
         lines.append(f"Failure Taxonomy ({self.total_failures} total failures)")
         lines.append("-" * 50)
         for cat in self.categories:
@@ -167,7 +167,7 @@ class TaxonomyReport:
 # ---------------------------------------------------------------------------
 
 
-def classify_failure(item: Dict[str, Any]) -> CategorizedFailure:
+def classify_failure(item: dict[str, Any]) -> CategorizedFailure:
     """Classify a single failure item based on heuristics.
 
     Item expected keys: item_id, output, error, metric_id.
@@ -240,14 +240,14 @@ def classify_failure(item: Dict[str, Any]) -> CategorizedFailure:
 # ---------------------------------------------------------------------------
 
 
-def build_taxonomy(failures: List[Dict[str, Any]]) -> TaxonomyReport:
+def build_taxonomy(failures: list[dict[str, Any]]) -> TaxonomyReport:
     """Classify all failures and aggregate into a taxonomy report."""
     if not failures:
         return TaxonomyReport(total_failures=0)
 
-    categorized: List[CategorizedFailure] = []
-    counts: Dict[str, int] = {}
-    examples: Dict[str, List[str]] = {}
+    categorized: list[CategorizedFailure] = []
+    counts: dict[str, int] = {}
+    examples: dict[str, list[str]] = {}
 
     for item in failures:
         cf = classify_failure(item)
@@ -257,7 +257,7 @@ def build_taxonomy(failures: List[Dict[str, Any]]) -> TaxonomyReport:
             examples[cf.category] = []
         examples[cf.category].append(cf.item_id)
 
-    categories: List[FailureCategory] = []
+    categories: list[FailureCategory] = []
     for cat_name, cat_desc in FAILURE_CATEGORIES.items():
         count = counts.get(cat_name, 0)
         if count > 0:
@@ -283,22 +283,22 @@ def build_taxonomy(failures: List[Dict[str, Any]]) -> TaxonomyReport:
 # ---------------------------------------------------------------------------
 
 
-def get_category_distribution(report: TaxonomyReport) -> Dict[str, int]:
+def get_category_distribution(report: TaxonomyReport) -> dict[str, int]:
     """Return count per category from a taxonomy report."""
-    dist: Dict[str, int] = {}
+    dist: dict[str, int] = {}
     for cat in report.categories:
         dist[cat.name] = cat.item_count
     return dist
 
 
-def suggest_category_fixes(category: str) -> List[str]:
+def suggest_category_fixes(category: str) -> list[str]:
     """Return fix suggestions for a given failure category."""
     return list(_FIX_SUGGESTIONS.get(category, _FIX_SUGGESTIONS["other"]))
 
 
 def render_taxonomy_tree(report: TaxonomyReport) -> str:
     """Render an ASCII tree of failure categories with counts."""
-    lines: List[str] = []
+    lines: list[str] = []
     lines.append(f"Failures ({report.total_failures})")
 
     cats_with_count = [c for c in report.categories if c.item_count > 0]

@@ -18,7 +18,7 @@ from typing import Any, Dict, Optional
 
 ANSI_RESET: str = "\033[0m"
 
-ANSI_COLORS: Dict[str, str] = {
+ANSI_COLORS: dict[str, str] = {
     "red": "\033[31m",
     "green": "\033[32m",
     "yellow": "\033[33m",
@@ -43,7 +43,7 @@ class ColorDef:
     ansi_code: str
     description: str = ""
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "name": self.name,
             "ansi_code": self.ansi_code,
@@ -51,7 +51,7 @@ class ColorDef:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> ColorDef:
+    def from_dict(cls, data: dict[str, Any]) -> ColorDef:
         return cls(
             name=data["name"],
             ansi_code=data["ansi_code"],
@@ -64,16 +64,16 @@ class Theme:
     """A named color theme mapping roles to ANSI codes."""
 
     name: str
-    colors: Dict[str, str] = field(default_factory=dict)
+    colors: dict[str, str] = field(default_factory=dict)
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "name": self.name,
             "colors": dict(self.colors),
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> Theme:
+    def from_dict(cls, data: dict[str, Any]) -> Theme:
         return cls(
             name=data["name"],
             colors=dict(data.get("colors", {})),
@@ -132,7 +132,7 @@ NO_COLOR_THEME = Theme(
     },
 )
 
-_BUILTIN_THEMES: Dict[str, Theme] = {
+_BUILTIN_THEMES: dict[str, Theme] = {
     "default": DEFAULT_THEME,
     "dark": DARK_THEME,
     "light": LIGHT_THEME,
@@ -145,7 +145,7 @@ _BUILTIN_THEMES: Dict[str, Theme] = {
 # ---------------------------------------------------------------------------
 
 
-def colorize(text: str, role: str, theme: Optional[Theme] = None) -> str:
+def colorize(text: str, role: str, theme: Theme | None = None) -> str:
     """Wrap text in ANSI codes for the given role.
 
     If the NO_COLOR environment variable is set, returns plain text.
@@ -176,7 +176,7 @@ def get_active_theme(theme_name: str = "") -> Theme:
     return _BUILTIN_THEMES.get(theme_name, DEFAULT_THEME)
 
 
-def load_theme_from_config(config: Dict[str, Any]) -> Theme:
+def load_theme_from_config(config: dict[str, Any]) -> Theme:
     """Load a theme from a configuration dict.
 
     Expected format: {"name": "my_theme", "colors": {"role": "ansi_code", ...}}

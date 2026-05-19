@@ -10,12 +10,12 @@ class TemplateConfig:
 
     name: str
     goal: str = ""
-    metrics: List[str] = field(default_factory=list)
+    metrics: list[str] = field(default_factory=list)
     provider: str = "gemini"
     profile: str = "standard"
     description: str = ""
 
-    def as_dict(self) -> Dict:
+    def as_dict(self) -> dict:
         return {
             "name": self.name,
             "goal": self.goal,
@@ -26,7 +26,7 @@ class TemplateConfig:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict) -> TemplateConfig:
+    def from_dict(cls, data: dict) -> TemplateConfig:
         return cls(
             name=data["name"],
             goal=data.get("goal", ""),
@@ -41,18 +41,18 @@ class TemplateConfig:
 class TemplateLibrary:
     """Collection of pipeline templates."""
 
-    templates: Dict[str, TemplateConfig] = field(default_factory=dict)
+    templates: dict[str, TemplateConfig] = field(default_factory=dict)
 
     def add(self, config: TemplateConfig) -> None:
         self.templates[config.name] = config
 
-    def get(self, name: str) -> Optional[TemplateConfig]:
+    def get(self, name: str) -> TemplateConfig | None:
         return self.templates.get(name)
 
-    def list_all(self) -> List[TemplateConfig]:
+    def list_all(self) -> list[TemplateConfig]:
         return list(self.templates.values())
 
-    def list_by_goal(self, goal: str) -> List[TemplateConfig]:
+    def list_by_goal(self, goal: str) -> list[TemplateConfig]:
         return [t for t in self.templates.values() if t.goal == goal]
 
     def remove(self, name: str) -> bool:
@@ -61,13 +61,13 @@ class TemplateLibrary:
             return True
         return False
 
-    def as_dict(self) -> Dict:
+    def as_dict(self) -> dict:
         return {
             "templates": {k: v.as_dict() for k, v in self.templates.items()},
         }
 
     @classmethod
-    def from_dict(cls, data: Dict) -> TemplateLibrary:
+    def from_dict(cls, data: dict) -> TemplateLibrary:
         templates = {
             k: TemplateConfig.from_dict(v)
             for k, v in data.get("templates", {}).items()
@@ -75,7 +75,7 @@ class TemplateLibrary:
         return cls(templates=templates)
 
 
-BUILTIN_TEMPLATES: Dict[str, TemplateConfig] = {
+BUILTIN_TEMPLATES: dict[str, TemplateConfig] = {
     "safety-gate": TemplateConfig(
         "safety-gate",
         "safety",
@@ -118,7 +118,7 @@ def get_template(name: str) -> TemplateConfig:
     raise ValueError(f"Template not found: {name}")
 
 
-def list_templates() -> List[TemplateConfig]:
+def list_templates() -> list[TemplateConfig]:
     """Return all built-in templates."""
     return list(BUILTIN_TEMPLATES.values())
 
@@ -128,7 +128,7 @@ def get_default_library() -> TemplateLibrary:
     return TemplateLibrary(templates=dict(BUILTIN_TEMPLATES))
 
 
-def suggest_template(goal: str) -> Optional[TemplateConfig]:
+def suggest_template(goal: str) -> TemplateConfig | None:
     """Suggest the best template for a given goal. Returns None if no match."""
     for t in BUILTIN_TEMPLATES.values():
         if t.goal == goal:

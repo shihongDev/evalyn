@@ -25,7 +25,7 @@ class KeyAction:
     action: str  # "pass" / "fail" / "confidence" / "skip" / "undo" / "quit"
     value: Any = None
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "key": self.key,
             "action": self.action,
@@ -33,7 +33,7 @@ class KeyAction:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> KeyAction:
+    def from_dict(cls, data: dict[str, Any]) -> KeyAction:
         return cls(
             key=data["key"],
             action=data["action"],
@@ -48,10 +48,10 @@ class AnnotationItem:
     item_id: str
     input_text: str
     output_text: str
-    metric_scores: Dict[str, float]
+    metric_scores: dict[str, float]
     status: str = "pending"  # "pending" / "annotated" / "skipped"
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "item_id": self.item_id,
             "input_text": self.input_text,
@@ -61,7 +61,7 @@ class AnnotationItem:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> AnnotationItem:
+    def from_dict(cls, data: dict[str, Any]) -> AnnotationItem:
         return cls(
             item_id=data["item_id"],
             input_text=data["input_text"],
@@ -75,12 +75,12 @@ class AnnotationItem:
 class BatchAnnotation:
     """A batch of annotation items with collected labels."""
 
-    items: List[AnnotationItem]
+    items: list[AnnotationItem]
     batch_id: str
     batch_size: int
-    annotations: Dict[str, float] = field(default_factory=dict)  # item_id -> label
+    annotations: dict[str, float] = field(default_factory=dict)  # item_id -> label
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "items": [item.as_dict() for item in self.items],
             "batch_id": self.batch_id,
@@ -89,7 +89,7 @@ class BatchAnnotation:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> BatchAnnotation:
+    def from_dict(cls, data: dict[str, Any]) -> BatchAnnotation:
         return cls(
             items=[AnnotationItem.from_dict(i) for i in data.get("items", [])],
             batch_id=data["batch_id"],
@@ -102,7 +102,7 @@ class BatchAnnotation:
 # Default Keymap
 # ---------------------------------------------------------------------------
 
-DEFAULT_KEYMAP: Dict[str, KeyAction] = {
+DEFAULT_KEYMAP: dict[str, KeyAction] = {
     "y": KeyAction(key="y", action="pass"),
     "n": KeyAction(key="n", action="fail"),
     "1": KeyAction(key="1", action="confidence", value=1),
@@ -125,7 +125,7 @@ class UndoStack:
     """Stack for tracking annotation history to support undo."""
 
     def __init__(self) -> None:
-        self._stack: List[Tuple[str, str, Optional[float]]] = []
+        self._stack: list[tuple[str, str, float | None]] = []
 
     def push(self, item_id: str, previous_status: str, previous_label: float | None) -> None:
         """Push a state snapshot onto the undo stack."""
@@ -172,7 +172,7 @@ def process_key_action(
         return item
 
     # Save current state for undo before modifying
-    current_label: Optional[float] = None
+    current_label: float | None = None
     undo_stack.push(item.item_id, item.status, current_label)
 
     if action.action == "pass" or action.action == "fail" or action.action == "confidence":

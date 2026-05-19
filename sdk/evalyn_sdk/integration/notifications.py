@@ -23,12 +23,12 @@ class NotificationConfig:
     platform: str = "slack"  # "slack", "discord", "generic"
     webhook_url: str = ""
     channel: str = ""
-    events: List[str] = field(
+    events: list[str] = field(
         default_factory=lambda: ["completion", "failure", "regression"]
     )
     mention_on_failure: str = ""
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "platform": self.platform,
             "webhook_url": self.webhook_url,
@@ -38,7 +38,7 @@ class NotificationConfig:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> NotificationConfig:
+    def from_dict(cls, data: dict[str, Any]) -> NotificationConfig:
         return cls(
             platform=data.get("platform", "slack"),
             webhook_url=data.get("webhook_url", ""),
@@ -55,10 +55,10 @@ class NotificationMessage:
     title: str
     body: str
     severity: str = "info"  # "info", "warning", "error"
-    fields: Dict[str, str] = field(default_factory=dict)
+    fields: dict[str, str] = field(default_factory=dict)
     timestamp: str = ""
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "title": self.title,
             "body": self.body,
@@ -77,7 +77,7 @@ class NotificationResult:
     error: str = ""
     message_preview: str = ""
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "sent": self.sent,
             "platform": self.platform,
@@ -108,7 +108,7 @@ def build_completion_message(
     duration_ms: float = 0.0,
 ) -> NotificationMessage:
     """Build a notification for evaluation completion."""
-    fields: Dict[str, str] = {
+    fields: dict[str, str] = {
         "run_id": run_id,
         "pass_rate": f"{pass_rate:.1%}",
         "total_items": str(total_items),
@@ -133,7 +133,7 @@ def build_failure_message(
     metric_id: str = "",
 ) -> NotificationMessage:
     """Build a notification for evaluation failure."""
-    fields: Dict[str, str] = {
+    fields: dict[str, str] = {
         "run_id": run_id,
         "error": error,
     }
@@ -155,12 +155,12 @@ def build_failure_message(
 
 def build_regression_message(
     run_id: str,
-    regressions: List[str],
+    regressions: list[str],
     pass_rate_delta: float = 0.0,
 ) -> NotificationMessage:
     """Build a notification for detected regressions."""
     count = len(regressions)
-    fields: Dict[str, str] = {
+    fields: dict[str, str] = {
         "run_id": run_id,
         "regression_count": str(count),
         "regressions": ", ".join(regressions),
@@ -205,11 +205,11 @@ _DISCORD_SEVERITY_COLORS = {
 def format_slack_payload(
     message: NotificationMessage,
     config: NotificationConfig,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Format a notification as a Slack webhook payload with blocks."""
     color = _SEVERITY_COLORS.get(message.severity, "#36a64f")
 
-    blocks: List[Dict[str, Any]] = [
+    blocks: list[dict[str, Any]] = [
         {
             "type": "header",
             "text": {"type": "plain_text", "text": message.title},
@@ -239,7 +239,7 @@ def format_slack_payload(
             }
         )
 
-    payload: Dict[str, Any] = {
+    payload: dict[str, Any] = {
         "blocks": blocks,
         "attachments": [{"color": color}],
     }
@@ -253,15 +253,15 @@ def format_slack_payload(
 def format_discord_payload(
     message: NotificationMessage,
     config: NotificationConfig,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Format a notification as a Discord webhook payload with embeds."""
     color = _DISCORD_SEVERITY_COLORS.get(message.severity, 0x36A64F)
 
-    embed_fields: List[Dict[str, Any]] = []
+    embed_fields: list[dict[str, Any]] = []
     for key, value in message.fields.items():
         embed_fields.append({"name": key, "value": value, "inline": True})
 
-    embed: Dict[str, Any] = {
+    embed: dict[str, Any] = {
         "title": message.title,
         "description": message.body,
         "color": color,

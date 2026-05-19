@@ -7,7 +7,8 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass, field
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any, Dict, List, Optional
+from collections.abc import Callable
 
 
 @dataclass
@@ -18,7 +19,7 @@ class JSONOutputConfig:
     streaming: bool = False
     include_metadata: bool = True
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "pretty": self.pretty,
             "streaming": self.streaming,
@@ -26,7 +27,7 @@ class JSONOutputConfig:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> JSONOutputConfig:
+    def from_dict(cls, data: dict[str, Any]) -> JSONOutputConfig:
         return cls(
             pretty=data.get("pretty", False),
             streaming=data.get("streaming", False),
@@ -42,11 +43,11 @@ class CommandResult:
     status: str  # "success", "failure", "error"
     exit_code: int
     data: Any = None
-    errors: List[str] = field(default_factory=list)
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    errors: list[str] = field(default_factory=list)
+    metadata: dict[str, Any] = field(default_factory=dict)
 
-    def as_dict(self) -> Dict[str, Any]:
-        d: Dict[str, Any] = {
+    def as_dict(self) -> dict[str, Any]:
+        d: dict[str, Any] = {
             "command": self.command,
             "status": self.status,
             "exit_code": self.exit_code,
@@ -59,7 +60,7 @@ class CommandResult:
         return d
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> CommandResult:
+    def from_dict(cls, data: dict[str, Any]) -> CommandResult:
         return cls(
             command=data.get("command", ""),
             status=data.get("status", "error"),
@@ -79,7 +80,7 @@ class ProgressEvent:
     message: str
     timestamp: str = ""
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "event_type": self.event_type,
             "progress": self.progress,
@@ -88,7 +89,7 @@ class ProgressEvent:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> ProgressEvent:
+    def from_dict(cls, data: dict[str, Any]) -> ProgressEvent:
         return cls(
             event_type=data.get("event_type", ""),
             progress=data.get("progress", 0.0),
@@ -98,7 +99,7 @@ class ProgressEvent:
 
 
 def format_json_output(
-    result: CommandResult, config: Optional[JSONOutputConfig] = None
+    result: CommandResult, config: JSONOutputConfig | None = None
 ) -> str:
     """Format CommandResult as JSON string."""
     if config is None:
@@ -111,9 +112,9 @@ def format_json_output(
     return json.dumps(d, separators=(",", ":"))
 
 
-def format_jsonl_stream(events: List[ProgressEvent]) -> str:
+def format_jsonl_stream(events: list[ProgressEvent]) -> str:
     """Format progress events as JSONL - one per line."""
-    lines: List[str] = []
+    lines: list[str] = []
     for event in events:
         lines.append(json.dumps(event.as_dict(), separators=(",", ":")))
     return "\n".join(lines)
@@ -125,7 +126,7 @@ def format_progress_event(event: ProgressEvent) -> str:
 
 
 def create_success_result(
-    command: str, data: Any, metadata: Optional[Dict[str, Any]] = None
+    command: str, data: Any, metadata: dict[str, Any] | None = None
 ) -> CommandResult:
     """Create a success result with exit_code=0."""
     return CommandResult(
@@ -138,7 +139,7 @@ def create_success_result(
 
 
 def create_failure_result(
-    command: str, errors: List[str], data: Any = None
+    command: str, errors: list[str], data: Any = None
 ) -> CommandResult:
     """Create a failure result with exit_code=1."""
     return CommandResult(

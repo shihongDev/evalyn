@@ -1,7 +1,8 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any, Dict, List, Optional
+from collections.abc import Callable
 
 
 @dataclass
@@ -13,7 +14,7 @@ class APIRoute:
     handler_name: str
     description: str = ""
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "method": self.method,
             "path": self.path,
@@ -28,11 +29,11 @@ class APIRequest:
 
     method: str
     path: str
-    query_params: Dict[str, str] = field(default_factory=dict)
-    body: Optional[Dict[str, Any]] = None
-    headers: Dict[str, str] = field(default_factory=dict)
+    query_params: dict[str, str] = field(default_factory=dict)
+    body: dict[str, Any] | None = None
+    headers: dict[str, str] = field(default_factory=dict)
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "method": self.method,
             "path": self.path,
@@ -42,7 +43,7 @@ class APIRequest:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> APIRequest:
+    def from_dict(cls, data: dict[str, Any]) -> APIRequest:
         return cls(
             method=data.get("method", "GET"),
             path=data.get("path", "/"),
@@ -57,11 +58,11 @@ class APIResponse:
     """Outgoing API response."""
 
     status_code: int = 200
-    body: Dict[str, Any] = field(default_factory=dict)
-    headers: Dict[str, str] = field(default_factory=dict)
+    body: dict[str, Any] = field(default_factory=dict)
+    headers: dict[str, str] = field(default_factory=dict)
     error: str = ""
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "status_code": self.status_code,
             "body": dict(self.body),
@@ -81,10 +82,10 @@ class APIConfig:
     host: str = "0.0.0.0"
     port: int = 8080
     debug: bool = False
-    cors_origins: List[str] = field(default_factory=lambda: ["*"])
+    cors_origins: list[str] = field(default_factory=lambda: ["*"])
     api_key_required: bool = False
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "host": self.host,
             "port": self.port,
@@ -94,7 +95,7 @@ class APIConfig:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> APIConfig:
+    def from_dict(cls, data: dict[str, Any]) -> APIConfig:
         return cls(
             host=data.get("host", "0.0.0.0"),
             port=data.get("port", 8080),
@@ -108,8 +109,8 @@ class APIRouter:
     """Route requests to handlers."""
 
     def __init__(self) -> None:
-        self._routes: List[APIRoute] = []
-        self._handlers: Dict[str, Callable] = {}
+        self._routes: list[APIRoute] = []
+        self._handlers: dict[str, Callable] = {}
 
     def register(
         self,
@@ -129,7 +130,7 @@ class APIRouter:
         self._routes.append(route)
         self._handlers[f"{method.upper()} {path}"] = handler
 
-    def match(self, method: str, path: str) -> Optional[APIRoute]:
+    def match(self, method: str, path: str) -> APIRoute | None:
         """Find matching route for method and path.
 
         Supports simple path parameter matching: a route registered as
@@ -161,13 +162,13 @@ class APIRouter:
         handler = self._handlers[key]
         return handler(request)
 
-    def list_routes(self) -> List[APIRoute]:
+    def list_routes(self) -> list[APIRoute]:
         """Return all registered routes."""
         return list(self._routes)
 
-    def generate_openapi_spec(self) -> Dict[str, Any]:
+    def generate_openapi_spec(self) -> dict[str, Any]:
         """Generate a basic OpenAPI 3.0 spec from registered routes."""
-        paths: Dict[str, Any] = {}
+        paths: dict[str, Any] = {}
         for route in self._routes:
             method_lower = route.method.lower()
             if route.path not in paths:

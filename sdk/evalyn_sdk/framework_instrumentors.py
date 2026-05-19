@@ -17,9 +17,9 @@ class FrameworkSpec:
     name: str
     module_path: str
     detect_fn_hint: str
-    entry_points: List[str]
+    entry_points: list[str]
 
-    def as_dict(self) -> Dict[str, object]:
+    def as_dict(self) -> dict[str, object]:
         return {
             "framework_id": self.framework_id,
             "name": self.name,
@@ -29,7 +29,7 @@ class FrameworkSpec:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, object]) -> FrameworkSpec:
+    def from_dict(cls, data: dict[str, object]) -> FrameworkSpec:
         return cls(
             framework_id=str(data["framework_id"]),
             name=str(data["name"]),
@@ -48,7 +48,7 @@ class FrameworkDetectionResult:
     version: str = ""
     confidence: float = 1.0
 
-    def as_dict(self) -> Dict[str, object]:
+    def as_dict(self) -> dict[str, object]:
         return {
             "framework_id": self.framework_id,
             "detected": self.detected,
@@ -57,7 +57,7 @@ class FrameworkDetectionResult:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, object]) -> FrameworkDetectionResult:
+    def from_dict(cls, data: dict[str, object]) -> FrameworkDetectionResult:
         return cls(
             framework_id=str(data["framework_id"]),
             detected=bool(data["detected"]),
@@ -70,27 +70,27 @@ class FrameworkRegistry:
     """Registry of AI/ML framework specs for instrumentation."""
 
     def __init__(self) -> None:
-        self._frameworks: Dict[str, FrameworkSpec] = {}
+        self._frameworks: dict[str, FrameworkSpec] = {}
 
     def register(self, spec: FrameworkSpec) -> None:
         """Register a framework spec. Overwrites if framework_id already exists."""
         self._frameworks[spec.framework_id] = spec
 
-    def get(self, framework_id: str) -> Optional[FrameworkSpec]:
+    def get(self, framework_id: str) -> FrameworkSpec | None:
         """Return the spec for a framework, or None if not registered."""
         return self._frameworks.get(framework_id)
 
-    def list_frameworks(self) -> List[FrameworkSpec]:
+    def list_frameworks(self) -> list[FrameworkSpec]:
         """Return all registered framework specs in insertion order."""
         return list(self._frameworks.values())
 
-    def detect_installed(self) -> List[FrameworkDetectionResult]:
+    def detect_installed(self) -> list[FrameworkDetectionResult]:
         """Try importing each framework module and return detection results.
 
         Uses importlib.util.find_spec to check without actually importing.
         If found, attempts to read __version__ from the module.
         """
-        results: List[FrameworkDetectionResult] = []
+        results: list[FrameworkDetectionResult] = []
         for spec in self._frameworks.values():
             found = importlib.util.find_spec(spec.module_path) is not None
             version = ""
@@ -116,7 +116,7 @@ class FrameworkRegistry:
 # Built-in framework definitions
 # ---------------------------------------------------------------------------
 
-BUILTIN_FRAMEWORKS: List[FrameworkSpec] = [
+BUILTIN_FRAMEWORKS: list[FrameworkSpec] = [
     FrameworkSpec(
         framework_id="crewai",
         name="CrewAI",
@@ -170,7 +170,7 @@ def create_default_registry() -> FrameworkRegistry:
     return registry
 
 
-def format_framework_status(results: List[FrameworkDetectionResult]) -> str:
+def format_framework_status(results: list[FrameworkDetectionResult]) -> str:
     """Format a text table showing detected frameworks.
 
     Columns: Framework | Detected | Version | Confidence

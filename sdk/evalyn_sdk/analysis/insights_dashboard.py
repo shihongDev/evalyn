@@ -23,8 +23,8 @@ from .insights import InsightsReport
 def generate_insights_html(
     run_analysis: RunAnalysis,
     insights_report: InsightsReport,
-    panel_discussion: Optional[Any] = None,
-    dataset_items: Optional[List[Dict[str, Any]]] = None,
+    panel_discussion: Any | None = None,
+    dataset_items: list[dict[str, Any]] | None = None,
 ) -> str:
     """Generate self-contained HTML insights dashboard.
 
@@ -93,7 +93,7 @@ def generate_insights_html(
 # ---------------------------------------------------------------------------
 
 
-def _build_pass_rate_data(metrics: list) -> Dict[str, Any]:
+def _build_pass_rate_data(metrics: list) -> dict[str, Any]:
     labels = []
     values = []
     colors = []
@@ -114,7 +114,7 @@ def _build_pass_rate_data(metrics: list) -> Dict[str, Any]:
     return {"labels": labels, "values": values, "colors": colors}
 
 
-def _build_radar_data(metrics: list) -> Dict[str, Any]:
+def _build_radar_data(metrics: list) -> dict[str, Any]:
     labels = [m.metric_id for m in metrics]
     values = [
         round(m.pass_rate * 100, 1) if m.pass_rate is not None else 0
@@ -123,7 +123,7 @@ def _build_radar_data(metrics: list) -> Dict[str, Any]:
     return {"labels": labels, "values": values}
 
 
-def _build_histogram_data(run_analysis: RunAnalysis) -> List[Dict[str, Any]]:
+def _build_histogram_data(run_analysis: RunAnalysis) -> list[dict[str, Any]]:
     result = []
     for mid in sorted(run_analysis.metric_stats.keys()):
         ms = run_analysis.metric_stats[mid]
@@ -146,8 +146,8 @@ def _build_histogram_data(run_analysis: RunAnalysis) -> List[Dict[str, Any]]:
 
 def _build_scatter_data(
     run_analysis: RunAnalysis,
-    dataset_items: Optional[List[Dict[str, Any]]],
-) -> List[Dict[str, Any]]:
+    dataset_items: list[dict[str, Any]] | None,
+) -> list[dict[str, Any]]:
     if not dataset_items:
         return []
 
@@ -188,8 +188,8 @@ def _build_scatter_data(
 
 def _build_correlation_data(
     run_analysis: RunAnalysis,
-    metric_ids: List[str],
-) -> Optional[Dict[str, Any]]:
+    metric_ids: list[str],
+) -> dict[str, Any] | None:
     if len(metric_ids) < 2:
         return None
 
@@ -217,7 +217,7 @@ def _build_correlation_data(
     return {"labels": metric_ids, "matrix": matrix}
 
 
-def _build_regression_data(insights_report: InsightsReport) -> List[Dict[str, Any]]:
+def _build_regression_data(insights_report: InsightsReport) -> list[dict[str, Any]]:
     return [
         {
             "metric_id": r.metric_id,
@@ -374,7 +374,7 @@ def _render_scatter(scatter_data: list) -> str:
 </div>"""
 
 
-def _render_correlation_matrix(correlation_data: Optional[dict]) -> str:
+def _render_correlation_matrix(correlation_data: dict | None) -> str:
     if not correlation_data:
         return ""
 
@@ -456,7 +456,7 @@ def _render_recommendations(report: InsightsReport) -> str:
 </div>"""
 
 
-def _render_expert_panel(panel_discussion: Optional[Any]) -> str:
+def _render_expert_panel(panel_discussion: Any | None) -> str:
     if panel_discussion is None:
         return ""
 
@@ -717,7 +717,7 @@ def _get_js(
     radar_data: dict,
     histogram_data: list,
     scatter_data: list,
-    correlation_data: Optional[dict],
+    correlation_data: dict | None,
     regression_data: list,
 ) -> str:
     return f"""<script>

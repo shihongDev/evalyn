@@ -137,7 +137,7 @@ def _explain_tool_call_sequence(result) -> str:
 
 
 # Registry of metric-specific explainers
-_EXPLAINERS: Dict[str, Any] = {
+_EXPLAINERS: dict[str, Any] = {
     "json_valid": _explain_json_valid,
     "nonempty_output": _explain_nonempty_output,
     "regex_match": _explain_regex_match,

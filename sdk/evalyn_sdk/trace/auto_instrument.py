@@ -26,7 +26,8 @@ import functools
 import inspect
 import time
 import uuid
-from typing import Any, Callable, Dict, Optional
+from typing import Any, Dict, Optional
+from collections.abc import Callable
 
 # Import from the new instrumentation module
 from .instrumentation.registry import get_registry
@@ -98,7 +99,7 @@ class _PatchedStateProxy:
     def get(self, key: str, default: bool = False) -> bool:
         return get_registry().is_instrumented(key)
 
-    def copy(self) -> Dict[str, bool]:
+    def copy(self) -> dict[str, bool]:
         registry = get_registry()
         return {
             name: registry.is_instrumented(name)
@@ -109,7 +110,7 @@ class _PatchedStateProxy:
 _patched = _PatchedStateProxy()
 
 
-def patch_all() -> Dict[str, bool]:
+def patch_all() -> dict[str, bool]:
     """
     Patch all supported LLM libraries.
 
@@ -136,7 +137,7 @@ def is_patched(library: str) -> bool:
 # =============================================================================
 
 
-def trace(name: Optional[str] = None):
+def trace(name: str | None = None):
     """
     Lightweight decorator for tracing internal function calls.
 
@@ -263,7 +264,7 @@ def trace(name: Optional[str] = None):
 _auto_patched = False
 
 
-def ensure_patched() -> Dict[str, bool]:
+def ensure_patched() -> dict[str, bool]:
     """Lazily patch all libraries when first needed (not at import time).
 
     This is called automatically when starting a trace. Call this explicitly
@@ -279,4 +280,4 @@ def ensure_patched() -> Dict[str, bool]:
 
 
 # Placeholder for langchain handler (populated on patch_langchain)
-langchain_handler: Optional[Any] = None
+langchain_handler: Any | None = None

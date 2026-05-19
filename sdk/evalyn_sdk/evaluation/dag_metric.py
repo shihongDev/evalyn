@@ -23,12 +23,12 @@ class DAGNode:
 
     id: str
     condition: str  # e.g. 'len(output) > 10' or '"keyword" in output'
-    true_branch: Optional[str] = None   # next node id when condition is True
-    false_branch: Optional[str] = None  # next node id when condition is False
-    score: Optional[float] = None       # leaf score (used when no branches)
+    true_branch: str | None = None   # next node id when condition is True
+    false_branch: str | None = None  # next node id when condition is False
+    score: float | None = None       # leaf score (used when no branches)
     label: str = ""
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "id": self.id,
             "condition": self.condition,
@@ -39,7 +39,7 @@ class DAGNode:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> DAGNode:
+    def from_dict(cls, data: dict[str, Any]) -> DAGNode:
         return cls(
             id=data["id"],
             condition=data.get("condition", ""),
@@ -55,11 +55,11 @@ class DAGMetric:
     """A complete decision-tree metric."""
 
     name: str
-    nodes: Dict[str, DAGNode] = field(default_factory=dict)
+    nodes: dict[str, DAGNode] = field(default_factory=dict)
     root_id: str = ""
     description: str = ""
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "name": self.name,
             "nodes": {nid: node.as_dict() for nid, node in self.nodes.items()},
@@ -68,7 +68,7 @@ class DAGMetric:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> DAGMetric:
+    def from_dict(cls, data: dict[str, Any]) -> DAGMetric:
         nodes = {
             nid: DAGNode.from_dict(ndata)
             for nid, ndata in data.get("nodes", {}).items()
@@ -87,10 +87,10 @@ class DAGResult:
 
     metric_name: str
     score: float
-    path: List[str]                          # node ids traversed
-    decisions: List[Tuple[str, bool]]        # (condition, result) pairs
+    path: list[str]                          # node ids traversed
+    decisions: list[tuple[str, bool]]        # (condition, result) pairs
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "metric_name": self.metric_name,
             "score": self.score,
@@ -119,7 +119,7 @@ def _compare(actual: int, op: str, expected: int) -> bool:
     return False
 
 
-def _check_condition(condition: str, context: Dict[str, Any]) -> bool:
+def _check_condition(condition: str, context: dict[str, Any]) -> bool:
     """Parse and check a simple condition against context.
 
     Supported forms:
@@ -189,7 +189,7 @@ _evaluate_condition = _check_condition
 # DAG walker
 # ---------------------------------------------------------------------------
 
-def evaluate_dag(dag: DAGMetric, context: Dict[str, Any]) -> DAGResult:
+def evaluate_dag(dag: DAGMetric, context: dict[str, Any]) -> DAGResult:
     """Walk the DAG from root and produce a score.
 
     At each node the condition is checked against *context*. The walk
@@ -198,8 +198,8 @@ def evaluate_dag(dag: DAGMetric, context: Dict[str, Any]) -> DAGResult:
 
     Context keys: "input", "output", "output_length", "input_length".
     """
-    path: List[str] = []
-    decisions: List[Tuple[str, bool]] = []
+    path: list[str] = []
+    decisions: list[tuple[str, bool]] = []
     score = 0.0
 
     current_id = dag.root_id
@@ -246,7 +246,7 @@ def evaluate_dag(dag: DAGMetric, context: Dict[str, Any]) -> DAGResult:
 
 def build_simple_dag(
     name: str,
-    conditions: List[Tuple[str, float, float]],
+    conditions: list[tuple[str, float, float]],
 ) -> DAGMetric:
     """Build a linear chain DAG from a list of (condition, true_score, false_score).
 
@@ -263,7 +263,7 @@ def build_simple_dag(
     The true branch of each decision node (except the last) chains to the
     next decision node, so the DAG checks conditions in sequence.
     """
-    nodes: Dict[str, DAGNode] = {}
+    nodes: dict[str, DAGNode] = {}
 
     if not conditions:
         # Edge case: no conditions, single leaf with score 0

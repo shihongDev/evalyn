@@ -14,13 +14,13 @@ from typing import Any, Dict, List, Optional, Tuple
 class ScopeFilter:
     """Defines which items to include in a calibration scope."""
 
-    include_ids: List[str] = field(default_factory=list)
-    exclude_ids: List[str] = field(default_factory=list)
+    include_ids: list[str] = field(default_factory=list)
+    exclude_ids: list[str] = field(default_factory=list)
     metadata_key: str = ""
     metadata_value: str = ""
-    max_items: Optional[int] = None
+    max_items: int | None = None
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "include_ids": self.include_ids,
             "exclude_ids": self.exclude_ids,
@@ -30,7 +30,7 @@ class ScopeFilter:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> ScopeFilter:
+    def from_dict(cls, data: dict[str, Any]) -> ScopeFilter:
         return cls(
             include_ids=data.get("include_ids", []),
             exclude_ids=data.get("exclude_ids", []),
@@ -48,7 +48,7 @@ class ScopeResult:
     filtered_count: int
     filter_description: str
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "original_count": self.original_count,
             "filtered_count": self.filtered_count,
@@ -64,8 +64,8 @@ class ScopeResult:
 
 
 def apply_scope_filter(
-    items: List[Dict[str, Any]], scope: ScopeFilter
-) -> Tuple[List[Dict[str, Any]], ScopeResult]:
+    items: list[dict[str, Any]], scope: ScopeFilter
+) -> tuple[list[dict[str, Any]], ScopeResult]:
     """Filter items according to scope rules.
 
     Order of operations: include_ids, exclude_ids, metadata filter, max_items.
@@ -104,12 +104,12 @@ def apply_scope_filter(
     )
 
 
-def create_include_scope(ids: List[str]) -> ScopeFilter:
+def create_include_scope(ids: list[str]) -> ScopeFilter:
     """Factory for an include-only scope."""
     return ScopeFilter(include_ids=ids)
 
 
-def create_exclude_scope(ids: List[str]) -> ScopeFilter:
+def create_exclude_scope(ids: list[str]) -> ScopeFilter:
     """Factory for an exclude scope."""
     return ScopeFilter(exclude_ids=ids)
 
@@ -121,7 +121,7 @@ def create_metadata_scope(key: str, value: str) -> ScopeFilter:
 
 def describe_scope(scope: ScopeFilter) -> str:
     """Return a human-readable description of a scope filter."""
-    parts: List[str] = []
+    parts: list[str] = []
     if scope.include_ids:
         parts.append(f"include {len(scope.include_ids)} ids")
     if scope.exclude_ids:

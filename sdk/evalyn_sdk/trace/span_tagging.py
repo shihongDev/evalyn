@@ -6,7 +6,7 @@ from typing import Any, Dict, List, Set
 
 from ..models import Span
 
-STANDARD_TAGS: Set[str] = {"environment", "user_id", "experiment_id", "variant", "version"}
+STANDARD_TAGS: set[str] = {"environment", "user_id", "experiment_id", "variant", "version"}
 
 
 @dataclass
@@ -16,7 +16,7 @@ class SpanTag:
     key: str
     value: Any
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {"key": self.key, "value": self.value}
 
 
@@ -24,13 +24,13 @@ class SpanTag:
 class TagSet:
     """Collection of tags as a key-value mapping."""
 
-    tags: Dict[str, Any] = field(default_factory=dict)
+    tags: dict[str, Any] = field(default_factory=dict)
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {"tags": dict(self.tags)}
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> TagSet:
+    def from_dict(cls, data: dict[str, Any]) -> TagSet:
         return cls(tags=dict(data.get("tags", {})))
 
     def merge(self, other: TagSet) -> TagSet:
@@ -71,12 +71,12 @@ def has_tag(span: Span, key: str) -> bool:
 
 
 def filter_spans_by_tag(
-    spans: List[Span],
+    spans: list[Span],
     key: str,
     value: Any = None,
-) -> List[Span]:
+) -> list[Span]:
     """Filter spans that have a tag matching key (and optionally value)."""
-    result: List[Span] = []
+    result: list[Span] = []
     for s in spans:
         raw = s.attributes.get("tags", {})
         if key not in raw:

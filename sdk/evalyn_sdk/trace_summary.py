@@ -27,7 +27,7 @@ class TraceSummaryConfig:
     include_latencies: bool = True
     summary_style: str = "brief"  # "brief", "detailed", "technical"
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "max_spans": self.max_spans,
             "include_tool_calls": self.include_tool_calls,
@@ -36,7 +36,7 @@ class TraceSummaryConfig:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> TraceSummaryConfig:
+    def from_dict(cls, data: dict[str, Any]) -> TraceSummaryConfig:
         return cls(
             max_spans=data.get("max_spans", 20),
             include_tool_calls=data.get("include_tool_calls", True),
@@ -56,12 +56,12 @@ class TraceSummary:
 
     trace_id: str
     summary_text: str
-    key_findings: List[str] = field(default_factory=list)
+    key_findings: list[str] = field(default_factory=list)
     span_count: int = 0
     total_latency_ms: float = 0.0
     generated_at: str = ""
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "trace_id": self.trace_id,
             "summary_text": self.summary_text,
@@ -72,7 +72,7 @@ class TraceSummary:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> TraceSummary:
+    def from_dict(cls, data: dict[str, Any]) -> TraceSummary:
         return cls(
             trace_id=data.get("trace_id", ""),
             summary_text=data.get("summary_text", ""),
@@ -88,12 +88,12 @@ class TraceSummary:
 # ---------------------------------------------------------------------------
 
 
-def _get_spans(trace_data: dict) -> List[dict]:
+def _get_spans(trace_data: dict) -> list[dict]:
     """Extract span list from trace data, capped at a reasonable default."""
     return trace_data.get("spans", [])
 
 
-def _span_latency_ms(span: dict) -> Optional[float]:
+def _span_latency_ms(span: dict) -> float | None:
     """Return duration_ms from a span dict, computing from timestamps if needed."""
     if "duration_ms" in span and span["duration_ms"] is not None:
         return float(span["duration_ms"])
@@ -109,7 +109,7 @@ def _span_latency_ms(span: dict) -> Optional[float]:
     return None
 
 
-def _total_latency(spans: List[dict]) -> float:
+def _total_latency(spans: list[dict]) -> float:
     """Sum latencies across all spans."""
     total = 0.0
     for span in spans:
@@ -119,18 +119,18 @@ def _total_latency(spans: List[dict]) -> float:
     return total
 
 
-def _count_by_type(spans: List[dict]) -> Dict[str, int]:
+def _count_by_type(spans: list[dict]) -> dict[str, int]:
     """Count spans grouped by span_type."""
-    counts: Dict[str, int] = {}
+    counts: dict[str, int] = {}
     for span in spans:
         st = span.get("span_type", "unknown")
         counts[st] = counts.get(st, 0) + 1
     return counts
 
 
-def _collect_tool_calls(spans: List[dict]) -> List[str]:
+def _collect_tool_calls(spans: list[dict]) -> list[str]:
     """Collect tool/function names from tool_call spans."""
-    names: List[str] = []
+    names: list[str] = []
     for span in spans:
         if span.get("span_type") in ("tool_call", "tool_use"):
             name = span.get("name", "unknown_tool")
@@ -138,9 +138,9 @@ def _collect_tool_calls(spans: List[dict]) -> List[str]:
     return names
 
 
-def _collect_errors(spans: List[dict]) -> List[str]:
+def _collect_errors(spans: list[dict]) -> list[str]:
     """Collect error messages from spans with error status."""
-    errors: List[str] = []
+    errors: list[str] = []
     for span in spans:
         if span.get("status") == "error":
             name = span.get("name", "unknown")
@@ -153,9 +153,9 @@ def _collect_errors(spans: List[dict]) -> List[str]:
     return errors
 
 
-def _collect_slow_spans(spans: List[dict], threshold_ms: float = SLOW_SPAN_THRESHOLD_MS) -> List[str]:
+def _collect_slow_spans(spans: list[dict], threshold_ms: float = SLOW_SPAN_THRESHOLD_MS) -> list[str]:
     """Identify spans slower than threshold."""
-    slow: List[str] = []
+    slow: list[str] = []
     for span in spans:
         lat = _span_latency_ms(span)
         if lat is not None and lat > threshold_ms:
@@ -180,7 +180,7 @@ def build_summary_prompt(trace_data: dict, config: TraceSummaryConfig) -> str:
     type_counts = _count_by_type(spans)
     errors = _collect_errors(spans)
 
-    parts: List[str] = []
+    parts: list[str] = []
     parts.append(f"Summarize this trace (ID: {trace_id}) with {len(spans)} spans.")
     parts.append("")
 
@@ -234,14 +234,14 @@ def build_summary_prompt(trace_data: dict, config: TraceSummaryConfig) -> str:
 # ---------------------------------------------------------------------------
 
 
-def extract_trace_highlights(trace_data: dict) -> List[str]:
+def extract_trace_highlights(trace_data: dict) -> list[str]:
     """Extract notable events from trace data using heuristics.
 
     Identifies: errors, slow spans (>1s), tool failures, unusual patterns.
     No LLM required.
     """
     spans = _get_spans(trace_data)
-    highlights: List[str] = []
+    highlights: list[str] = []
 
     # Errors
     errors = _collect_errors(spans)
@@ -260,7 +260,7 @@ def extract_trace_highlights(trace_data: dict) -> List[str]:
             highlights.append(f"Tool failure: {name}")
 
     # Unusual patterns: retries (multiple spans with same name)
-    name_counts: Dict[str, int] = {}
+    name_counts: dict[str, int] = {}
     for span in spans:
         n = span.get("name", "")
         if n:
@@ -295,7 +295,7 @@ def build_heuristic_summary(trace_data: dict, config: TraceSummaryConfig) -> Tra
     tool_names = _collect_tool_calls(spans) if config.include_tool_calls else []
 
     # Build summary text
-    text_parts: List[str] = []
+    text_parts: list[str] = []
     text_parts.append(f"Trace {trace_id} contains {len(spans)} spans")
 
     if type_counts:
@@ -317,7 +317,7 @@ def build_heuristic_summary(trace_data: dict, config: TraceSummaryConfig) -> Tra
     summary_text = "".join(text_parts)
 
     # Build key findings
-    key_findings: List[str] = []
+    key_findings: list[str] = []
     highlights = extract_trace_highlights(trace_data)
     key_findings.extend(highlights)
 
@@ -353,8 +353,8 @@ def parse_llm_summary_response(response: str, trace_id: str) -> TraceSummary:
     The remaining text becomes the summary_text.
     """
     lines = response.strip().split("\n")
-    summary_lines: List[str] = []
-    key_findings: List[str] = []
+    summary_lines: list[str] = []
+    key_findings: list[str] = []
 
     for line in lines:
         stripped = line.strip()
@@ -380,7 +380,7 @@ def parse_llm_summary_response(response: str, trace_id: str) -> TraceSummary:
 
 def format_trace_summary(summary: TraceSummary) -> str:
     """Format a TraceSummary for human-readable display."""
-    lines: List[str] = []
+    lines: list[str] = []
     lines.append(f"Trace Summary: {summary.trace_id}")
     lines.append("=" * (len(lines[0])))
     lines.append("")

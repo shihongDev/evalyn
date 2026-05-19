@@ -25,7 +25,7 @@ class ContaminationMatch:
     similarity: float
     matched_text: str = ""
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "item_id": self.item_id,
             "benchmark_name": self.benchmark_name,
@@ -43,7 +43,7 @@ class DecontaminationConfig:
     check_input: bool = True
     check_output: bool = True
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "min_similarity": self.min_similarity,
             "ngram_size": self.ngram_size,
@@ -52,7 +52,7 @@ class DecontaminationConfig:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> DecontaminationConfig:
+    def from_dict(cls, data: dict[str, Any]) -> DecontaminationConfig:
         return cls(
             min_similarity=data.get("min_similarity", 0.8),
             ngram_size=data.get("ngram_size", 5),
@@ -65,13 +65,13 @@ class DecontaminationConfig:
 class DecontaminationReport:
     """Summary of a decontamination run."""
 
-    matches: List[ContaminationMatch] = field(default_factory=list)
+    matches: list[ContaminationMatch] = field(default_factory=list)
     clean_count: int = 0
     contaminated_count: int = 0
     contamination_rate: float = 0.0
-    benchmarks_checked: List[str] = field(default_factory=list)
+    benchmarks_checked: list[str] = field(default_factory=list)
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "matches": [m.as_dict() for m in self.matches],
             "clean_count": self.clean_count,
@@ -81,7 +81,7 @@ class DecontaminationReport:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> DecontaminationReport:
+    def from_dict(cls, data: dict[str, Any]) -> DecontaminationReport:
         return cls(
             matches=[
                 ContaminationMatch(**m) for m in data.get("matches", [])
@@ -93,7 +93,7 @@ class DecontaminationReport:
         )
 
     def format_text(self) -> str:
-        lines: List[str] = []
+        lines: list[str] = []
         total = self.clean_count + self.contaminated_count
         lines.append(f"Decontamination Report: {total} items checked")
         lines.append(
@@ -147,16 +147,16 @@ def compute_ngram_similarity(text_a: str, text_b: str, n: int = 5) -> float:
 
 def check_contamination(
     item_text: str,
-    benchmark_texts: List[str],
+    benchmark_texts: list[str],
     benchmark_name: str,
     config: DecontaminationConfig,
-) -> List[ContaminationMatch]:
+) -> list[ContaminationMatch]:
     """Check one item's text against a list of benchmark texts.
 
     Returns a ContaminationMatch for each benchmark text whose similarity
     meets or exceeds config.min_similarity.
     """
-    matches: List[ContaminationMatch] = []
+    matches: list[ContaminationMatch] = []
     for bt in benchmark_texts:
         sim = compute_ngram_similarity(item_text, bt, config.ngram_size)
         if sim >= config.min_similarity:
@@ -172,10 +172,10 @@ def check_contamination(
 
 
 def decontaminate_dataset(
-    items: List[Dict[str, Any]],
-    benchmarks: Dict[str, List[str]],
-    config: Optional[DecontaminationConfig] = None,
-) -> Tuple[List[Dict[str, Any]], DecontaminationReport]:
+    items: list[dict[str, Any]],
+    benchmarks: dict[str, list[str]],
+    config: DecontaminationConfig | None = None,
+) -> tuple[list[dict[str, Any]], DecontaminationReport]:
     """Check all items against benchmarks and return clean items with a report.
 
     Each item should have an "input" field and optionally an "output" field.
@@ -193,12 +193,12 @@ def decontaminate_dataset(
     if config is None:
         config = DecontaminationConfig()
 
-    all_matches: List[ContaminationMatch] = []
+    all_matches: list[ContaminationMatch] = []
     contaminated_indices: set = set()
 
     for i, item in enumerate(items):
         item_id = item.get("id", str(i))
-        texts_to_check: List[str] = []
+        texts_to_check: list[str] = []
         if config.check_input and "input" in item:
             texts_to_check.append(str(item["input"]))
         if config.check_output and "output" in item:
@@ -233,7 +233,7 @@ def decontaminate_dataset(
     return clean_items, report
 
 
-def get_known_benchmark_names() -> List[str]:
+def get_known_benchmark_names() -> list[str]:
     """Return a list of well-known benchmark names."""
     return [
         "ARC",

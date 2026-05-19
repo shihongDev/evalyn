@@ -28,7 +28,7 @@ class PromptSection:
     weight: float = 1.0
     optional: bool = False
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "section_id": self.section_id,
             "section_type": self.section_type,
@@ -38,7 +38,7 @@ class PromptSection:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> PromptSection:
+    def from_dict(cls, data: dict[str, Any]) -> PromptSection:
         return cls(
             section_id=data["section_id"],
             section_type=data["section_type"],
@@ -52,11 +52,11 @@ class PromptSection:
 class PromptDAG:
     """Directed acyclic graph of prompt sections with dependency edges."""
 
-    sections: List[PromptSection] = field(default_factory=list)
-    edges: List[Tuple[str, str]] = field(default_factory=list)
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    sections: list[PromptSection] = field(default_factory=list)
+    edges: list[tuple[str, str]] = field(default_factory=list)
+    metadata: dict[str, Any] = field(default_factory=dict)
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "sections": [s.as_dict() for s in self.sections],
             "edges": [list(e) for e in self.edges],
@@ -64,7 +64,7 @@ class PromptDAG:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> PromptDAG:
+    def from_dict(cls, data: dict[str, Any]) -> PromptDAG:
         return cls(
             sections=[PromptSection.from_dict(s) for s in data.get("sections", [])],
             edges=[tuple(e) for e in data.get("edges", [])],
@@ -78,9 +78,9 @@ class MutationOp:
 
     op_type: str  # "paraphrase", "drop", "reformat", "reorder", "merge", "split"
     target_section: str
-    parameters: Dict[str, Any] = field(default_factory=dict)
+    parameters: dict[str, Any] = field(default_factory=dict)
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "op_type": self.op_type,
             "target_section": self.target_section,
@@ -88,7 +88,7 @@ class MutationOp:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> MutationOp:
+    def from_dict(cls, data: dict[str, Any]) -> MutationOp:
         return cls(
             op_type=data["op_type"],
             target_section=data["target_section"],
@@ -106,7 +106,7 @@ class OptimizationResult:
     score_delta: float = 0.0
     cost_delta: float = 0.0
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "original": self.original.as_dict(),
             "mutated": self.mutated.as_dict(),
@@ -116,7 +116,7 @@ class OptimizationResult:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> OptimizationResult:
+    def from_dict(cls, data: dict[str, Any]) -> OptimizationResult:
         return cls(
             original=PromptDAG.from_dict(data["original"]),
             mutated=PromptDAG.from_dict(data["mutated"]),
@@ -131,10 +131,10 @@ class OptimizationResult:
 # ---------------------------------------------------------------------------
 
 
-def detect_cycles(edges: List[Tuple[str, str]]) -> bool:
+def detect_cycles(edges: list[tuple[str, str]]) -> bool:
     """Return True if the edge list contains a cycle."""
     # Build adjacency list
-    graph: Dict[str, List[str]] = {}
+    graph: dict[str, list[str]] = {}
     nodes: set[str] = set()
     for src, dst in edges:
         graph.setdefault(src, []).append(dst)
@@ -142,7 +142,7 @@ def detect_cycles(edges: List[Tuple[str, str]]) -> bool:
         nodes.add(dst)
 
     # Kahn's algorithm: if we can't consume all nodes, there's a cycle
-    in_degree: Dict[str, int] = {n: 0 for n in nodes}
+    in_degree: dict[str, int] = {n: 0 for n in nodes}
     for src, dst in edges:
         in_degree[dst] += 1
 
@@ -159,7 +159,7 @@ def detect_cycles(edges: List[Tuple[str, str]]) -> bool:
     return visited < len(nodes)
 
 
-def topological_sort(dag: PromptDAG) -> List[str]:
+def topological_sort(dag: PromptDAG) -> list[str]:
     """Return section_ids in dependency order (Kahn's algorithm).
 
     Sections with no edges appear in their original list order.
@@ -168,8 +168,8 @@ def topological_sort(dag: PromptDAG) -> List[str]:
     id_set = set(section_ids)
 
     # Build adjacency and in-degree from edges
-    graph: Dict[str, List[str]] = {sid: [] for sid in section_ids}
-    in_degree: Dict[str, int] = {sid: 0 for sid in section_ids}
+    graph: dict[str, list[str]] = {sid: [] for sid in section_ids}
+    in_degree: dict[str, int] = {sid: 0 for sid in section_ids}
     for src, dst in dag.edges:
         if src in id_set and dst in id_set:
             graph[src].append(dst)
@@ -177,12 +177,12 @@ def topological_sort(dag: PromptDAG) -> List[str]:
 
     # Use index-based tie-breaking for stable ordering
     index_map = {sid: i for i, sid in enumerate(section_ids)}
-    queue: List[str] = sorted(
+    queue: list[str] = sorted(
         [sid for sid in section_ids if in_degree[sid] == 0],
         key=lambda s: index_map[s],
     )
 
-    result: List[str] = []
+    result: list[str] = []
     while queue:
         node = queue.pop(0)
         result.append(node)
@@ -208,8 +208,8 @@ def topological_sort(dag: PromptDAG) -> List[str]:
 
 
 def build_prompt_dag(
-    sections: List[PromptSection],
-    edges: List[Tuple[str, str]] | None = None,
+    sections: list[PromptSection],
+    edges: list[tuple[str, str]] | None = None,
 ) -> PromptDAG:
     """Construct a PromptDAG with validation.
 
@@ -245,7 +245,7 @@ def render_prompt(dag: PromptDAG) -> str:
     """Render sections in dependency order into a single prompt string."""
     order = topological_sort(dag)
     section_map = {s.section_id: s for s in dag.sections}
-    parts: List[str] = []
+    parts: list[str] = []
     for sid in order:
         section = section_map[sid]
         parts.append(section.content)
@@ -282,7 +282,7 @@ def apply_drop_mutation(dag: PromptDAG, section_id: str) -> PromptDAG:
 
 
 def apply_reorder_mutation(
-    dag: PromptDAG, new_order: List[str]
+    dag: PromptDAG, new_order: list[str]
 ) -> PromptDAG:
     """Reorder sections according to new_order.
 
@@ -303,7 +303,7 @@ def apply_reorder_mutation(
 
 
 def apply_merge_mutation(
-    dag: PromptDAG, section_ids: List[str], new_id: str
+    dag: PromptDAG, section_ids: list[str], new_id: str
 ) -> PromptDAG:
     """Merge multiple sections into one combined section.
 
@@ -330,7 +330,7 @@ def apply_merge_mutation(
     )
 
     # Build new sections list, replacing first occurrence with merged
-    new_sections: List[PromptSection] = []
+    new_sections: list[PromptSection] = []
     inserted = False
     for s in dag.sections:
         if s.section_id in merge_set:
@@ -342,8 +342,8 @@ def apply_merge_mutation(
             new_sections.append(s)
 
     # Rewrite edges
-    new_edges: List[Tuple[str, str]] = []
-    seen_edges: set[Tuple[str, str]] = set()
+    new_edges: list[tuple[str, str]] = []
+    seen_edges: set[tuple[str, str]] = set()
     for src, dst in dag.edges:
         new_src = new_id if src in merge_set else src
         new_dst = new_id if dst in merge_set else dst
@@ -398,7 +398,7 @@ def apply_split_mutation(
         optional=original.optional,
     )
 
-    new_sections: List[PromptSection] = []
+    new_sections: list[PromptSection] = []
     for s in dag.sections:
         if s.section_id == section_id:
             new_sections.append(part_a)
@@ -407,7 +407,7 @@ def apply_split_mutation(
             new_sections.append(s)
 
     # Rewrite edges
-    new_edges: List[Tuple[str, str]] = [(id_a, id_b)]
+    new_edges: list[tuple[str, str]] = [(id_a, id_b)]
     for src, dst in dag.edges:
         if src == section_id and dst == section_id:
             continue  # skip self-loops on original
@@ -442,7 +442,7 @@ def estimate_cost(dag: PromptDAG, cost_per_char: float = 0.00001) -> float:
 
 def format_dag_summary(dag: PromptDAG) -> str:
     """Return a human-readable summary of the DAG."""
-    lines: List[str] = []
+    lines: list[str] = []
     lines.append(f"PromptDAG: {len(dag.sections)} sections, {len(dag.edges)} edges")
     for s in dag.sections:
         opt = " (optional)" if s.optional else ""

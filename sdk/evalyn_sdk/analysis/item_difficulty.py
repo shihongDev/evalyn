@@ -25,7 +25,7 @@ class ItemDifficulty:
     difficulty_label: str = "medium"
     variance: float = 0.0
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "item_id": self.item_id,
             "fail_rate": self.fail_rate,
@@ -35,7 +35,7 @@ class ItemDifficulty:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> ItemDifficulty:
+    def from_dict(cls, data: dict[str, Any]) -> ItemDifficulty:
         return cls(
             item_id=data["item_id"],
             fail_rate=data["fail_rate"],
@@ -49,13 +49,13 @@ class ItemDifficulty:
 class DifficultyReport:
     """Aggregated difficulty report across all items."""
 
-    items: List[ItemDifficulty] = field(default_factory=list)
+    items: list[ItemDifficulty] = field(default_factory=list)
     avg_difficulty: float = 0.0
-    distribution: Dict[str, int] = field(default_factory=dict)
-    hardest_items: List[str] = field(default_factory=list)
-    easiest_items: List[str] = field(default_factory=list)
+    distribution: dict[str, int] = field(default_factory=dict)
+    hardest_items: list[str] = field(default_factory=list)
+    easiest_items: list[str] = field(default_factory=list)
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "items": [i.as_dict() for i in self.items],
             "avg_difficulty": self.avg_difficulty,
@@ -65,7 +65,7 @@ class DifficultyReport:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> DifficultyReport:
+    def from_dict(cls, data: dict[str, Any]) -> DifficultyReport:
         return cls(
             items=[ItemDifficulty.from_dict(i) for i in data.get("items", [])],
             avg_difficulty=data.get("avg_difficulty", 0.0),
@@ -76,7 +76,7 @@ class DifficultyReport:
 
     def format_text(self) -> str:
         """Format report as human-readable text."""
-        lines: List[str] = []
+        lines: list[str] = []
         lines.append(f"Item Difficulty Report ({len(self.items)} items)")
         lines.append("-" * 50)
         lines.append(f"  Average fail rate: {self.avg_difficulty:.2%}")
@@ -98,7 +98,7 @@ class DifficultyReport:
 
 
 def compute_item_fail_rate(
-    item_id: str, run_results: List[Dict[str, Any]]
+    item_id: str, run_results: list[dict[str, Any]]
 ) -> float:
     """Compute fail rate for a single item across runs.
 
@@ -130,7 +130,7 @@ def classify_difficulty(fail_rate: float) -> str:
     return "very_hard"
 
 
-def compute_difficulty_variance(results: List[bool]) -> float:
+def compute_difficulty_variance(results: list[bool]) -> float:
     """Compute variance of pass/fail outcomes across runs.
 
     Treats True as 1.0 and False as 0.0.
@@ -146,7 +146,7 @@ def compute_difficulty_variance(results: List[bool]) -> float:
 
 
 def estimate_difficulty(
-    item_id: str, run_results: List[Dict[str, Any]]
+    item_id: str, run_results: list[dict[str, Any]]
 ) -> ItemDifficulty:
     """Full difficulty estimation for a single item.
 
@@ -168,13 +168,13 @@ def estimate_difficulty(
 
 
 def estimate_all_difficulties(
-    items: List[str], run_results: List[Dict[str, Any]]
+    items: list[str], run_results: list[dict[str, Any]]
 ) -> DifficultyReport:
     """Estimate difficulty for all items and build a report."""
     if not items:
         return DifficultyReport()
 
-    difficulties: List[ItemDifficulty] = []
+    difficulties: list[ItemDifficulty] = []
     for item_id in items:
         d = estimate_difficulty(item_id, run_results)
         difficulties.append(d)
@@ -183,7 +183,7 @@ def estimate_all_difficulties(
     avg = sum(d.fail_rate for d in difficulties) / len(difficulties) if difficulties else 0.0
 
     # Distribution
-    dist: Dict[str, int] = {}
+    dist: dict[str, int] = {}
     for d in difficulties:
         dist[d.difficulty_label] = dist.get(d.difficulty_label, 0) + 1
 
@@ -204,7 +204,7 @@ def estimate_all_difficulties(
 
 
 def sort_by_difficulty(
-    items: List[ItemDifficulty], ascending: bool = False
-) -> List[ItemDifficulty]:
+    items: list[ItemDifficulty], ascending: bool = False
+) -> list[ItemDifficulty]:
     """Sort items by fail rate. Hardest first by default."""
     return sorted(items, key=lambda d: d.fail_rate, reverse=not ascending)

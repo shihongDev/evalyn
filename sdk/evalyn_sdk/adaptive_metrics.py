@@ -9,7 +9,7 @@ from typing import Any, Dict
 # Default fallback mappings
 # ---------------------------------------------------------------------------
 
-DEFAULT_FALLBACKS: Dict[str, str] = {
+DEFAULT_FALLBACKS: dict[str, str] = {
     "exact_match": "semantic_similarity",
     "bleu": "coherence",
     "rouge": "completeness",
@@ -30,7 +30,7 @@ class MetricMode:
     metric_id: str
     rubric_variant: str = ""
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "mode": self.mode,
             "metric_id": self.metric_id,
@@ -38,7 +38,7 @@ class MetricMode:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> MetricMode:
+    def from_dict(cls, data: dict[str, Any]) -> MetricMode:
         return cls(
             mode=data["mode"],
             metric_id=data["metric_id"],
@@ -51,16 +51,16 @@ class AdaptiveConfig:
     """Configuration for reference-adaptive metric selection."""
 
     reference_field: str = "expected_output"
-    fallback_metrics: Dict[str, str] = field(default_factory=dict)
+    fallback_metrics: dict[str, str] = field(default_factory=dict)
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "reference_field": self.reference_field,
             "fallback_metrics": dict(self.fallback_metrics),
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> AdaptiveConfig:
+    def from_dict(cls, data: dict[str, Any]) -> AdaptiveConfig:
         return cls(
             reference_field=data.get("reference_field", "expected_output"),
             fallback_metrics=data.get("fallback_metrics", {}),
@@ -76,7 +76,7 @@ class AdaptiveResult:
     metric_id: str
     original_metric: str
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "item_id": self.item_id,
             "mode_used": self.mode_used,
@@ -85,7 +85,7 @@ class AdaptiveResult:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> AdaptiveResult:
+    def from_dict(cls, data: dict[str, Any]) -> AdaptiveResult:
         return cls(
             item_id=data["item_id"],
             mode_used=data["mode_used"],

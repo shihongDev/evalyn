@@ -75,7 +75,7 @@ def cmd_build_dataset(args: argparse.Namespace) -> None:
             args.project = list(projects)[0]
             print(f"Auto-selected project: {args.project}")
 
-    def _parse_dt(value: Optional[str]) -> Optional[datetime]:
+    def _parse_dt(value: str | None) -> datetime | None:
         if not value:
             return None
         try:

@@ -40,7 +40,7 @@ class SeedScore:
     unique_outputs: int
     near_duplicate_count: int
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "seed_id": self.seed_id,
             "diversity_score": self.diversity_score,
@@ -49,7 +49,7 @@ class SeedScore:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> SeedScore:
+    def from_dict(cls, data: dict[str, Any]) -> SeedScore:
         return cls(
             seed_id=data["seed_id"],
             diversity_score=data["diversity_score"],
@@ -62,12 +62,12 @@ class SeedScore:
 class SelectionResult:
     """Result of greedy seed selection."""
 
-    selected_seeds: List[str]
-    dropped_seeds: List[str]
-    scores: List[SeedScore]
+    selected_seeds: list[str]
+    dropped_seeds: list[str]
+    scores: list[SeedScore]
     coverage_improvement: float
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "selected_seeds": list(self.selected_seeds),
             "dropped_seeds": list(self.dropped_seeds),
@@ -76,7 +76,7 @@ class SelectionResult:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> SelectionResult:
+    def from_dict(cls, data: dict[str, Any]) -> SelectionResult:
         return cls(
             selected_seeds=data["selected_seeds"],
             dropped_seeds=data["dropped_seeds"],

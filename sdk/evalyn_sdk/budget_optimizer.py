@@ -25,7 +25,7 @@ class SimulationMode:
     estimated_tokens_per_item: int
     diversity_weight: float = 1.0
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "mode_id": self.mode_id,
             "name": self.name,
@@ -35,7 +35,7 @@ class SimulationMode:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> SimulationMode:
+    def from_dict(cls, data: dict[str, Any]) -> SimulationMode:
         return cls(
             mode_id=data["mode_id"],
             name=data["name"],
@@ -54,7 +54,7 @@ class BudgetAllocation:
     estimated_tokens: int
     actual_tokens: int = 0
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "mode_id": self.mode_id,
             "item_count": self.item_count,
@@ -63,7 +63,7 @@ class BudgetAllocation:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> BudgetAllocation:
+    def from_dict(cls, data: dict[str, Any]) -> BudgetAllocation:
         return cls(
             mode_id=data["mode_id"],
             item_count=data["item_count"],
@@ -76,13 +76,13 @@ class BudgetAllocation:
 class BudgetPlan:
     """Complete budget allocation plan across all modes."""
 
-    allocations: List[BudgetAllocation]
+    allocations: list[BudgetAllocation]
     total_budget: int
     estimated_total_tokens: int
     estimated_total_items: int
     diversity_score: float
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "allocations": [a.as_dict() for a in self.allocations],
             "total_budget": self.total_budget,
@@ -92,7 +92,7 @@ class BudgetPlan:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> BudgetPlan:
+    def from_dict(cls, data: dict[str, Any]) -> BudgetPlan:
         return cls(
             allocations=[BudgetAllocation.from_dict(a) for a in data["allocations"]],
             total_budget=data["total_budget"],
@@ -111,7 +111,7 @@ class BudgetReport:
     budget_utilization: float
     items_generated: int
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "plan": self.plan.as_dict(),
             "actual_total_tokens": self.actual_total_tokens,
@@ -120,7 +120,7 @@ class BudgetReport:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> BudgetReport:
+    def from_dict(cls, data: dict[str, Any]) -> BudgetReport:
         return cls(
             plan=BudgetPlan.from_dict(data["plan"]),
             actual_total_tokens=data["actual_total_tokens"],
@@ -133,7 +133,7 @@ class BudgetReport:
 # Default Modes
 # ---------------------------------------------------------------------------
 
-DEFAULT_MODES: List[SimulationMode] = [
+DEFAULT_MODES: list[SimulationMode] = [
     SimulationMode(
         mode_id="similar",
         name="Similar",
@@ -183,7 +183,7 @@ def estimate_mode_cost(mode: SimulationMode, count: int) -> int:
 
 
 def compute_plan_diversity(
-    plan: BudgetPlan, modes: List[SimulationMode]
+    plan: BudgetPlan, modes: list[SimulationMode]
 ) -> float:
     """Compute weighted diversity score for a budget plan.
 
@@ -204,7 +204,7 @@ def compute_plan_diversity(
 
 def optimize_budget(
     budget_tokens: int,
-    modes: Optional[List[SimulationMode]] = None,
+    modes: list[SimulationMode] | None = None,
     min_per_mode: int = 1,
 ) -> BudgetPlan:
     """Optimize simulation mode allocation within a token budget.
@@ -228,7 +228,7 @@ def optimize_budget(
         )
 
     # Track counts per mode
-    counts: Dict[str, int] = {m.mode_id: 0 for m in modes}
+    counts: dict[str, int] = {m.mode_id: 0 for m in modes}
     tokens_used = 0
 
     # Phase 1: allocate minimum per mode
@@ -281,7 +281,7 @@ def optimize_budget(
 
 
 def update_budget_report(
-    plan: BudgetPlan, actual_tokens: Dict[str, int]
+    plan: BudgetPlan, actual_tokens: dict[str, int]
 ) -> BudgetReport:
     """Update a budget plan with actual token usage to create a report."""
     # Create new allocations with actual tokens (do not mutate the input plan)

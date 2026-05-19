@@ -9,7 +9,8 @@ from __future__ import annotations
 import functools
 import importlib.util
 from contextvars import ContextVar
-from typing import Any, Callable, Optional, Set
+from typing import Any, Optional, Set
+from collections.abc import Callable
 
 from ....models import Span
 from ... import context as span_context
@@ -17,7 +18,7 @@ from ..base import Instrumentor, InstrumentorType
 
 # Track active node spans to prevent double-spanning when both _execute_node
 # patching and node function wrapping fire for the same node execution.
-_active_node_spans: ContextVar[Set[str]] = ContextVar(
+_active_node_spans: ContextVar[set[str]] = ContextVar(
     "_active_node_spans", default=frozenset()
 )
 
@@ -26,8 +27,8 @@ class LangGraphInstrumentor(Instrumentor):
     """Instrumentor for LangGraph SDK."""
 
     _instrumented = False
-    _original_compile: Optional[Any] = None
-    _original_init: Optional[Any] = None
+    _original_compile: Any | None = None
+    _original_init: Any | None = None
 
     @property
     def name(self) -> str:

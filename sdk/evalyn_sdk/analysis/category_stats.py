@@ -25,7 +25,7 @@ class CategoryStats:
         total = self.passed + self.failed
         return self.passed / total if total > 0 else 0.0
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "category": self.category,
             "metric_count": self.metric_count,
@@ -40,23 +40,23 @@ class CategoryStats:
 class CategoryReport:
     """Category-level pass rate report."""
 
-    categories: List[CategoryStats] = field(default_factory=list)
+    categories: list[CategoryStats] = field(default_factory=list)
 
     @property
-    def weakest_category(self) -> Optional[str]:
+    def weakest_category(self) -> str | None:
         rated = [c for c in self.categories if c.total_evaluations > 0]
         if not rated:
             return None
         return min(rated, key=lambda c: c.pass_rate).category
 
     @property
-    def strongest_category(self) -> Optional[str]:
+    def strongest_category(self) -> str | None:
         rated = [c for c in self.categories if c.total_evaluations > 0]
         if not rated:
             return None
         return max(rated, key=lambda c: c.pass_rate).category
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "categories": [c.as_dict() for c in self.categories],
             "weakest": self.weakest_category,
@@ -74,8 +74,8 @@ class CategoryReport:
 
 
 def compute_category_pass_rates(
-    metric_results: List,
-    category_map: Optional[Dict[str, str]] = None,
+    metric_results: list,
+    category_map: dict[str, str] | None = None,
 ) -> CategoryReport:
     """Compute per-category pass rates from evaluation results.
 
@@ -91,8 +91,8 @@ def compute_category_pass_rates(
         category_map = _load_default_categories()
 
     # Aggregate by category
-    cat_stats: Dict[str, CategoryStats] = {}
-    seen_metrics: Dict[str, set] = {}
+    cat_stats: dict[str, CategoryStats] = {}
+    seen_metrics: dict[str, set] = {}
 
     for mr in metric_results:
         mid = mr.metric_id
@@ -120,7 +120,7 @@ def compute_category_pass_rates(
     )
 
 
-def _load_default_categories() -> Dict[str, str]:
+def _load_default_categories() -> dict[str, str]:
     """Load default category assignments from metric registries."""
     categories = {}
 

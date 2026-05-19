@@ -115,13 +115,13 @@ class EvoPromptOptimizer(BaseOptimizer):
 
     def __init__(
         self,
-        config: Optional[EvoPromptConfig] = None,
-        api_key: Optional[str] = None,
+        config: EvoPromptConfig | None = None,
+        api_key: str | None = None,
     ):
         cfg = config or EvoPromptConfig()
         super().__init__(config=cfg, api_key=api_key)
-        self._task_client_instance: Optional[GeminiClient] = None
-        self._scorer_client_instance: Optional[GeminiClient] = None
+        self._task_client_instance: GeminiClient | None = None
+        self._scorer_client_instance: GeminiClient | None = None
 
     @property
     def _task_client(self) -> GeminiClient:
@@ -150,10 +150,10 @@ class EvoPromptOptimizer(BaseOptimizer):
     def _init_population(
         self,
         current_preamble: str,
-        disagreements: Optional[DisagreementAnalysis],
-        rubric: List[str],
-        accumulator: Optional[TokenAccumulator] = None,
-    ) -> List[str]:
+        disagreements: DisagreementAnalysis | None,
+        rubric: list[str],
+        accumulator: TokenAccumulator | None = None,
+    ) -> list[str]:
         """Generate initial population of preambles.
 
         Returns population_size preambles: the current one plus LLM-generated variants.
@@ -209,7 +209,7 @@ class EvoPromptOptimizer(BaseOptimizer):
 
     def _tournament_select(
         self,
-        scored_population: List[Tuple[str, float]],
+        scored_population: list[tuple[str, float]],
         tournament_size: int,
     ) -> str:
         """Select one parent via tournament selection.
@@ -230,7 +230,7 @@ class EvoPromptOptimizer(BaseOptimizer):
         self,
         parent1: str,
         parent2: str,
-        accumulator: Optional[TokenAccumulator] = None,
+        accumulator: TokenAccumulator | None = None,
     ) -> str:
         """Combine two parents into one offspring via LLM."""
         prompt = CROSSOVER_TEMPLATE.format(parent1=parent1, parent2=parent2)
@@ -252,8 +252,8 @@ class EvoPromptOptimizer(BaseOptimizer):
     def _mutate(
         self,
         preamble: str,
-        failures: List[dict],
-        accumulator: Optional[TokenAccumulator] = None,
+        failures: list[dict],
+        accumulator: TokenAccumulator | None = None,
     ) -> str:
         """Mutate a preamble using failure examples as guidance."""
         if not failures:
@@ -291,7 +291,7 @@ class EvoPromptOptimizer(BaseOptimizer):
         self,
         *,
         metric_id: str,
-        current_rubric: List[str],
+        current_rubric: list[str],
         current_preamble: str,
         metric_results: list,
         annotations: list,
@@ -338,7 +338,7 @@ class EvoPromptOptimizer(BaseOptimizer):
         )
 
         # Score initial population
-        scored: List[Tuple[str, float]] = []
+        scored: list[tuple[str, float]] = []
         for preamble in population:
             f1 = self.score_preamble(preamble, current_rubric, trainset, accumulator)
             scored.append((preamble, f1))
@@ -356,7 +356,7 @@ class EvoPromptOptimizer(BaseOptimizer):
         pbar = tqdm(range(self.config.generations), desc="EvoPrompt", unit="gen")
         for gen in pbar:
             generations_run = gen + 1
-            offspring: List[str] = []
+            offspring: list[str] = []
 
             # Create offspring equal to population size
             for _ in range(self.config.population_size):
@@ -376,7 +376,7 @@ class EvoPromptOptimizer(BaseOptimizer):
                 offspring.append(child)
 
             # Score offspring
-            scored_offspring: List[Tuple[str, float]] = []
+            scored_offspring: list[tuple[str, float]] = []
             for child in offspring:
                 f1 = self.score_preamble(child, current_rubric, trainset, accumulator)
                 scored_offspring.append((child, f1))

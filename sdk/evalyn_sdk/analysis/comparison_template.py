@@ -23,7 +23,7 @@ class ComparisonField:
     label: str = ""
     format_fn: str = "default"  # "default" / "percentage" / "currency" / "duration"
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "name": self.name,
             "label": self.label,
@@ -31,7 +31,7 @@ class ComparisonField:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> ComparisonField:
+    def from_dict(cls, data: dict[str, Any]) -> ComparisonField:
         return cls(
             name=data["name"],
             label=data.get("label", ""),
@@ -45,12 +45,12 @@ class ComparisonTemplate:
 
     name: str
     description: str = ""
-    fields: List[ComparisonField] = field(default_factory=list)
+    fields: list[ComparisonField] = field(default_factory=list)
     show_delta: bool = True
     show_chart: bool = False
     audience: str = "technical"  # "technical" / "executive" / "qa"
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "name": self.name,
             "description": self.description,
@@ -61,7 +61,7 @@ class ComparisonTemplate:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> ComparisonTemplate:
+    def from_dict(cls, data: dict[str, Any]) -> ComparisonTemplate:
         return cls(
             name=data["name"],
             description=data.get("description", ""),
@@ -77,10 +77,10 @@ class ComparisonOutput:
     """Rendered comparison result."""
 
     template_name: str
-    rows: List[Dict[str, Any]] = field(default_factory=list)
+    rows: list[dict[str, Any]] = field(default_factory=list)
     summary: str = ""
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "template_name": self.template_name,
             "rows": list(self.rows),
@@ -88,7 +88,7 @@ class ComparisonOutput:
         }
 
     def format_text(self) -> str:
-        lines: List[str] = []
+        lines: list[str] = []
         lines.append(f"Comparison: {self.template_name}")
         lines.append("-" * 40)
         for row in self.rows:
@@ -139,7 +139,7 @@ QA_TEMPLATE = ComparisonTemplate(
     audience="qa",
 )
 
-_BUILTIN_TEMPLATES: Dict[str, ComparisonTemplate] = {
+_BUILTIN_TEMPLATES: dict[str, ComparisonTemplate] = {
     "executive": EXECUTIVE_TEMPLATE,
     "technical": TECHNICAL_TEMPLATE,
     "qa": QA_TEMPLATE,
@@ -158,7 +158,7 @@ def get_comparison_template(name: str) -> ComparisonTemplate:
     return _BUILTIN_TEMPLATES[name]
 
 
-def list_comparison_templates() -> List[ComparisonTemplate]:
+def list_comparison_templates() -> list[ComparisonTemplate]:
     """Return all built-in templates."""
     return list(_BUILTIN_TEMPLATES.values())
 
@@ -177,17 +177,17 @@ def format_value(value: Any, format_fn: str) -> str:
 
 
 def render_comparison(
-    data_a: Dict[str, Any],
-    data_b: Dict[str, Any],
+    data_a: dict[str, Any],
+    data_b: dict[str, Any],
     template: ComparisonTemplate,
 ) -> ComparisonOutput:
     """Render a comparison of two data dicts using the given template."""
-    rows: List[Dict[str, Any]] = []
+    rows: list[dict[str, Any]] = []
     for f in template.fields:
         val_a = data_a.get(f.name)
         val_b = data_b.get(f.name)
         label = f.label or f.name
-        row: Dict[str, Any] = {
+        row: dict[str, Any] = {
             "field": label,
             "a": format_value(val_a, f.format_fn),
             "b": format_value(val_b, f.format_fn),
@@ -199,7 +199,7 @@ def render_comparison(
                 row["delta"] = None
         rows.append(row)
 
-    summary_parts: List[str] = []
+    summary_parts: list[str] = []
     for row in rows:
         delta = row.get("delta")
         if delta is not None and delta != 0:
@@ -216,7 +216,7 @@ def render_comparison(
 
 def create_custom_template(
     name: str,
-    fields: List[Dict[str, Any]],
+    fields: list[dict[str, Any]],
     audience: str = "technical",
 ) -> ComparisonTemplate:
     """Factory for creating a custom comparison template."""

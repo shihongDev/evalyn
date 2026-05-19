@@ -21,7 +21,7 @@ class InstrumentationTarget:
             parts.append(self.method_name)
         return ".".join(parts)
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "module_name": self.module_name,
             "class_name": self.class_name,
@@ -30,7 +30,7 @@ class InstrumentationTarget:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> InstrumentationTarget:
+    def from_dict(cls, data: dict[str, Any]) -> InstrumentationTarget:
         return cls(
             module_name=data["module_name"],
             class_name=data.get("class_name", ""),
@@ -41,17 +41,17 @@ class InstrumentationTarget:
 
 @dataclass
 class InstrumentationConfig:
-    targets: List[InstrumentationTarget] = field(default_factory=list)
+    targets: list[InstrumentationTarget] = field(default_factory=list)
     mode: str = "include"  # "include" or "exclude"
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "targets": [t.as_dict() for t in self.targets],
             "mode": self.mode,
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> InstrumentationConfig:
+    def from_dict(cls, data: dict[str, Any]) -> InstrumentationConfig:
         return cls(
             targets=[InstrumentationTarget.from_dict(t) for t in data.get("targets", [])],
             mode=data.get("mode", "include"),
@@ -119,7 +119,7 @@ def _parse_path(path: str) -> InstrumentationTarget:
         return InstrumentationTarget(module_name=parts[0])
 
 
-def create_include_config(targets: List[str]) -> InstrumentationConfig:
+def create_include_config(targets: list[str]) -> InstrumentationConfig:
     """Factory: create an include-mode config from dotted path strings."""
     return InstrumentationConfig(
         targets=[_parse_path(t) for t in targets],
@@ -127,7 +127,7 @@ def create_include_config(targets: List[str]) -> InstrumentationConfig:
     )
 
 
-def create_exclude_config(targets: List[str]) -> InstrumentationConfig:
+def create_exclude_config(targets: list[str]) -> InstrumentationConfig:
     """Factory: create an exclude-mode config from dotted path strings."""
     return InstrumentationConfig(
         targets=[_parse_path(t) for t in targets],
@@ -136,7 +136,7 @@ def create_exclude_config(targets: List[str]) -> InstrumentationConfig:
 
 
 def list_instrumented_targets(
-    config: InstrumentationConfig, all_targets: List[str]
-) -> List[str]:
+    config: InstrumentationConfig, all_targets: list[str]
+) -> list[str]:
     """Return which targets from all_targets would be instrumented."""
     return [t for t in all_targets if should_instrument(t, config)]

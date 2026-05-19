@@ -44,7 +44,7 @@ class Theme:
     border_strong: str = "#D4CCC4"
 
     # Chart palette (ordered list for multi-series charts)
-    chart_palette: List[str] = field(default_factory=lambda: [
+    chart_palette: list[str] = field(default_factory=lambda: [
         "#D4A27F", "#6B8E8E", "#9B8AA6", "#C4836A",
         "#A89F97", "#8B7355", "#7BA3A3", "#B39DBA",
     ])
@@ -73,7 +73,7 @@ class Theme:
         ]
         return "\n            ".join(lines)
 
-    def chart_js_colors(self) -> Dict[str, str]:
+    def chart_js_colors(self) -> dict[str, str]:
         """Color map used by Chart.js rendering in html_report."""
         return {
             "accent": self.accent_primary,
@@ -90,7 +90,7 @@ class Theme:
             "textMuted": self.text_muted,
         }
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "name": self.name,
             "description": self.description,
@@ -114,7 +114,7 @@ class Theme:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> Theme:
+    def from_dict(cls, data: dict[str, Any]) -> Theme:
         return cls(
             name=data.get("name", "custom"),
             description=data.get("description", ""),
@@ -245,7 +245,7 @@ DEFAULT = Theme(
     description="Warm cream with terracotta accents (original evalyn style)",
 )
 
-BUILTIN_THEMES: Dict[str, Theme] = {
+BUILTIN_THEMES: dict[str, Theme] = {
     "default": DEFAULT,
     "corporate": CORPORATE,
     "academic": ACADEMIC,
@@ -256,7 +256,7 @@ BUILTIN_THEMES: Dict[str, Theme] = {
 
 def get_theme(
     name: str,
-    custom_themes: Optional[Dict[str, Any]] = None,
+    custom_themes: dict[str, Any] | None = None,
 ) -> Theme:
     """Look up a theme by name.
 
@@ -287,8 +287,8 @@ def get_theme(
 
 
 def list_themes(
-    custom_themes: Optional[Dict[str, Any]] = None,
-) -> List[Theme]:
+    custom_themes: dict[str, Any] | None = None,
+) -> list[Theme]:
     """Return all available themes (built-in + custom)."""
     themes = dict(BUILTIN_THEMES)
     if custom_themes:

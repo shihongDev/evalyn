@@ -21,7 +21,7 @@ class DashboardConfig:
     theme: str = "dark"
     refresh_interval: int = 0
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "title": self.title,
             "theme": self.theme,
@@ -29,7 +29,7 @@ class DashboardConfig:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> DashboardConfig:
+    def from_dict(cls, data: dict[str, Any]) -> DashboardConfig:
         return cls(
             title=data.get("title", "Evalyn Dashboard"),
             theme=data.get("theme", "dark"),
@@ -46,7 +46,7 @@ class DashboardPanel:
     content_html: str
     panel_type: str = "metrics"
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "panel_id": self.panel_id,
             "title": self.title,
@@ -55,7 +55,7 @@ class DashboardPanel:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> DashboardPanel:
+    def from_dict(cls, data: dict[str, Any]) -> DashboardPanel:
         return cls(
             panel_id=data.get("panel_id", ""),
             title=data.get("title", ""),
@@ -69,16 +69,16 @@ class Dashboard:
     """A complete dashboard with config and panels."""
 
     config: DashboardConfig
-    panels: List[DashboardPanel] = field(default_factory=list)
+    panels: list[DashboardPanel] = field(default_factory=list)
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "config": self.config.as_dict(),
             "panels": [p.as_dict() for p in self.panels],
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> Dashboard:
+    def from_dict(cls, data: dict[str, Any]) -> Dashboard:
         config = DashboardConfig.from_dict(data.get("config", {}))
         panels = [DashboardPanel.from_dict(p) for p in data.get("panels", [])]
         return cls(config=config, panels=panels)
@@ -89,12 +89,12 @@ def _panel_id() -> str:
     return f"panel-{uuid.uuid4().hex[:8]}"
 
 
-def generate_metrics_panel(metrics: Dict[str, float]) -> DashboardPanel:
+def generate_metrics_panel(metrics: dict[str, float]) -> DashboardPanel:
     """Generate an HTML panel showing metric cards with scores.
 
     Each metric is rendered as a card with the metric name and its value.
     """
-    cards: List[str] = []
+    cards: list[str] = []
     for name, value in metrics.items():
         escaped_name = html.escape(str(name))
         formatted_value = f"{value:.4f}" if isinstance(value, float) else str(value)
@@ -115,13 +115,13 @@ def generate_metrics_panel(metrics: Dict[str, float]) -> DashboardPanel:
 
 
 def generate_table_panel(
-    title: str, headers: List[str], rows: List[List[str]]
+    title: str, headers: list[str], rows: list[list[str]]
 ) -> DashboardPanel:
     """Generate an HTML table panel. All content is html.escaped."""
     header_cells = "".join(
         f"<th>{html.escape(h)}</th>" for h in headers
     )
-    body_rows: List[str] = []
+    body_rows: list[str] = []
     for row in rows:
         cells = "".join(f"<td>{html.escape(str(c))}</td>" for c in row)
         body_rows.append(f"<tr>{cells}</tr>")
@@ -139,7 +139,7 @@ def generate_table_panel(
     )
 
 
-def generate_chart_panel(title: str, data: Dict[str, float]) -> DashboardPanel:
+def generate_chart_panel(title: str, data: dict[str, float]) -> DashboardPanel:
     """Generate an SVG bar chart panel."""
     if not data:
         svg = '<svg width="400" height="200"><text x="10" y="100">No data</text></svg>'
@@ -161,7 +161,7 @@ def generate_chart_panel(title: str, data: Dict[str, float]) -> DashboardPanel:
     bar_area_width = chart_width - label_width - 20
     svg_height = len(data) * (bar_height + gap) + gap
 
-    bars: List[str] = []
+    bars: list[str] = []
     for i, (label, value) in enumerate(data.items()):
         y = gap + i * (bar_height + gap)
         bar_width = max(1, int(abs(value) / max_val * bar_area_width))
@@ -212,7 +212,7 @@ def render_dashboard(dashboard: Dashboard) -> str:
     card_bg = "#313244" if is_dark else "#ffffff"
     border = "#45475a" if is_dark else "#dddddd"
 
-    panels_html: List[str] = []
+    panels_html: list[str] = []
     for panel in dashboard.panels:
         escaped_title = html.escape(panel.title)
         panels_html.append(
@@ -311,9 +311,9 @@ svg {{ max-width: 100%; }}
 
 
 def build_eval_dashboard(
-    metrics: Dict[str, float],
-    failed_items: List[Dict[str, Any]],
-    run_info: Dict[str, Any],
+    metrics: dict[str, float],
+    failed_items: list[dict[str, Any]],
+    run_info: dict[str, Any],
 ) -> Dashboard:
     """Build a complete dashboard from evaluation results.
 
@@ -326,7 +326,7 @@ def build_eval_dashboard(
     config = DashboardConfig(
         title=f"Evalyn - {run_info.get('dataset', 'Evaluation')} Results",
     )
-    panels: List[DashboardPanel] = []
+    panels: list[DashboardPanel] = []
 
     # Info panel
     info_rows = [[str(k), str(v)] for k, v in run_info.items()]

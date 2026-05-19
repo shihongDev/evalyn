@@ -19,8 +19,8 @@ class GeminiInstrumentor(Instrumentor):
     """Instrumentor for Google Gemini SDK."""
 
     _instrumented = False
-    _original_generate: Optional[Any] = None
-    _original_legacy_generate: Optional[Any] = None
+    _original_generate: Any | None = None
+    _original_legacy_generate: Any | None = None
 
     @property
     def name(self) -> str:

@@ -116,7 +116,7 @@ def create_stream_adapter(*args, **kwargs):
 
 
 # Public API
-def instrument(*names: str) -> Dict[str, bool]:
+def instrument(*names: str) -> dict[str, bool]:
     """
     Instrument specific SDKs by name.
 
@@ -134,7 +134,7 @@ def instrument(*names: str) -> Dict[str, bool]:
     return registry.instrument(*names)
 
 
-def instrument_all() -> Dict[str, bool]:
+def instrument_all() -> dict[str, bool]:
     """
     Instrument all available SDKs.
 
@@ -146,7 +146,7 @@ def instrument_all() -> Dict[str, bool]:
     return registry.instrument_all()
 
 
-def uninstrument(*names: str) -> Dict[str, bool]:
+def uninstrument(*names: str) -> dict[str, bool]:
     """
     Remove instrumentation from specific SDKs.
 
@@ -161,7 +161,7 @@ def uninstrument(*names: str) -> Dict[str, bool]:
     return registry.uninstrument(*names)
 
 
-def uninstrument_all() -> Dict[str, bool]:
+def uninstrument_all() -> dict[str, bool]:
     """Remove instrumentation from all SDKs."""
     _setup_registry()
     registry = get_registry()
@@ -175,21 +175,21 @@ def is_instrumented(name: str) -> bool:
     return registry.is_instrumented(name)
 
 
-def list_available() -> List[str]:
+def list_available() -> list[str]:
     """List all available (installed) SDKs that can be instrumented."""
     _setup_registry()
     registry = get_registry()
     return registry.list_available()
 
 
-def list_instrumented() -> List[str]:
+def list_instrumented() -> list[str]:
     """List currently instrumented SDKs."""
     _setup_registry()
     registry = get_registry()
     return registry.list_instrumented()
 
 
-def get_hooks(name: str) -> Optional[Any]:
+def get_hooks(name: str) -> Any | None:
     """
     Get hook adapter for a hook-based instrumentor.
 

@@ -35,10 +35,10 @@ class DecisionNode:
     node_id: str
     label: str
     node_type: str = "decision"  # decision / action / outcome
-    children: List[str] = field(default_factory=list)
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    children: list[str] = field(default_factory=list)
+    metadata: dict[str, Any] = field(default_factory=dict)
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "node_id": self.node_id,
             "label": self.label,
@@ -48,7 +48,7 @@ class DecisionNode:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> DecisionNode:
+    def from_dict(cls, data: dict[str, Any]) -> DecisionNode:
         return cls(
             node_id=data["node_id"],
             label=data["label"],
@@ -62,11 +62,11 @@ class DecisionNode:
 class DecisionTree:
     """Complete decision tree extracted from spans."""
 
-    nodes: Dict[str, DecisionNode] = field(default_factory=dict)
+    nodes: dict[str, DecisionNode] = field(default_factory=dict)
     root_id: str = ""
     total_decisions: int = 0
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "nodes": {nid: n.as_dict() for nid, n in self.nodes.items()},
             "root_id": self.root_id,
@@ -74,8 +74,8 @@ class DecisionTree:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> DecisionTree:
-        nodes: Dict[str, DecisionNode] = {}
+    def from_dict(cls, data: dict[str, Any]) -> DecisionTree:
+        nodes: dict[str, DecisionNode] = {}
         for nid, ndata in data.get("nodes", {}).items():
             nodes[nid] = DecisionNode.from_dict(ndata)
         return cls(
@@ -85,7 +85,7 @@ class DecisionTree:
         )
 
     def format_text(self) -> str:
-        lines: List[str] = []
+        lines: list[str] = []
         lines.append(f"Decision Tree ({len(self.nodes)} nodes)")
         lines.append(f"Root: {self.root_id}")
         lines.append(f"Total decisions: {self.total_decisions}")
@@ -99,7 +99,7 @@ class DecisionTree:
         return "\n".join(lines)
 
 
-def build_decision_tree(spans: List[Span]) -> DecisionTree:
+def build_decision_tree(spans: list[Span]) -> DecisionTree:
     """Build a decision tree from span sequence.
 
     LLM calls become decision nodes, tool calls become action nodes,
@@ -110,7 +110,7 @@ def build_decision_tree(spans: List[Span]) -> DecisionTree:
         return DecisionTree()
 
     span_by_id = {s.id: s for s in spans}
-    nodes: Dict[str, DecisionNode] = {}
+    nodes: dict[str, DecisionNode] = {}
 
     for s in spans:
         ntype = _classify_span(s)
@@ -150,7 +150,7 @@ def render_tree_ascii(tree: DecisionTree, indent: int = 2) -> str:
     if not tree.nodes or not tree.root_id:
         return ""
 
-    lines: List[str] = []
+    lines: list[str] = []
 
     def _render(node_id: str, depth: int) -> None:
         node = tree.nodes.get(node_id)
@@ -173,7 +173,7 @@ def render_tree_mermaid(tree: DecisionTree) -> str:
     if not tree.nodes:
         return "graph TD"
 
-    lines: List[str] = ["graph TD"]
+    lines: list[str] = ["graph TD"]
 
     shape_map = {
         "decision": ('{"', '"}'),   # diamond-ish via double brace
@@ -195,14 +195,14 @@ def render_tree_mermaid(tree: DecisionTree) -> str:
     return "\n".join(lines)
 
 
-def find_decision_paths(tree: DecisionTree) -> List[List[str]]:
+def find_decision_paths(tree: DecisionTree) -> list[list[str]]:
     """Find all root-to-leaf paths in the decision tree."""
     if not tree.nodes or not tree.root_id:
         return []
 
-    paths: List[List[str]] = []
+    paths: list[list[str]] = []
 
-    def _walk(node_id: str, current_path: List[str]) -> None:
+    def _walk(node_id: str, current_path: list[str]) -> None:
         node = tree.nodes.get(node_id)
         if node is None:
             return
@@ -218,7 +218,7 @@ def find_decision_paths(tree: DecisionTree) -> List[List[str]]:
     return paths
 
 
-def compute_decision_stats(tree: DecisionTree) -> Dict[str, Any]:
+def compute_decision_stats(tree: DecisionTree) -> dict[str, Any]:
     """Compute tree statistics: depth, breadth, nodes by type, avg branching factor."""
     if not tree.nodes:
         return {
@@ -230,7 +230,7 @@ def compute_decision_stats(tree: DecisionTree) -> Dict[str, Any]:
         }
 
     # Nodes by type
-    nodes_by_type: Dict[str, int] = {}
+    nodes_by_type: dict[str, int] = {}
     for node in tree.nodes.values():
         nodes_by_type[node.node_type] = nodes_by_type.get(node.node_type, 0) + 1
 
@@ -240,7 +240,7 @@ def compute_decision_stats(tree: DecisionTree) -> Dict[str, Any]:
         level = [tree.root_id]
         while level:
             depth += 1
-            next_level: List[str] = []
+            next_level: list[str] = []
             for nid in level:
                 node = tree.nodes.get(nid)
                 if node:

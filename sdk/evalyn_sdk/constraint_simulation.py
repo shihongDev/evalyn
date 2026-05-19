@@ -25,7 +25,7 @@ class Constraint:
     operator: str  # eq/ne/gt/lt/gte/lte/contains/not_contains
     value: Any
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "field": self.field,
             "operator": self.operator,
@@ -33,7 +33,7 @@ class Constraint:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> Constraint:
+    def from_dict(cls, data: dict[str, Any]) -> Constraint:
         return cls(
             field=data["field"],
             operator=data["operator"],
@@ -45,17 +45,17 @@ class Constraint:
 class ConstraintSet:
     """A collection of constraints joined by AND or OR logic."""
 
-    constraints: List[Constraint] = field(default_factory=list)
+    constraints: list[Constraint] = field(default_factory=list)
     logic: str = "AND"  # "AND" or "OR"
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "constraints": [c.as_dict() for c in self.constraints],
             "logic": self.logic,
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> ConstraintSet:
+    def from_dict(cls, data: dict[str, Any]) -> ConstraintSet:
         return cls(
             constraints=[Constraint.from_dict(c) for c in data.get("constraints", [])],
             logic=data.get("logic", "AND"),
@@ -68,10 +68,10 @@ class ConstraintCheckResult:
 
     item_id: str
     passed: bool
-    failed_constraints: List[str] = field(default_factory=list)
+    failed_constraints: list[str] = field(default_factory=list)
     all_constraints: int = 0
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "item_id": self.item_id,
             "passed": self.passed,
@@ -80,7 +80,7 @@ class ConstraintCheckResult:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> ConstraintCheckResult:
+    def from_dict(cls, data: dict[str, Any]) -> ConstraintCheckResult:
         return cls(
             item_id=data["item_id"],
             passed=data["passed"],
@@ -148,7 +148,7 @@ def parse_constraint_string(expr: str) -> ConstraintSet:
     # parts looks like: [expr1, 'AND', expr2, 'AND', expr3, ...]
 
     logic = "AND"
-    constraint_exprs: List[str] = []
+    constraint_exprs: list[str] = []
     for i, part in enumerate(parts):
         upper = part.strip().upper()
         if upper in ("AND", "OR"):
@@ -223,7 +223,7 @@ def check_constraints(item: dict, constraint_set: ConstraintSet) -> ConstraintCh
     """
     item_id = str(item.get("id", "unknown"))
     total = len(constraint_set.constraints)
-    failed: List[str] = []
+    failed: list[str] = []
 
     for c in constraint_set.constraints:
         if not check_constraint(item, c):
@@ -249,7 +249,7 @@ def check_constraints(item: dict, constraint_set: ConstraintSet) -> ConstraintCh
 # ---------------------------------------------------------------------------
 
 
-def filter_by_constraints(items: List[dict], constraint_set: ConstraintSet) -> List[dict]:
+def filter_by_constraints(items: list[dict], constraint_set: ConstraintSet) -> list[dict]:
     """Return items that pass the constraint set."""
     return [item for item in items if check_constraints(item, constraint_set).passed]
 
@@ -329,7 +329,7 @@ def format_constraint_summary(constraint_set: ConstraintSet) -> str:
     if not constraint_set.constraints:
         return "No constraints defined."
 
-    lines: List[str] = []
+    lines: list[str] = []
     lines.append(f"Constraint set ({constraint_set.logic} logic):")
     for i, c in enumerate(constraint_set.constraints, 1):
         lines.append(f"  {i}. {c.field} {c.operator} {c.value}")
@@ -337,6 +337,6 @@ def format_constraint_summary(constraint_set: ConstraintSet) -> str:
     return "\n".join(lines)
 
 
-def count_passing(items: List[dict], constraint_set: ConstraintSet) -> int:
+def count_passing(items: list[dict], constraint_set: ConstraintSet) -> int:
     """Count items that pass the constraint set."""
     return len(filter_by_constraints(items, constraint_set))

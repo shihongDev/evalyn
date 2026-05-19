@@ -27,7 +27,7 @@ class DeterministicConfig:
     enabled: bool = False
     seed: int = 42
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {"enabled": self.enabled, "seed": self.seed}
 
 
@@ -40,14 +40,14 @@ class RunManifest:
 
     evalyn_version: str = ""
     python_version: str = ""
-    seed: Optional[int] = None
+    seed: int | None = None
     dataset_hash: str = ""
-    metric_hashes: Dict[str, str] = field(default_factory=dict)
+    metric_hashes: dict[str, str] = field(default_factory=dict)
     config_hash: str = ""
     provider: str = ""
     model: str = ""
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "evalyn_version": self.evalyn_version,
             "python_version": self.python_version,
@@ -60,7 +60,7 @@ class RunManifest:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> RunManifest:
+    def from_dict(cls, data: dict[str, Any]) -> RunManifest:
         return cls(
             evalyn_version=data.get("evalyn_version", ""),
             python_version=data.get("python_version", ""),
@@ -73,7 +73,7 @@ class RunManifest:
         )
 
 
-def sort_items_deterministically(items: List, seed: int = 42) -> List:
+def sort_items_deterministically(items: list, seed: int = 42) -> list:
     """Sort dataset items in a deterministic order.
 
     Uses a seeded hash of each item's ID to produce a stable ordering
@@ -94,7 +94,7 @@ def sort_items_deterministically(items: List, seed: int = 42) -> List:
     return sorted(items, key=sort_key)
 
 
-def sort_metrics_deterministically(metrics: List) -> List:
+def sort_metrics_deterministically(metrics: list) -> list:
     """Sort metrics by ID for deterministic evaluation order.
 
     Args:
@@ -106,7 +106,7 @@ def sort_metrics_deterministically(metrics: List) -> List:
     return sorted(metrics, key=lambda m: m.spec.id)
 
 
-def compute_dataset_hash(items: List) -> str:
+def compute_dataset_hash(items: list) -> str:
     """Compute a deterministic hash of a dataset's contents.
 
     Args:
@@ -127,9 +127,9 @@ def compute_dataset_hash(items: List) -> str:
 
 
 def build_manifest(
-    items: List,
-    metrics: List,
-    seed: Optional[int] = None,
+    items: list,
+    metrics: list,
+    seed: int | None = None,
     provider: str = "",
     model: str = "",
 ) -> RunManifest:
@@ -166,7 +166,7 @@ def build_manifest(
 def verify_manifest(
     current: RunManifest,
     previous: RunManifest,
-) -> List[str]:
+) -> list[str]:
     """Compare two manifests and report differences.
 
     Args:

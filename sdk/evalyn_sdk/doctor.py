@@ -23,7 +23,7 @@ class DiagnosticCheck:
     details: str
     suggestion: str = ""
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "check_name": self.check_name,
             "status": self.status,
@@ -32,7 +32,7 @@ class DiagnosticCheck:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> DiagnosticCheck:
+    def from_dict(cls, data: dict[str, Any]) -> DiagnosticCheck:
         return cls(
             check_name=data.get("check_name", ""),
             status=data.get("status", "fail"),
@@ -45,12 +45,12 @@ class DiagnosticCheck:
 class DiagnosticReport:
     """Full diagnostic report."""
 
-    checks: List[DiagnosticCheck] = field(default_factory=list)
+    checks: list[DiagnosticCheck] = field(default_factory=list)
     pass_count: int = 0
     fail_count: int = 0
     warn_count: int = 0
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "checks": [c.as_dict() for c in self.checks],
             "pass_count": self.pass_count,
@@ -59,7 +59,7 @@ class DiagnosticReport:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> DiagnosticReport:
+    def from_dict(cls, data: dict[str, Any]) -> DiagnosticReport:
         return cls(
             checks=[DiagnosticCheck.from_dict(c) for c in data.get("checks", [])],
             pass_count=data.get("pass_count", 0),
@@ -74,13 +74,13 @@ def _mask_key(key: str) -> str:
     return "****" + key[-4:]
 
 
-def check_api_keys(providers: Optional[List[str]] = None) -> DiagnosticCheck:
+def check_api_keys(providers: list[str] | None = None) -> DiagnosticCheck:
     """Check if API key env vars exist for common providers."""
     if providers is None:
         providers = ["GEMINI_API_KEY", "OPENAI_API_KEY", "ANTHROPIC_API_KEY"]
 
-    found: List[str] = []
-    missing: List[str] = []
+    found: list[str] = []
+    missing: list[str] = []
     for var in providers:
         val = os.environ.get(var, "")
         if val:
@@ -231,7 +231,7 @@ def run_diagnostics(
 def format_diagnostic_report(report: DiagnosticReport) -> str:
     """Human-readable diagnostic report."""
     icons = {"pass": "[OK]", "fail": "[FAIL]", "warn": "[WARN]"}
-    lines: List[str] = []
+    lines: list[str] = []
     lines.append("evalyn doctor")
     lines.append("=" * 40)
     for check in report.checks:

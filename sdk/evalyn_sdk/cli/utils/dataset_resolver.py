@@ -20,7 +20,7 @@ class DatasetInfo:
 
     path: Path
     dataset_file: Path
-    meta: Dict[str, Any]
+    meta: dict[str, Any]
     item_count: int
 
     @property
@@ -28,11 +28,11 @@ class DatasetInfo:
         return self.path.name
 
     @property
-    def project(self) -> Optional[str]:
+    def project(self) -> str | None:
         return self.meta.get("project")
 
     @property
-    def version(self) -> Optional[str]:
+    def version(self) -> str | None:
         return self.meta.get("version")
 
     @property
@@ -43,13 +43,13 @@ class DatasetInfo:
     def eval_runs_dir(self) -> Path:
         return self.path / "eval_runs"
 
-    def list_metrics_files(self) -> List[Path]:
+    def list_metrics_files(self) -> list[Path]:
         """List all metrics JSON files."""
         if not self.metrics_dir.exists():
             return []
         return sorted(self.metrics_dir.glob("*.json"))
 
-    def list_eval_runs(self) -> List[Path]:
+    def list_eval_runs(self) -> list[Path]:
         """List all evaluation run directories."""
         if not self.eval_runs_dir.exists():
             return []
@@ -61,10 +61,10 @@ class DatasetInfo:
 
 
 def _resolve_path(
-    dataset_arg: Optional[str],
+    dataset_arg: str | None,
     use_latest: bool,
-    config: Optional[Dict[str, Any]] = None,
-) -> Optional[Path]:
+    config: dict[str, Any] | None = None,
+) -> Path | None:
     """Resolve dataset argument to a Path without loading."""
     if dataset_arg:
         path = Path(dataset_arg)
@@ -116,7 +116,7 @@ def _load_info(path: Path) -> DatasetInfo:
     )
 
 
-def find_latest_dataset(data_dir: str = "data") -> Optional[Path]:
+def find_latest_dataset(data_dir: str = "data") -> Path | None:
     """Find most recently modified dataset directory.
 
     Delegates to config.find_latest_dataset which also checks
@@ -125,7 +125,7 @@ def find_latest_dataset(data_dir: str = "data") -> Optional[Path]:
     return _config_find_latest_dataset(data_dir)
 
 
-def list_datasets(data_dir: str = "data", limit: int = 10) -> List[Path]:
+def list_datasets(data_dir: str = "data", limit: int = 10) -> list[Path]:
     """List available dataset directories.
 
     Searches three locations (matching find_latest_dataset behavior):
@@ -144,7 +144,7 @@ def list_datasets(data_dir: str = "data", limit: int = 10) -> List[Path]:
             search_dirs.append(candidate)
 
     seen: set = set()
-    datasets: List[Path] = []
+    datasets: list[Path] = []
     for search_dir in search_dirs:
         for d in search_dir.iterdir():
             if d.is_dir() and (d / "dataset.jsonl").exists() and d not in seen:
@@ -170,11 +170,11 @@ def _print_available_and_exit(data_dir: str = "data") -> None:
 
 
 def get_dataset(
-    dataset_arg: Optional[str] = None,
+    dataset_arg: str | None = None,
     use_latest: bool = False,
     require: bool = True,
-    config: Optional[Dict[str, Any]] = None,
-) -> Optional[DatasetInfo]:
+    config: dict[str, Any] | None = None,
+) -> DatasetInfo | None:
     """Resolve and load dataset info.
 
     Args:

@@ -15,14 +15,14 @@ from typing import Any, Dict, List, Optional
 class ArgDoc:
     """Documentation for a single CLI argument."""
 
-    flags: List[str]
+    flags: list[str]
     help: str
     default: Any = None
     required: bool = False
-    choices: Optional[List[str]] = None
+    choices: list[str] | None = None
     type_name: str = ""
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "flags": list(self.flags),
             "help": self.help,
@@ -33,7 +33,7 @@ class ArgDoc:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> ArgDoc:
+    def from_dict(cls, data: dict[str, Any]) -> ArgDoc:
         return cls(
             flags=data.get("flags", []),
             help=data.get("help", ""),
@@ -50,11 +50,11 @@ class CommandDoc:
 
     name: str
     description: str
-    arguments: List[ArgDoc] = field(default_factory=list)
-    examples: List[str] = field(default_factory=list)
+    arguments: list[ArgDoc] = field(default_factory=list)
+    examples: list[str] = field(default_factory=list)
     group: str = ""
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "name": self.name,
             "description": self.description,
@@ -64,7 +64,7 @@ class CommandDoc:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> CommandDoc:
+    def from_dict(cls, data: dict[str, Any]) -> CommandDoc:
         return cls(
             name=data.get("name", ""),
             description=data.get("description", ""),
@@ -74,9 +74,9 @@ class CommandDoc:
         )
 
 
-def extract_arguments(parser: argparse.ArgumentParser) -> List[ArgDoc]:
+def extract_arguments(parser: argparse.ArgumentParser) -> list[ArgDoc]:
     """Extract argument documentation from a single parser."""
-    args: List[ArgDoc] = []
+    args: list[ArgDoc] = []
     for action in parser._actions:
         # Skip the default help action and subparsers
         if isinstance(action, argparse._HelpAction):
@@ -127,9 +127,9 @@ def extract_arguments(parser: argparse.ArgumentParser) -> List[ArgDoc]:
     return args
 
 
-def extract_commands(parser: argparse.ArgumentParser) -> List[CommandDoc]:
+def extract_commands(parser: argparse.ArgumentParser) -> list[CommandDoc]:
     """Introspect an argparse parser to extract all subcommands."""
-    commands: List[CommandDoc] = []
+    commands: list[CommandDoc] = []
 
     # Find the subparsers action
     subparsers_action = None
@@ -155,7 +155,7 @@ def extract_commands(parser: argparse.ArgumentParser) -> List[CommandDoc]:
         arguments = extract_arguments(subparser)
 
         # Extract examples from epilog if present
-        examples: List[str] = []
+        examples: list[str] = []
         if subparser.epilog:
             for line in subparser.epilog.strip().splitlines():
                 stripped = line.strip()
@@ -175,21 +175,21 @@ def extract_commands(parser: argparse.ArgumentParser) -> List[CommandDoc]:
     return commands
 
 
-def group_commands(commands: List[CommandDoc]) -> Dict[str, List[CommandDoc]]:
+def group_commands(commands: list[CommandDoc]) -> dict[str, list[CommandDoc]]:
     """Group commands by their group field.
 
     Commands with an empty group are placed under "General".
     """
-    groups: Dict[str, List[CommandDoc]] = {}
+    groups: dict[str, list[CommandDoc]] = {}
     for cmd in commands:
         key = cmd.group if cmd.group else "General"
         groups.setdefault(key, []).append(cmd)
     return groups
 
 
-def format_markdown(commands: List[CommandDoc]) -> str:
+def format_markdown(commands: list[CommandDoc]) -> str:
     """Format commands as a Markdown reference with TOC and flag tables."""
-    lines: List[str] = []
+    lines: list[str] = []
 
     lines.append("# CLI Reference")
     lines.append("")
@@ -243,9 +243,9 @@ def format_markdown(commands: List[CommandDoc]) -> str:
     return "\n".join(lines)
 
 
-def format_plain_text(commands: List[CommandDoc]) -> str:
+def format_plain_text(commands: list[CommandDoc]) -> str:
     """Format commands as plain text reference."""
-    lines: List[str] = []
+    lines: list[str] = []
 
     lines.append("CLI Reference")
     lines.append("=" * 60)

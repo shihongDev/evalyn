@@ -14,9 +14,9 @@ class RunSummary:
     total_items: int = 0
     total_cost_usd: float = 0.0
     duration_ms: float = 0.0
-    metrics_scores: Dict[str, float] = field(default_factory=dict)
+    metrics_scores: dict[str, float] = field(default_factory=dict)
 
-    def as_dict(self) -> Dict:
+    def as_dict(self) -> dict:
         return {
             "run_id": self.run_id,
             "pipeline_name": self.pipeline_name,
@@ -28,7 +28,7 @@ class RunSummary:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict) -> RunSummary:
+    def from_dict(cls, data: dict) -> RunSummary:
         return cls(
             run_id=data["run_id"],
             pipeline_name=data["pipeline_name"],
@@ -50,7 +50,7 @@ class MetricDelta:
     delta: float
     improved: bool
 
-    def as_dict(self) -> Dict:
+    def as_dict(self) -> dict:
         return {
             "metric_id": self.metric_id,
             "score_a": self.score_a,
@@ -66,13 +66,13 @@ class PipelineComparisonReport:
 
     run_a: RunSummary
     run_b: RunSummary
-    metric_deltas: List[MetricDelta] = field(default_factory=list)
+    metric_deltas: list[MetricDelta] = field(default_factory=list)
     pass_rate_delta: float = 0.0
     cost_delta: float = 0.0
     duration_delta: float = 0.0
     overall_improved: bool = False
 
-    def as_dict(self) -> Dict:
+    def as_dict(self) -> dict:
         return {
             "run_a": self.run_a.as_dict(),
             "run_b": self.run_b.as_dict(),
@@ -84,7 +84,7 @@ class PipelineComparisonReport:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict) -> PipelineComparisonReport:
+    def from_dict(cls, data: dict) -> PipelineComparisonReport:
         run_a = RunSummary.from_dict(data["run_a"])
         run_b = RunSummary.from_dict(data["run_b"])
         metric_deltas = [
@@ -122,8 +122,8 @@ class PipelineComparisonReport:
 
 
 def compute_metric_deltas(
-    scores_a: Dict[str, float], scores_b: Dict[str, float]
-) -> List[MetricDelta]:
+    scores_a: dict[str, float], scores_b: dict[str, float]
+) -> list[MetricDelta]:
     """Compute per-metric deltas between two score dictionaries."""
     all_keys = sorted(set(scores_a) | set(scores_b))
     deltas = []
@@ -183,6 +183,6 @@ def format_comparison_table(report: PipelineComparisonReport) -> str:
     return "\n".join(lines)
 
 
-def rank_by_improvement(deltas: List[MetricDelta]) -> List[MetricDelta]:
+def rank_by_improvement(deltas: list[MetricDelta]) -> list[MetricDelta]:
     """Sort metric deltas by delta descending (most improved first)."""
     return sorted(deltas, key=lambda d: d.delta, reverse=True)

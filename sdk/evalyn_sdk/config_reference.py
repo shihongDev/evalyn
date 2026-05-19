@@ -21,11 +21,11 @@ class ConfigOption:
     description: str
     env_var: str = ""
     cli_flag: str = ""
-    valid_values: List[Any] = field(default_factory=list)
+    valid_values: list[Any] = field(default_factory=list)
     required: bool = False
     section: str = ""
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "key": self.key,
             "type_name": self.type_name,
@@ -39,7 +39,7 @@ class ConfigOption:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> ConfigOption:
+    def from_dict(cls, data: dict[str, Any]) -> ConfigOption:
         return cls(
             key=data["key"],
             type_name=data.get("type_name", "str"),
@@ -57,11 +57,11 @@ class ConfigOption:
 class ConfigReference:
     """Reference documentation for configuration options."""
 
-    options: List[ConfigOption] = field(default_factory=list)
-    sections: List[str] = field(default_factory=list)
+    options: list[ConfigOption] = field(default_factory=list)
+    sections: list[str] = field(default_factory=list)
     generated_at: str = ""
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "options": [o.as_dict() for o in self.options],
             "sections": list(self.sections),
@@ -69,7 +69,7 @@ class ConfigReference:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> ConfigReference:
+    def from_dict(cls, data: dict[str, Any]) -> ConfigReference:
         return cls(
             options=[ConfigOption.from_dict(o) for o in data.get("options", [])],
             sections=data.get("sections", []),
@@ -78,7 +78,7 @@ class ConfigReference:
 
 
 # Hardcoded list of common evalyn config options
-KNOWN_OPTIONS: List[ConfigOption] = [
+KNOWN_OPTIONS: list[ConfigOption] = [
     ConfigOption(
         key="provider",
         type_name="str",
@@ -247,7 +247,7 @@ KNOWN_OPTIONS: List[ConfigOption] = [
 ]
 
 # Type checking helpers
-_TYPE_CHECKERS: Dict[str, type] = {
+_TYPE_CHECKERS: dict[str, type] = {
     "str": str,
     "int": int,
     "float": float,
@@ -255,7 +255,7 @@ _TYPE_CHECKERS: Dict[str, type] = {
 }
 
 
-def build_reference(options: Optional[List[ConfigOption]] = None) -> ConfigReference:
+def build_reference(options: list[ConfigOption] | None = None) -> ConfigReference:
     """Build reference from options list.
 
     Args:
@@ -276,8 +276,8 @@ def build_reference(options: Optional[List[ConfigOption]] = None) -> ConfigRefer
 
 def filter_reference(
     ref: ConfigReference,
-    section: Optional[str] = None,
-    search: Optional[str] = None,
+    section: str | None = None,
+    search: str | None = None,
 ) -> ConfigReference:
     """Filter reference by section or text search.
 
@@ -316,14 +316,14 @@ def format_reference_markdown(ref: ConfigReference) -> str:
 
     Each option shows type, default, env var, CLI flag, and valid values.
     """
-    lines: List[str] = []
+    lines: list[str] = []
     lines.append("# Configuration Reference")
     lines.append("")
     lines.append(f"Generated: {ref.generated_at}")
     lines.append("")
 
     # Group by section
-    by_section: Dict[str, List[ConfigOption]] = {}
+    by_section: dict[str, list[ConfigOption]] = {}
     for opt in ref.options:
         sec = opt.section or "general"
         by_section.setdefault(sec, []).append(opt)
@@ -352,13 +352,13 @@ def format_reference_markdown(ref: ConfigReference) -> str:
 
 def format_reference_plain(ref: ConfigReference) -> str:
     """Format reference as plain text."""
-    lines: List[str] = []
+    lines: list[str] = []
     lines.append("Configuration Reference")
     lines.append(f"Generated: {ref.generated_at}")
     lines.append("")
 
     # Group by section
-    by_section: Dict[str, List[ConfigOption]] = {}
+    by_section: dict[str, list[ConfigOption]] = {}
     for opt in ref.options:
         sec = opt.section or "general"
         by_section.setdefault(sec, []).append(opt)
@@ -384,7 +384,7 @@ def format_reference_plain(ref: ConfigReference) -> str:
     return "\n".join(lines)
 
 
-def validate_config(config: Dict[str, Any], reference: ConfigReference) -> List[str]:
+def validate_config(config: dict[str, Any], reference: ConfigReference) -> list[str]:
     """Validate a config dict against the reference.
 
     Returns list of error strings for:
@@ -400,7 +400,7 @@ def validate_config(config: Dict[str, Any], reference: ConfigReference) -> List[
     Returns:
         List of error message strings. Empty list means valid.
     """
-    errors: List[str] = []
+    errors: list[str] = []
     known_keys = {o.key for o in reference.options}
     option_map = {o.key: o for o in reference.options}
 

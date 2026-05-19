@@ -18,10 +18,10 @@ class ErrorPattern:
 
     pattern_id: str
     description: str
-    keywords: List[str] = field(default_factory=list)
+    keywords: list[str] = field(default_factory=list)
     severity: str = "medium"
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "pattern_id": self.pattern_id,
             "description": self.description,
@@ -30,7 +30,7 @@ class ErrorPattern:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> ErrorPattern:
+    def from_dict(cls, data: dict[str, Any]) -> ErrorPattern:
         return cls(
             pattern_id=data["pattern_id"],
             description=data["description"],
@@ -47,7 +47,7 @@ class PatternMatch:
     pattern_id: str
     match_score: float
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "item_id": self.item_id,
             "pattern_id": self.pattern_id,
@@ -55,7 +55,7 @@ class PatternMatch:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> PatternMatch:
+    def from_dict(cls, data: dict[str, Any]) -> PatternMatch:
         return cls(
             item_id=data["item_id"],
             pattern_id=data["pattern_id"],
@@ -67,13 +67,13 @@ class PatternMatch:
 class ErrorPatternResult:
     """Result of error-pattern sampling."""
 
-    selected_ids: List[str] = field(default_factory=list)
-    matches: List[PatternMatch] = field(default_factory=list)
+    selected_ids: list[str] = field(default_factory=list)
+    matches: list[PatternMatch] = field(default_factory=list)
     patterns_covered: int = 0
     total_patterns: int = 0
     total_pool: int = 0
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "selected_ids": self.selected_ids,
             "matches": [m.as_dict() for m in self.matches],
@@ -83,7 +83,7 @@ class ErrorPatternResult:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> ErrorPatternResult:
+    def from_dict(cls, data: dict[str, Any]) -> ErrorPatternResult:
         return cls(
             selected_ids=data.get("selected_ids", []),
             matches=[PatternMatch.from_dict(m) for m in data.get("matches", [])],
@@ -107,7 +107,7 @@ def extract_patterns_from_failures(
     Each unique reason string becomes one ErrorPattern. Keywords are the
     distinct tokens (lowercased words) extracted from that reason.
     """
-    groups: Dict[str, list[dict]] = {}
+    groups: dict[str, list[dict]] = {}
     for f in failures:
         reason = str(f.get(reason_field, ""))
         if not reason:
@@ -199,12 +199,11 @@ def sample_by_error_patterns(
     if not matches:
         return []
 
-    rng = random.Random(seed)
     selected: list[str] = []
     selected_set: set[str] = set()
 
     # Phase 1: one item per pattern (highest score)
-    pattern_best: Dict[str, PatternMatch] = {}
+    pattern_best: dict[str, PatternMatch] = {}
     for m in matches:
         if m.pattern_id not in pattern_best or m.match_score > pattern_best[m.pattern_id].match_score:
             pattern_best[m.pattern_id] = m

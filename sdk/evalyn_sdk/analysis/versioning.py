@@ -15,8 +15,8 @@ class MetricVersionChange:
     """A detected change in a metric's version between two runs."""
 
     metric_id: str
-    baseline_hash: Optional[str]
-    current_hash: Optional[str]
+    baseline_hash: str | None
+    current_hash: str | None
     change_type: str  # "modified", "added", "removed"
 
 
@@ -24,8 +24,8 @@ class MetricVersionChange:
 class VersionComparisonReport:
     """Report of metric version differences between two runs."""
 
-    changes: List[MetricVersionChange] = field(default_factory=list)
-    unchanged_metrics: List[str] = field(default_factory=list)
+    changes: list[MetricVersionChange] = field(default_factory=list)
+    unchanged_metrics: list[str] = field(default_factory=list)
 
     @property
     def has_changes(self) -> bool:
@@ -43,7 +43,7 @@ class VersionComparisonReport:
     def removed_count(self) -> int:
         return sum(1 for c in self.changes if c.change_type == "removed")
 
-    def format_warnings(self) -> List[str]:
+    def format_warnings(self) -> list[str]:
         """Generate warning messages for detected changes."""
         warnings = []
         for change in self.changes:
@@ -60,8 +60,8 @@ class VersionComparisonReport:
 
 
 def compare_metric_versions(
-    baseline_metrics: List,
-    current_metrics: List,
+    baseline_metrics: list,
+    current_metrics: list,
 ) -> VersionComparisonReport:
     """Compare metric versions between two runs.
 
@@ -72,19 +72,19 @@ def compare_metric_versions(
     Returns:
         VersionComparisonReport with detected changes.
     """
-    baseline_hashes: Dict[str, str] = {}
+    baseline_hashes: dict[str, str] = {}
     for m in baseline_metrics:
         h = getattr(m, "version_hash", None)
         if h:
             baseline_hashes[m.id] = h
 
-    current_hashes: Dict[str, str] = {}
+    current_hashes: dict[str, str] = {}
     for m in current_metrics:
         h = getattr(m, "version_hash", None)
         if h:
             current_hashes[m.id] = h
 
-    all_ids: Set[str] = set(baseline_hashes.keys()) | set(current_hashes.keys())
+    all_ids: set[str] = set(baseline_hashes.keys()) | set(current_hashes.keys())
 
     changes = []
     unchanged = []

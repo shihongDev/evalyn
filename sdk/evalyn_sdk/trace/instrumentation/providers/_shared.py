@@ -193,7 +193,7 @@ MODEL_CONTEXT_WINDOWS = dict(
 )
 
 
-def get_model_context_window(model: str) -> Optional[int]:
+def get_model_context_window(model: str) -> int | None:
     """Return context window size for a model, or None if unknown."""
     model_lower = model.lower()
     for model_key, window in MODEL_CONTEXT_WINDOWS.items():
@@ -208,12 +208,12 @@ def is_model_pricing_known(model: str) -> bool:
 
 
 # User-defined cost models (override built-in pricing)
-_custom_cost_models: Dict[str, Dict[str, float]] = {}
+_custom_cost_models: dict[str, dict[str, float]] = {}
 
 
 def register_cost_model(model_name: str, input_cost: float, output_cost: float,
-                        cache_write: Optional[float] = None,
-                        cache_read: Optional[float] = None) -> None:
+                        cache_write: float | None = None,
+                        cache_read: float | None = None) -> None:
     """Register a custom cost model (per 1M tokens).
 
     Custom models take precedence over built-in pricing. Useful for:
@@ -228,7 +228,7 @@ def register_cost_model(model_name: str, input_cost: float, output_cost: float,
         cache_write: Optional cache write cost per 1M tokens.
         cache_read: Optional cache read cost per 1M tokens.
     """
-    entry: Dict[str, float] = {"input": input_cost, "output": output_cost}
+    entry: dict[str, float] = {"input": input_cost, "output": output_cost}
     if cache_write is not None:
         entry["cache_write"] = cache_write
     if cache_read is not None:
@@ -241,12 +241,12 @@ def clear_custom_cost_models() -> None:
     _custom_cost_models.clear()
 
 
-def list_custom_cost_models() -> Dict[str, Dict[str, float]]:
+def list_custom_cost_models() -> dict[str, dict[str, float]]:
     """Return a copy of all registered custom cost models."""
     return dict(_custom_cost_models)
 
 
-def _match_model_costs(model_lower: str) -> Optional[dict]:
+def _match_model_costs(model_lower: str) -> dict | None:
     """Find cost entry for a model. Checks custom models first, then built-in."""
     # Custom models take precedence (exact match)
     if model_lower in _custom_cost_models:
@@ -342,15 +342,15 @@ def log_llm_call(
     output_tokens: int = 0,
     duration_ms: float = 0,
     success: bool = True,
-    error: Optional[str] = None,
-    request: Optional[Dict[str, Any]] = None,
-    response: Optional[Dict[str, Any]] = None,
+    error: str | None = None,
+    request: dict[str, Any] | None = None,
+    response: dict[str, Any] | None = None,
     tool_tokens: int = 0,
-    search_queries: Optional[List[str]] = None,
-    sources: Optional[List[Dict[str, str]]] = None,
+    search_queries: list[str] | None = None,
+    sources: list[dict[str, str]] | None = None,
     cache_creation_tokens: int = 0,
     cache_read_tokens: int = 0,
-    streaming_attributes: Optional[Dict[str, Any]] = None,
+    streaming_attributes: dict[str, Any] | None = None,
 ) -> None:
     """Log an LLM call to the tracer and create a span."""
     tracer = _get_tracer()
@@ -458,7 +458,7 @@ def log_tool_call(
     tool_output: Any = None,
     duration_ms: float = 0,
     success: bool = True,
-    error: Optional[str] = None,
+    error: str | None = None,
 ) -> None:
     """Log a tool call to the tracer and create a span."""
     tracer = _get_tracer()

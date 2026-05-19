@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 from ..models import Span
 
@@ -16,7 +16,7 @@ class GraphNode:
     execution_count: int = 0
     avg_duration_ms: float = 0.0
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "node_id": self.node_id,
             "node_name": self.node_name,
@@ -35,7 +35,7 @@ class GraphEdge:
     count: int = 1
     avg_latency_ms: float = 0.0
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "source": self.source,
             "target": self.target,
@@ -48,12 +48,12 @@ class GraphEdge:
 class GraphTopology:
     """Complete execution graph extracted from traces."""
 
-    nodes: Dict[str, GraphNode] = field(default_factory=dict)
-    edges: List[GraphEdge] = field(default_factory=list)
-    entry_nodes: List[str] = field(default_factory=list)
-    exit_nodes: List[str] = field(default_factory=list)
+    nodes: dict[str, GraphNode] = field(default_factory=dict)
+    edges: list[GraphEdge] = field(default_factory=list)
+    entry_nodes: list[str] = field(default_factory=list)
+    exit_nodes: list[str] = field(default_factory=list)
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "nodes": {nid: n.as_dict() for nid, n in self.nodes.items()},
             "edges": [e.as_dict() for e in self.edges],
@@ -62,7 +62,7 @@ class GraphTopology:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> GraphTopology:
+    def from_dict(cls, data: dict[str, Any]) -> GraphTopology:
         nodes = {}
         for nid, ndata in data.get("nodes", {}).items():
             nodes[nid] = GraphNode(
@@ -91,7 +91,7 @@ class GraphTopology:
 
     def format_text(self) -> str:
         """Human-readable summary of the topology."""
-        lines: List[str] = []
+        lines: list[str] = []
         lines.append(f"Nodes: {len(self.nodes)}")
         lines.append(f"Edges: {len(self.edges)}")
         if self.entry_nodes:
@@ -118,7 +118,7 @@ def _node_key(span: Span) -> str:
     return f"{span.name}:{span.span_type}"
 
 
-def extract_topology(spans: List[Span]) -> GraphTopology:
+def extract_topology(spans: list[Span]) -> GraphTopology:
     """Build a graph topology from span parent-child relationships.
 
     Each unique (name, span_type) pair becomes a node.
@@ -128,8 +128,8 @@ def extract_topology(spans: List[Span]) -> GraphTopology:
         return GraphTopology()
 
     # Build node stats
-    node_durations: Dict[str, List[float]] = {}
-    span_to_key: Dict[str, str] = {}
+    node_durations: dict[str, list[float]] = {}
+    span_to_key: dict[str, str] = {}
 
     for span in spans:
         key = _node_key(span)
@@ -140,7 +140,7 @@ def extract_topology(spans: List[Span]) -> GraphTopology:
             node_durations[key].append(dur)
 
     # Create nodes
-    nodes: Dict[str, GraphNode] = {}
+    nodes: dict[str, GraphNode] = {}
     for key, durations in node_durations.items():
         name, stype = key.rsplit(":", 1)
         avg_dur = sum(durations) / len(durations) if durations else 0.0
@@ -153,8 +153,8 @@ def extract_topology(spans: List[Span]) -> GraphTopology:
         )
 
     # Build edges from parent-child
-    edge_counts: Dict[tuple, int] = {}
-    edge_latencies: Dict[tuple, List[float]] = {}
+    edge_counts: dict[tuple, int] = {}
+    edge_latencies: dict[tuple, list[float]] = {}
 
     span_by_id = {s.id: s for s in spans}
     for span in spans:
@@ -170,7 +170,7 @@ def extract_topology(spans: List[Span]) -> GraphTopology:
                 latency = (span.start_time - parent.start_time).total_seconds() * 1000
                 edge_latencies.setdefault(pair, []).append(latency)
 
-    edges: List[GraphEdge] = []
+    edges: list[GraphEdge] = []
     for (src, tgt), count in edge_counts.items():
         lats = edge_latencies.get((src, tgt), [])
         avg_lat = sum(lats) / len(lats) if lats else 0.0
@@ -182,13 +182,13 @@ def extract_topology(spans: List[Span]) -> GraphTopology:
     return topo
 
 
-def find_entry_nodes(topology: GraphTopology) -> List[str]:
+def find_entry_nodes(topology: GraphTopology) -> list[str]:
     """Nodes with no incoming edges."""
     targets = {e.target for e in topology.edges}
     return [nid for nid in topology.nodes if nid not in targets]
 
 
-def find_exit_nodes(topology: GraphTopology) -> List[str]:
+def find_exit_nodes(topology: GraphTopology) -> list[str]:
     """Nodes with no outgoing edges."""
     sources = {e.source for e in topology.edges}
     return [nid for nid in topology.nodes if nid not in sources]
@@ -196,7 +196,7 @@ def find_exit_nodes(topology: GraphTopology) -> List[str]:
 
 def render_topology_mermaid(topology: GraphTopology) -> str:
     """Render topology as a Mermaid graph diagram."""
-    lines: List[str] = ["graph TD"]
+    lines: list[str] = ["graph TD"]
     for node in topology.nodes.values():
         label = f"{node.node_name} ({node.execution_count}x)"
         lines.append(f'    {node.node_id.replace(":", "_")}["{label}"]')
@@ -207,7 +207,7 @@ def render_topology_mermaid(topology: GraphTopology) -> str:
     return "\n".join(lines)
 
 
-def compute_critical_path(topology: GraphTopology) -> List[str]:
+def compute_critical_path(topology: GraphTopology) -> list[str]:
     """Longest path by avg_duration_ms through the graph (DAG assumed for main path).
 
     Uses dynamic programming on a topological sort. Falls back to DFS
@@ -217,17 +217,17 @@ def compute_critical_path(topology: GraphTopology) -> List[str]:
         return []
 
     # Build adjacency
-    adj: Dict[str, List[str]] = {nid: [] for nid in topology.nodes}
+    adj: dict[str, list[str]] = {nid: [] for nid in topology.nodes}
     for edge in topology.edges:
         adj[edge.source].append(edge.target)
 
     # Topological sort via Kahn's algorithm
-    in_degree: Dict[str, int] = {nid: 0 for nid in topology.nodes}
+    in_degree: dict[str, int] = {nid: 0 for nid in topology.nodes}
     for edge in topology.edges:
         in_degree[edge.target] = in_degree.get(edge.target, 0) + 1
 
     queue = [nid for nid, d in in_degree.items() if d == 0]
-    topo_order: List[str] = []
+    topo_order: list[str] = []
     while queue:
         node = queue.pop(0)
         topo_order.append(node)
@@ -241,8 +241,8 @@ def compute_critical_path(topology: GraphTopology) -> List[str]:
         return _critical_path_dfs(topology, adj)
 
     # DP: dist[node] = longest path weight ending at node
-    dist: Dict[str, float] = {nid: topology.nodes[nid].avg_duration_ms for nid in topology.nodes}
-    prev: Dict[str, Optional[str]] = {nid: None for nid in topology.nodes}
+    dist: dict[str, float] = {nid: topology.nodes[nid].avg_duration_ms for nid in topology.nodes}
+    prev: dict[str, Optional[str]] = {nid: None for nid in topology.nodes}
 
     for node in topo_order:
         for neighbor in adj[node]:
@@ -253,7 +253,7 @@ def compute_critical_path(topology: GraphTopology) -> List[str]:
 
     # Find the node with the largest distance
     end_node = max(dist, key=lambda n: dist[n])
-    path: List[str] = []
+    path: list[str] = []
     current: Optional[str] = end_node
     while current is not None:
         path.append(current)
@@ -263,10 +263,10 @@ def compute_critical_path(topology: GraphTopology) -> List[str]:
 
 
 def _critical_path_dfs(
-    topology: GraphTopology, adj: Dict[str, List[str]]
-) -> List[str]:
+    topology: GraphTopology, adj: dict[str, list[str]]
+) -> list[str]:
     """DFS fallback for critical path when graph has cycles."""
-    best_path: List[str] = []
+    best_path: list[str] = []
     best_weight = 0.0
 
     for start in topology.nodes:
@@ -288,19 +288,19 @@ def _critical_path_dfs(
     return best_path
 
 
-def detect_cycles(topology: GraphTopology) -> List[List[str]]:
+def detect_cycles(topology: GraphTopology) -> list[list[str]]:
     """Detect cycles in the graph using DFS.
 
     Returns a list of cycles, each cycle represented as a list of node IDs.
     """
-    adj: Dict[str, List[str]] = {nid: [] for nid in topology.nodes}
+    adj: dict[str, list[str]] = {nid: [] for nid in topology.nodes}
     for edge in topology.edges:
         adj[edge.source].append(edge.target)
 
-    cycles: List[List[str]] = []
+    cycles: list[list[str]] = []
     visited: set = set()
     rec_stack: set = set()
-    path: List[str] = []
+    path: list[str] = []
 
     def dfs(node: str) -> None:
         visited.add(node)

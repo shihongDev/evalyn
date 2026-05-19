@@ -23,7 +23,7 @@ class Snapshot:
     data_hash: str = ""
     size_bytes: int = 0
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "snapshot_id": self.snapshot_id,
             "source_path": self.source_path,
@@ -34,7 +34,7 @@ class Snapshot:
         }
 
     @classmethod
-    def from_dict(cls, d: Dict[str, Any]) -> Snapshot:
+    def from_dict(cls, d: dict[str, Any]) -> Snapshot:
         return cls(
             snapshot_id=d.get("snapshot_id", ""),
             source_path=d.get("source_path", ""),
@@ -53,7 +53,7 @@ class SnapshotConfig:
     max_snapshots: int = 10
     auto_snapshot_before_calibration: bool = True
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "snapshot_dir": self.snapshot_dir,
             "max_snapshots": self.max_snapshots,
@@ -61,7 +61,7 @@ class SnapshotConfig:
         }
 
     @classmethod
-    def from_dict(cls, d: Dict[str, Any]) -> SnapshotConfig:
+    def from_dict(cls, d: dict[str, Any]) -> SnapshotConfig:
         return cls(
             snapshot_dir=d.get("snapshot_dir", ".evalyn_snapshots"),
             max_snapshots=d.get("max_snapshots", 10),
@@ -75,13 +75,13 @@ class SnapshotConfig:
 class SnapshotReport:
     """Aggregated report of available snapshots."""
 
-    snapshots: List[Snapshot] = field(default_factory=list)
+    snapshots: list[Snapshot] = field(default_factory=list)
     total_snapshots: int = 0
     total_size_bytes: int = 0
     oldest: str = ""
     newest: str = ""
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "snapshots": [s.as_dict() for s in self.snapshots],
             "total_snapshots": self.total_snapshots,
@@ -91,7 +91,7 @@ class SnapshotReport:
         }
 
     @classmethod
-    def from_dict(cls, d: Dict[str, Any]) -> SnapshotReport:
+    def from_dict(cls, d: dict[str, Any]) -> SnapshotReport:
         snapshots = [
             Snapshot.from_dict(s) for s in d.get("snapshots", [])
         ]
@@ -104,7 +104,7 @@ class SnapshotReport:
         )
 
     def format_text(self) -> str:
-        lines: List[str] = []
+        lines: list[str] = []
         lines.append("Snapshot Report")
         lines.append("-" * 40)
         lines.append(f"Total snapshots: {self.total_snapshots}")
@@ -158,14 +158,14 @@ def create_snapshot(
     )
 
 
-def list_snapshots(config: SnapshotConfig) -> List[Snapshot]:
+def list_snapshots(config: SnapshotConfig) -> list[Snapshot]:
     """List available snapshots. Returns empty list (no file I/O)."""
     return []
 
 
 def find_snapshot(
-    snapshots: List[Snapshot], snapshot_id: str
-) -> Optional[Snapshot]:
+    snapshots: list[Snapshot], snapshot_id: str
+) -> Snapshot | None:
     """Find a snapshot by ID. Returns None if not found."""
     for snap in snapshots:
         if snap.snapshot_id == snapshot_id:
@@ -174,8 +174,8 @@ def find_snapshot(
 
 
 def cleanup_snapshots(
-    snapshots: List[Snapshot], max_keep: int = 10
-) -> Tuple[List[Snapshot], List[Snapshot]]:
+    snapshots: list[Snapshot], max_keep: int = 10
+) -> tuple[list[Snapshot], list[Snapshot]]:
     """Split snapshots into (keep, remove). Keep the newest max_keep."""
     # Sort by created_at descending (newest first)
     sorted_snaps = sorted(
@@ -186,7 +186,7 @@ def cleanup_snapshots(
     return keep, remove
 
 
-def build_snapshot_report(snapshots: List[Snapshot]) -> SnapshotReport:
+def build_snapshot_report(snapshots: list[Snapshot]) -> SnapshotReport:
     """Build an aggregate report from a list of snapshots."""
     if not snapshots:
         return SnapshotReport()

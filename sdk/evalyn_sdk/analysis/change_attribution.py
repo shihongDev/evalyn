@@ -23,7 +23,7 @@ class ChangeFactor:
     confidence: float = 0.0  # 0-1
     evidence: str = ""
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "factor": self.factor,
             "confidence": self.confidence,
@@ -38,9 +38,9 @@ class ChangeAttribution:
     metric_id: str
     delta: float
     primary_factor: str = ""
-    factors: List[ChangeFactor] = field(default_factory=list)
+    factors: list[ChangeFactor] = field(default_factory=list)
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "metric_id": self.metric_id,
             "delta": self.delta,
@@ -49,7 +49,7 @@ class ChangeAttribution:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> ChangeAttribution:
+    def from_dict(cls, data: dict[str, Any]) -> ChangeAttribution:
         factors = [
             ChangeFactor(
                 factor=f["factor"],
@@ -70,11 +70,11 @@ class ChangeAttribution:
 class AttributionReport:
     """Aggregated attribution report across all metrics."""
 
-    attributions: List[ChangeAttribution] = field(default_factory=list)
+    attributions: list[ChangeAttribution] = field(default_factory=list)
     dominant_factor: str = ""
-    factor_distribution: Dict[str, int] = field(default_factory=dict)
+    factor_distribution: dict[str, int] = field(default_factory=dict)
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "attributions": [a.as_dict() for a in self.attributions],
             "dominant_factor": self.dominant_factor,
@@ -82,7 +82,7 @@ class AttributionReport:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> AttributionReport:
+    def from_dict(cls, data: dict[str, Any]) -> AttributionReport:
         attributions = [
             ChangeAttribution.from_dict(a) for a in data.get("attributions", [])
         ]
@@ -94,7 +94,7 @@ class AttributionReport:
 
     def format_text(self) -> str:
         """Format the report as human-readable text."""
-        lines: List[str] = []
+        lines: list[str] = []
         lines.append("CHANGE ATTRIBUTION REPORT")
         lines.append("-" * 40)
         if not self.attributions:
@@ -188,7 +188,7 @@ def detect_prompt_change(prompt_a: str, prompt_b: str) -> ChangeFactor:
 
 
 def detect_config_change(
-    config_a: Dict[str, Any], config_b: Dict[str, Any]
+    config_a: dict[str, Any], config_b: dict[str, Any]
 ) -> ChangeFactor:
     """Detect if any config values differ between runs."""
     all_keys = set(config_a.keys()) | set(config_b.keys())
@@ -214,7 +214,7 @@ def detect_config_change(
 
 
 def attribute_change(
-    metric_id: str, delta: float, context: Dict[str, Any]
+    metric_id: str, delta: float, context: dict[str, Any]
 ) -> ChangeAttribution:
     """Determine which factor most likely caused a metric change.
 
@@ -225,7 +225,7 @@ def attribute_change(
         prompt_a, prompt_b: str - prompt texts
         config_a, config_b: Dict - config dicts
     """
-    factors: List[ChangeFactor] = []
+    factors: list[ChangeFactor] = []
 
     dataset_factor = detect_dataset_change(
         context.get("items_a", 0),
@@ -276,13 +276,13 @@ def attribute_change(
 
 
 def build_attribution_report(
-    attributions: List[ChangeAttribution],
+    attributions: list[ChangeAttribution],
 ) -> AttributionReport:
     """Aggregate attributions into a report with factor distribution."""
     if not attributions:
         return AttributionReport()
 
-    distribution: Dict[str, int] = {}
+    distribution: dict[str, int] = {}
     for a in attributions:
         distribution[a.primary_factor] = distribution.get(a.primary_factor, 0) + 1
 

@@ -38,7 +38,7 @@ class EvalResult:
         return self.analysis.overall_pass_rate
 
     @property
-    def metric_summary(self) -> Dict[str, Dict[str, Any]]:
+    def metric_summary(self) -> dict[str, dict[str, Any]]:
         """Per-metric summary: {metric_id: {pass_rate, avg_score, count}}."""
         summary = {}
         for mid, stats in self.analysis.metric_stats.items():
@@ -52,14 +52,14 @@ class EvalResult:
         return summary
 
     @property
-    def failed_items(self) -> List[str]:
+    def failed_items(self) -> list[str]:
         return self.analysis.failed_items
 
     @property
     def total_items(self) -> int:
         return self.analysis.total_items
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "run_id": self.run.id,
             "overall_pass_rate": round(self.overall_pass_rate, 4),
@@ -70,13 +70,13 @@ class EvalResult:
 
 
 def evaluate(
-    dataset: Union[str, Path, List[DatasetItem]],
-    metrics: Union[str, Path, List[str], List] = None,
+    dataset: str | Path | list[DatasetItem],
+    metrics: str | Path | list[str] | list = None,
     *,
     provider: str = "gemini",
     max_workers: int = 1,
-    name: Optional[str] = None,
-    tags: Optional[List[str]] = None,
+    name: str | None = None,
+    tags: list[str] | None = None,
 ) -> EvalResult:
     """Run evaluation on a dataset with specified metrics.
 
@@ -135,7 +135,7 @@ def evaluate(
     return EvalResult(run=run, analysis=analysis)
 
 
-def analyze(run: Union[EvalRun, Dict[str, Any]]) -> RunAnalysis:
+def analyze(run: EvalRun | dict[str, Any]) -> RunAnalysis:
     """Analyze an evaluation run.
 
     Args:
@@ -149,7 +149,7 @@ def analyze(run: Union[EvalRun, Dict[str, Any]]) -> RunAnalysis:
     return analyze_run(run)
 
 
-def _resolve_dataset(dataset) -> List[DatasetItem]:
+def _resolve_dataset(dataset) -> list[DatasetItem]:
     """Resolve dataset argument to a list of DatasetItem."""
     if isinstance(dataset, list):
         if all(isinstance(d, DatasetItem) for d in dataset):
@@ -172,7 +172,7 @@ def _resolve_dataset(dataset) -> List[DatasetItem]:
     return load_dataset(path)
 
 
-def _resolve_metrics(metrics, provider: str) -> List:
+def _resolve_metrics(metrics, provider: str) -> list:
     """Resolve metrics argument to a list of Metric objects."""
     from .metrics.factory import build_metrics_from_specs, build_objective_metric
 

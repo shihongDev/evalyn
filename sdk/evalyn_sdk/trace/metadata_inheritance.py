@@ -24,16 +24,16 @@ class InheritanceConfig:
     """
 
     mode: str = "inherit_all"
-    inherit_keys: List[str] = field(default_factory=list)
+    inherit_keys: list[str] = field(default_factory=list)
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "mode": self.mode,
             "inherit_keys": list(self.inherit_keys),
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> InheritanceConfig:
+    def from_dict(cls, data: dict[str, Any]) -> InheritanceConfig:
         return cls(
             mode=data.get("mode", "inherit_all"),
             inherit_keys=data.get("inherit_keys", []),
@@ -47,14 +47,14 @@ class InheritanceResult:
     spans_updated: int
     tags_inherited: int
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "spans_updated": self.spans_updated,
             "tags_inherited": self.tags_inherited,
         }
 
 
-def get_inheritable_tags(span: Span, config: InheritanceConfig) -> Dict[str, Any]:
+def get_inheritable_tags(span: Span, config: InheritanceConfig) -> dict[str, Any]:
     """Extract tags from a span that should be inherited based on config mode.
 
     Tags are stored in span.attributes["tags"].
@@ -73,9 +73,9 @@ def get_inheritable_tags(span: Span, config: InheritanceConfig) -> Dict[str, Any
 
 
 def apply_inheritance(
-    spans: List[Span],
-    config: Optional[InheritanceConfig] = None,
-) -> Tuple[List[Span], InheritanceResult]:
+    spans: list[Span],
+    config: InheritanceConfig | None = None,
+) -> tuple[list[Span], InheritanceResult]:
     """Apply tag inheritance from parent spans to child spans.
 
     Builds the parent-child tree, then for each child inherits parent tags
@@ -93,10 +93,10 @@ def apply_inheritance(
     new_spans = [copy.deepcopy(s) for s in spans]
 
     # Build lookup by id
-    by_id: Dict[str, Span] = {s.id: s for s in new_spans}
+    by_id: dict[str, Span] = {s.id: s for s in new_spans}
 
     # Build children list per parent
-    children_of: Dict[str, List[str]] = {}
+    children_of: dict[str, list[str]] = {}
     for s in new_spans:
         if s.parent_id and s.parent_id in by_id:
             children_of.setdefault(s.parent_id, []).append(s.id)

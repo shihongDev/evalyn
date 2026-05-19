@@ -32,7 +32,7 @@ class PatchTarget:
             parts.append(self.method_name)
         return ".".join(parts)
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "module_name": self.module_name,
             "class_name": self.class_name,
@@ -43,7 +43,7 @@ class PatchTarget:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> PatchTarget:
+    def from_dict(cls, data: dict[str, Any]) -> PatchTarget:
         return cls(
             module_name=data.get("module_name", ""),
             class_name=data.get("class_name", ""),
@@ -57,12 +57,12 @@ class PatchTarget:
 class DryRunReport:
     """Report of what instrumentation would do."""
 
-    targets: List[PatchTarget] = field(default_factory=list)
+    targets: list[PatchTarget] = field(default_factory=list)
     total_patches: int = 0
-    providers_detected: List[str] = field(default_factory=list)
-    sdk_versions: Dict[str, str] = field(default_factory=dict)
+    providers_detected: list[str] = field(default_factory=list)
+    sdk_versions: dict[str, str] = field(default_factory=dict)
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "targets": [t.as_dict() for t in self.targets],
             "total_patches": self.total_patches,
@@ -71,7 +71,7 @@ class DryRunReport:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> DryRunReport:
+    def from_dict(cls, data: dict[str, Any]) -> DryRunReport:
         targets = [
             PatchTarget.from_dict(t) for t in data.get("targets", [])
         ]
@@ -83,7 +83,7 @@ class DryRunReport:
         )
 
     def format_text(self) -> str:
-        lines: List[str] = []
+        lines: list[str] = []
         lines.append("Instrumentation Dry Run")
         lines.append("-" * 40)
         lines.append(f"Providers detected: {len(self.providers_detected)}")
@@ -101,7 +101,7 @@ class DryRunReport:
 # Known patch targets per provider
 # -------------------------------------------------------------------------
 
-KNOWN_PATCH_TARGETS: Dict[str, List[PatchTarget]] = {
+KNOWN_PATCH_TARGETS: dict[str, list[PatchTarget]] = {
     "google-generativeai": [
         PatchTarget(
             "google.generativeai",
@@ -144,9 +144,9 @@ KNOWN_PATCH_TARGETS: Dict[str, List[PatchTarget]] = {
 # -------------------------------------------------------------------------
 
 
-def detect_installed_providers() -> List[str]:
+def detect_installed_providers() -> list[str]:
     """Check which provider packages are installed using importlib.metadata."""
-    installed: List[str] = []
+    installed: list[str] = []
     for pkg_name in KNOWN_PATCH_TARGETS:
         try:
             importlib.metadata.version(pkg_name)
@@ -156,7 +156,7 @@ def detect_installed_providers() -> List[str]:
     return installed
 
 
-def get_patch_targets(provider: str) -> List[PatchTarget]:
+def get_patch_targets(provider: str) -> list[PatchTarget]:
     """Return known patch targets for a provider."""
     return list(KNOWN_PATCH_TARGETS.get(provider, []))
 
@@ -164,8 +164,8 @@ def get_patch_targets(provider: str) -> List[PatchTarget]:
 def run_dry_run() -> DryRunReport:
     """Detect installed providers and list all targets that would be patched."""
     providers = detect_installed_providers()
-    all_targets: List[PatchTarget] = []
-    sdk_versions: Dict[str, str] = {}
+    all_targets: list[PatchTarget] = []
+    sdk_versions: dict[str, str] = {}
 
     for pkg in providers:
         targets = get_patch_targets(pkg)
@@ -186,7 +186,7 @@ def run_dry_run() -> DryRunReport:
 def format_dry_run_table(report: DryRunReport) -> str:
     """ASCII table showing provider, module, class, method, strategy."""
     headers = ["Provider", "Module", "Class", "Method", "Strategy"]
-    rows: List[List[str]] = []
+    rows: list[list[str]] = []
     for t in report.targets:
         rows.append([
             t.provider,

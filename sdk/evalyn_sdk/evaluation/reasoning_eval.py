@@ -11,7 +11,7 @@ from dataclasses import dataclass, field
 from typing import Any, Dict, List, Set
 
 
-def _tokenize(text: str) -> Set[str]:
+def _tokenize(text: str) -> set[str]:
     """Extract lowercase word tokens from text."""
     return set(re.findall(r"[a-z]+", text.lower()))
 
@@ -36,9 +36,9 @@ class ReasoningStep:
 
     text: str
     step_type: str = "reasoning"
-    referenced_evidence: List[str] = field(default_factory=list)
+    referenced_evidence: list[str] = field(default_factory=list)
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "text": self.text,
             "step_type": self.step_type,
@@ -46,7 +46,7 @@ class ReasoningStep:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> ReasoningStep:
+    def from_dict(cls, data: dict[str, Any]) -> ReasoningStep:
         return cls(
             text=data["text"],
             step_type=data.get("step_type", "reasoning"),
@@ -64,9 +64,9 @@ class ReasoningEvalResult:
     conclusion_validity: float
     overall: float
     step_count: int
-    details: Dict[str, Any] = field(default_factory=dict)
+    details: dict[str, Any] = field(default_factory=dict)
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "faithfulness": self.faithfulness,
             "logical_consistency": self.logical_consistency,
@@ -78,7 +78,7 @@ class ReasoningEvalResult:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> ReasoningEvalResult:
+    def from_dict(cls, data: dict[str, Any]) -> ReasoningEvalResult:
         return cls(
             faithfulness=data["faithfulness"],
             logical_consistency=data["logical_consistency"],
@@ -102,7 +102,7 @@ class ReasoningEvalResult:
         return "\n".join(lines)
 
 
-def evaluate_faithfulness(steps: List[ReasoningStep], source_text: str) -> float:
+def evaluate_faithfulness(steps: list[ReasoningStep], source_text: str) -> float:
     """Fraction of reasoning steps that reference content from source_text.
 
     A step is faithful if word overlap with source > 0.1.
@@ -117,7 +117,7 @@ def evaluate_faithfulness(steps: List[ReasoningStep], source_text: str) -> float
     return faithful / len(reasoning_steps)
 
 
-def evaluate_logical_consistency(steps: List[ReasoningStep]) -> float:
+def evaluate_logical_consistency(steps: list[ReasoningStep]) -> float:
     """Check that later reasoning steps build on earlier ones.
 
     Uses word overlap between consecutive reasoning steps.
@@ -126,14 +126,14 @@ def evaluate_logical_consistency(steps: List[ReasoningStep]) -> float:
     reasoning_steps = [s for s in steps if s.step_type == "reasoning"]
     if len(reasoning_steps) < 2:
         return 1.0
-    overlaps: List[float] = []
+    overlaps: list[float] = []
     for i in range(1, len(reasoning_steps)):
         overlap = _word_overlap(reasoning_steps[i - 1].text, reasoning_steps[i].text)
         overlaps.append(overlap)
     return sum(overlaps) / len(overlaps)
 
 
-def evaluate_evidence_usage(steps: List[ReasoningStep]) -> float:
+def evaluate_evidence_usage(steps: list[ReasoningStep]) -> float:
     """Fraction of steps that have non-empty referenced_evidence."""
     if not steps:
         return 1.0
@@ -141,7 +141,7 @@ def evaluate_evidence_usage(steps: List[ReasoningStep]) -> float:
     return with_evidence / len(steps)
 
 
-def evaluate_conclusion_validity(steps: List[ReasoningStep]) -> float:
+def evaluate_conclusion_validity(steps: list[ReasoningStep]) -> float:
     """Check that conclusion steps reference earlier reasoning.
 
     Score = word overlap between conclusion text and all prior reasoning text.
@@ -153,14 +153,14 @@ def evaluate_conclusion_validity(steps: List[ReasoningStep]) -> float:
     if not reasoning_steps:
         return 0.0
     all_reasoning_text = " ".join(s.text for s in reasoning_steps)
-    scores: List[float] = []
+    scores: list[float] = []
     for c in conclusions:
         scores.append(_word_overlap(c.text, all_reasoning_text))
     return sum(scores) / len(scores)
 
 
 def evaluate_reasoning(
-    steps: List[ReasoningStep], source_text: str = ""
+    steps: list[ReasoningStep], source_text: str = ""
 ) -> ReasoningEvalResult:
     """Full reasoning evaluation.
 
@@ -190,7 +190,7 @@ def evaluate_reasoning(
     )
 
 
-def extract_reasoning_steps(text: str) -> List[ReasoningStep]:
+def extract_reasoning_steps(text: str) -> list[ReasoningStep]:
     """Split text into reasoning steps.
 
     Splits on numbered patterns (1., 2., etc.) or keywords:
@@ -204,7 +204,7 @@ def extract_reasoning_steps(text: str) -> List[ReasoningStep]:
     # First element is usually empty or preamble
     numbered = [s.strip() for s in numbered if s.strip()]
     if len(numbered) >= 2:
-        steps: List[ReasoningStep] = []
+        steps: list[ReasoningStep] = []
         for chunk in numbered:
             step_type = "reasoning"
             lower = chunk.lower()

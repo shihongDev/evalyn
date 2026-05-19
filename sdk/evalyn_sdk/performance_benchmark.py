@@ -11,7 +11,8 @@ from __future__ import annotations
 import time
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import Any, Callable, Dict, List
+from typing import Any, Dict, List
+from collections.abc import Callable
 
 # ---------------------------------------------------------------------------
 # Data Models
@@ -28,7 +29,7 @@ class BenchmarkResult:
     items_per_second: float = 0.0
     timestamp: str = ""
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "name": self.name,
             "duration_ms": self.duration_ms,
@@ -38,7 +39,7 @@ class BenchmarkResult:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> BenchmarkResult:
+    def from_dict(cls, data: dict[str, Any]) -> BenchmarkResult:
         return cls(
             name=data.get("name", ""),
             duration_ms=data.get("duration_ms", 0.0),
@@ -56,7 +57,7 @@ class BenchmarkBaseline:
     expected_duration_ms: float = 0.0
     tolerance_pct: float = 20.0
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "name": self.name,
             "expected_duration_ms": self.expected_duration_ms,
@@ -64,7 +65,7 @@ class BenchmarkBaseline:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> BenchmarkBaseline:
+    def from_dict(cls, data: dict[str, Any]) -> BenchmarkBaseline:
         return cls(
             name=data.get("name", ""),
             expected_duration_ms=data.get("expected_duration_ms", 0.0),
@@ -76,12 +77,12 @@ class BenchmarkBaseline:
 class BenchmarkReport:
     """Aggregate report of benchmark results."""
 
-    results: List[BenchmarkResult] = field(default_factory=list)
-    regressions: List[str] = field(default_factory=list)
-    improvements: List[str] = field(default_factory=list)
+    results: list[BenchmarkResult] = field(default_factory=list)
+    regressions: list[str] = field(default_factory=list)
+    improvements: list[str] = field(default_factory=list)
     total_benchmarks: int = 0
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "results": [r.as_dict() for r in self.results],
             "regressions": list(self.regressions),
@@ -90,7 +91,7 @@ class BenchmarkReport:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> BenchmarkReport:
+    def from_dict(cls, data: dict[str, Any]) -> BenchmarkReport:
         return cls(
             results=[
                 BenchmarkResult.from_dict(r) for r in data.get("results", [])
@@ -179,16 +180,16 @@ def compare_to_baseline(
 
 
 def build_benchmark_report(
-    results: List[BenchmarkResult],
-    baselines: List[BenchmarkBaseline] = None,
+    results: list[BenchmarkResult],
+    baselines: list[BenchmarkBaseline] = None,
 ) -> BenchmarkReport:
     """Build a full benchmark report, comparing to baselines if provided."""
     if baselines is None:
         baselines = []
 
-    baseline_map: Dict[str, BenchmarkBaseline] = {b.name: b for b in baselines}
-    regressions: List[str] = []
-    improvements: List[str] = []
+    baseline_map: dict[str, BenchmarkBaseline] = {b.name: b for b in baselines}
+    regressions: list[str] = []
+    improvements: list[str] = []
 
     for result in results:
         if result.name in baseline_map:
@@ -207,9 +208,9 @@ def build_benchmark_report(
 
 
 def save_baselines(
-    results: List[BenchmarkResult],
+    results: list[BenchmarkResult],
     tolerance_pct: float = 20.0,
-) -> List[BenchmarkBaseline]:
+) -> list[BenchmarkBaseline]:
     """Convert benchmark results into baselines for future comparison."""
     return [
         BenchmarkBaseline(

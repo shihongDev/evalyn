@@ -22,13 +22,13 @@ class FieldSchema:
 
     name: str
     field_type: str  # "string" / "int" / "float" / "bool" / "list" / "dict"
-    example_values: List[Any] = field(default_factory=list)
+    example_values: list[Any] = field(default_factory=list)
     required: bool = True
-    min_val: Optional[float] = None
-    max_val: Optional[float] = None
-    choices: List[Any] = field(default_factory=list)
+    min_val: float | None = None
+    max_val: float | None = None
+    choices: list[Any] = field(default_factory=list)
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "name": self.name,
             "field_type": self.field_type,
@@ -40,7 +40,7 @@ class FieldSchema:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> FieldSchema:
+    def from_dict(cls, data: dict[str, Any]) -> FieldSchema:
         return cls(
             name=data["name"],
             field_type=data["field_type"],
@@ -56,17 +56,17 @@ class FieldSchema:
 class InputSchema:
     """Schema inferred from seed items."""
 
-    fields: List[FieldSchema] = field(default_factory=list)
+    fields: list[FieldSchema] = field(default_factory=list)
     inferred_from: int = 0
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "fields": [f.as_dict() for f in self.fields],
             "inferred_from": self.inferred_from,
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> InputSchema:
+    def from_dict(cls, data: dict[str, Any]) -> InputSchema:
         return cls(
             fields=[FieldSchema.from_dict(f) for f in data.get("fields", [])],
             inferred_from=data.get("inferred_from", 0),
@@ -77,11 +77,11 @@ class InputSchema:
 class StructuredInput:
     """A generated structured input with provenance."""
 
-    data: Dict[str, Any] = field(default_factory=dict)
+    data: dict[str, Any] = field(default_factory=dict)
     schema_id: str = ""
     mutated_field: str = ""
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "data": dict(self.data),
             "schema_id": self.schema_id,
@@ -89,7 +89,7 @@ class StructuredInput:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> StructuredInput:
+    def from_dict(cls, data: dict[str, Any]) -> StructuredInput:
         return cls(
             data=data.get("data", {}),
             schema_id=data.get("schema_id", ""),
@@ -122,11 +122,11 @@ def _detect_type(value: Any) -> str:
     return "string"
 
 
-def _majority_type(values: List[Any]) -> str:
+def _majority_type(values: list[Any]) -> str:
     """Return the most common detected type among values."""
     if not values:
         return "string"
-    counts: Dict[str, int] = {}
+    counts: dict[str, int] = {}
     for v in values:
         t = _detect_type(v)
         counts[t] = counts.get(t, 0) + 1
@@ -138,7 +138,7 @@ def _majority_type(values: List[Any]) -> str:
 # ---------------------------------------------------------------------------
 
 
-def infer_schema(seed_items: List[Dict[str, Any]]) -> InputSchema:
+def infer_schema(seed_items: list[dict[str, Any]]) -> InputSchema:
     """Infer an InputSchema from a list of seed dicts.
 
     Detects field names, types (by inspecting values), collects example values,
@@ -149,8 +149,8 @@ def infer_schema(seed_items: List[Dict[str, Any]]) -> InputSchema:
         return InputSchema(fields=[], inferred_from=0)
 
     # Gather values per field across all seed items
-    field_values: Dict[str, List[Any]] = {}
-    field_presence: Dict[str, int] = {}
+    field_values: dict[str, list[Any]] = {}
+    field_presence: dict[str, int] = {}
 
     for item in seed_items:
         for key, val in item.items():
@@ -158,14 +158,14 @@ def infer_schema(seed_items: List[Dict[str, Any]]) -> InputSchema:
             field_presence[key] = field_presence.get(key, 0) + 1
 
     n = len(seed_items)
-    fields: List[FieldSchema] = []
+    fields: list[FieldSchema] = []
 
     for name, values in field_values.items():
         ft = _majority_type(values)
         required = field_presence[name] == n
 
-        min_val: Optional[float] = None
-        max_val: Optional[float] = None
+        min_val: float | None = None
+        max_val: float | None = None
         if ft in ("int", "float"):
             numeric = [v for v in values if isinstance(v, (int, float)) and not isinstance(v, bool)]
             if numeric:
@@ -173,7 +173,7 @@ def infer_schema(seed_items: List[Dict[str, Any]]) -> InputSchema:
                 max_val = float(max(numeric))
 
         unique = list(dict.fromkeys(repr(v) for v in values))
-        choices: List[Any] = []
+        choices: list[Any] = []
         if len(unique) <= 10:
             seen: set = set()
             for v in values:
@@ -251,13 +251,13 @@ def _generate_field_value(
 
 
 def generate_structured_input(
-    schema: InputSchema, rng: Optional[random.Random] = None
+    schema: InputSchema, rng: random.Random | None = None
 ) -> StructuredInput:
     """Generate a single valid input conforming to the schema."""
     if rng is None:
         rng = random.Random()
 
-    data: Dict[str, Any] = {}
+    data: dict[str, Any] = {}
     for i, fs in enumerate(schema.fields):
         data[fs.name] = _generate_field_value(fs, rng, counter=i)
 
@@ -267,8 +267,8 @@ def generate_structured_input(
 def generate_batch_structured(
     schema: InputSchema,
     count: int,
-    rng: Optional[random.Random] = None,
-) -> List[StructuredInput]:
+    rng: random.Random | None = None,
+) -> list[StructuredInput]:
     """Generate multiple structured inputs."""
     if rng is None:
         rng = random.Random()
@@ -281,10 +281,10 @@ def generate_batch_structured(
 
 
 def mutate_single_field(
-    base: Dict[str, Any],
+    base: dict[str, Any],
     schema: InputSchema,
     field_name: str,
-    rng: Optional[random.Random] = None,
+    rng: random.Random | None = None,
 ) -> StructuredInput:
     """Create a mutation by changing only one field and keeping the rest."""
     if rng is None:
@@ -315,11 +315,11 @@ def mutate_single_field(
 
 
 def generate_mutation_suite(
-    base: Dict[str, Any], schema: InputSchema
-) -> List[StructuredInput]:
+    base: dict[str, Any], schema: InputSchema
+) -> list[StructuredInput]:
     """Generate one mutation per field in the schema."""
     rng = random.Random(42)
-    results: List[StructuredInput] = []
+    results: list[StructuredInput] = []
     for fs in schema.fields:
         results.append(mutate_single_field(base, schema, fs.name, rng))
     return results
@@ -341,10 +341,10 @@ _VALID_TYPES = {
 
 
 def validate_against_schema(
-    item: Dict[str, Any], schema: InputSchema
-) -> List[str]:
+    item: dict[str, Any], schema: InputSchema
+) -> list[str]:
     """Return a list of validation errors for item against schema."""
-    errors: List[str] = []
+    errors: list[str] = []
 
     for fs in schema.fields:
         if fs.name not in item:

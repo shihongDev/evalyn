@@ -22,7 +22,7 @@ class AnnotationItem:
     agreement: bool = False
     annotated: bool = False
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "item_id": self.item_id,
             "text": self.text,
@@ -33,7 +33,7 @@ class AnnotationItem:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> AnnotationItem:
+    def from_dict(cls, data: dict[str, Any]) -> AnnotationItem:
         return cls(
             item_id=data["item_id"],
             text=data["text"],
@@ -48,12 +48,12 @@ class AnnotationItem:
 class FlywheelState:
     """Current state of the annotation flywheel."""
 
-    queue: List[AnnotationItem] = field(default_factory=list)
+    queue: list[AnnotationItem] = field(default_factory=list)
     annotated_count: int = 0
     agreement_rate: float = 0.0
-    improvement_per_batch: List[float] = field(default_factory=list)
+    improvement_per_batch: list[float] = field(default_factory=list)
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "queue": [item.as_dict() for item in self.queue],
             "annotated_count": self.annotated_count,
@@ -62,7 +62,7 @@ class FlywheelState:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> FlywheelState:
+    def from_dict(cls, data: dict[str, Any]) -> FlywheelState:
         return cls(
             queue=[AnnotationItem.from_dict(i) for i in data.get("queue", [])],
             annotated_count=data.get("annotated_count", 0),
@@ -91,7 +91,7 @@ class FlywheelConfig:
     target_agreement: float = 0.9
     max_iterations: int = 10
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "batch_size": self.batch_size,
             "target_agreement": self.target_agreement,
@@ -99,7 +99,7 @@ class FlywheelConfig:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> FlywheelConfig:
+    def from_dict(cls, data: dict[str, Any]) -> FlywheelConfig:
         return cls(
             batch_size=data.get("batch_size", 10),
             target_agreement=data.get("target_agreement", 0.9),
@@ -113,13 +113,13 @@ class FlywheelConfig:
 
 
 def create_annotation_queue(
-    items: List[Dict[str, Any]], ai_labels: Dict[str, str]
-) -> List[AnnotationItem]:
+    items: list[dict[str, Any]], ai_labels: dict[str, str]
+) -> list[AnnotationItem]:
     """Build an annotation queue from raw items and AI predictions.
 
     Each item dict must have "id" and "text" keys.
     """
-    queue: List[AnnotationItem] = []
+    queue: list[AnnotationItem] = []
     for item in items:
         item_id = item["id"]
         queue.append(
@@ -147,7 +147,7 @@ def record_human_annotation(
     )
 
 
-def compute_agreement_rate(items: List[AnnotationItem]) -> float:
+def compute_agreement_rate(items: list[AnnotationItem]) -> float:
     """Compute fraction of annotated items where AI and human labels agree."""
     annotated = [i for i in items if i.annotated]
     if not annotated:
@@ -156,8 +156,8 @@ def compute_agreement_rate(items: List[AnnotationItem]) -> float:
 
 
 def select_next_batch(
-    queue: List[AnnotationItem], batch_size: int = 10
-) -> List[AnnotationItem]:
+    queue: list[AnnotationItem], batch_size: int = 10
+) -> list[AnnotationItem]:
     """Select the next batch of items to annotate.
 
     Prioritizes unannotated items with disagreements (previously annotated
@@ -184,7 +184,7 @@ def should_continue(state: FlywheelState, config: FlywheelConfig) -> bool:
 
 
 def update_flywheel_state(
-    state: FlywheelState, newly_annotated: List[AnnotationItem]
+    state: FlywheelState, newly_annotated: list[AnnotationItem]
 ) -> FlywheelState:
     """Update flywheel state after a batch of annotations.
 
@@ -192,7 +192,7 @@ def update_flywheel_state(
     and records improvement.
     """
     lookup = {i.item_id: i for i in newly_annotated}
-    updated_queue: List[AnnotationItem] = []
+    updated_queue: list[AnnotationItem] = []
     for item in state.queue:
         if item.item_id in lookup:
             updated_queue.append(lookup[item.item_id])

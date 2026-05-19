@@ -22,7 +22,7 @@ class WeightProfile:
     """
 
     name: str
-    weights: Dict[str, float] = field(default_factory=dict)
+    weights: dict[str, float] = field(default_factory=dict)
     description: str = ""
     default_weight: float = 1.0  # weight for metrics not explicitly listed
 
@@ -30,7 +30,7 @@ class WeightProfile:
         """Get the weight for a metric, falling back to default_weight."""
         return self.weights.get(metric_id, self.default_weight)
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "name": self.name,
             "weights": dict(self.weights),
@@ -39,7 +39,7 @@ class WeightProfile:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> WeightProfile:
+    def from_dict(cls, data: dict[str, Any]) -> WeightProfile:
         return cls(
             name=data.get("name", "custom"),
             weights=data.get("weights", {}),
@@ -49,7 +49,7 @@ class WeightProfile:
 
 
 def compute_weighted_pass_rate(
-    metric_pass_rates: Dict[str, float],
+    metric_pass_rates: dict[str, float],
     profile: WeightProfile,
 ) -> float:
     """Compute weighted overall pass rate.
@@ -76,7 +76,7 @@ def compute_weighted_pass_rate(
 
 
 def compute_weighted_score(
-    metric_scores: Dict[str, float],
+    metric_scores: dict[str, float],
     profile: WeightProfile,
 ) -> float:
     """Compute weighted overall score.
@@ -134,7 +134,7 @@ QUALITY_FOCUSED = WeightProfile(
     default_weight=1.0,
 )
 
-BUILTIN_WEIGHT_PROFILES: Dict[str, WeightProfile] = {
+BUILTIN_WEIGHT_PROFILES: dict[str, WeightProfile] = {
     "equal": EQUAL_WEIGHTS,
     "safety-first": SAFETY_FIRST,
     "quality-focused": QUALITY_FOCUSED,
@@ -143,7 +143,7 @@ BUILTIN_WEIGHT_PROFILES: Dict[str, WeightProfile] = {
 
 def get_weight_profile(
     name: str,
-    custom_profiles: Optional[Dict[str, Dict]] = None,
+    custom_profiles: dict[str, dict] | None = None,
 ) -> WeightProfile:
     """Get a weight profile by name.
 

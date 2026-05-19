@@ -27,7 +27,7 @@ class CanaryResult:
     def status(self) -> str:
         return "ABORT" if self.should_abort else "PROCEED"
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "status": self.status,
             "sample_size": self.sample_size,
@@ -56,10 +56,10 @@ class CanaryResult:
 
 
 def select_canary_sample(
-    items: List,
+    items: list,
     sample_size: int = 10,
     seed: int = 42,
-) -> List:
+) -> list:
     """Select a random sample for canary evaluation.
 
     Args:
@@ -77,7 +77,7 @@ def select_canary_sample(
 
 
 def evaluate_canary(
-    results: List,
+    results: list,
     abort_threshold: float = 0.2,
     total_items: int = 0,
     estimated_cost_per_item: float = 0.0,
@@ -100,7 +100,7 @@ def evaluate_canary(
         )
 
     # Count unique items and their pass/fail status
-    item_results: Dict[str, bool] = {}
+    item_results: dict[str, bool] = {}
     for r in results:
         if r.item_id not in item_results:
             item_results[r.item_id] = True  # assume pass until proven otherwise

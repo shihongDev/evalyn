@@ -20,10 +20,10 @@ class ScoreBin:
     bin_id: str
     low: float
     high: float
-    item_ids: List[str] = field(default_factory=list)
+    item_ids: list[str] = field(default_factory=list)
     count: int = 0
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "bin_id": self.bin_id,
             "low": self.low,
@@ -33,7 +33,7 @@ class ScoreBin:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> ScoreBin:
+    def from_dict(cls, data: dict[str, Any]) -> ScoreBin:
         return cls(
             bin_id=data["bin_id"],
             low=data["low"],
@@ -49,9 +49,9 @@ class StratifiedConfig:
 
     n_bins: int = 5
     sample_per_bin: int = 10
-    seed: Optional[int] = None
+    seed: int | None = None
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "n_bins": self.n_bins,
             "sample_per_bin": self.sample_per_bin,
@@ -59,7 +59,7 @@ class StratifiedConfig:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> StratifiedConfig:
+    def from_dict(cls, data: dict[str, Any]) -> StratifiedConfig:
         return cls(
             n_bins=data.get("n_bins", 5),
             sample_per_bin=data.get("sample_per_bin", 10),
@@ -71,13 +71,13 @@ class StratifiedConfig:
 class StratifiedResult:
     """Result of a stratified sampling run."""
 
-    selected_ids: List[str] = field(default_factory=list)
-    bins: List[ScoreBin] = field(default_factory=list)
+    selected_ids: list[str] = field(default_factory=list)
+    bins: list[ScoreBin] = field(default_factory=list)
     total_pool: int = 0
     total_selected: int = 0
     bin_balance: float = 0.0
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "selected_ids": self.selected_ids,
             "bins": [b.as_dict() for b in self.bins],
@@ -87,7 +87,7 @@ class StratifiedResult:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> StratifiedResult:
+    def from_dict(cls, data: dict[str, Any]) -> StratifiedResult:
         return cls(
             selected_ids=data.get("selected_ids", []),
             bins=[ScoreBin.from_dict(b) for b in data.get("bins", [])],
@@ -103,8 +103,8 @@ class StratifiedResult:
 
 
 def create_score_bins(
-    scores: Dict[str, float], n_bins: int = 5
-) -> List[ScoreBin]:
+    scores: dict[str, float], n_bins: int = 5
+) -> list[ScoreBin]:
     """Create equal-width bins spanning [0, 1] and assign items.
 
     Each bin covers a range of width 1/n_bins. The last bin includes 1.0.
@@ -115,7 +115,7 @@ def create_score_bins(
         return []
 
     width = 1.0 / n_bins
-    bins: List[ScoreBin] = []
+    bins: list[ScoreBin] = []
     for i in range(n_bins):
         low = i * width
         high = (i + 1) * width
@@ -153,16 +153,16 @@ def create_score_bins(
 
 
 def sample_from_bins(
-    bins: List[ScoreBin],
+    bins: list[ScoreBin],
     sample_per_bin: int = 10,
-    seed: Optional[int] = None,
-) -> List[str]:
+    seed: int | None = None,
+) -> list[str]:
     """Sample min(sample_per_bin, available) items from each bin.
 
     Returns the sampled IDs in bin order.
     """
     rng = random.Random(seed)
-    selected: List[str] = []
+    selected: list[str] = []
     for b in bins:
         take = min(sample_per_bin, len(b.item_ids))
         if take <= 0:
@@ -180,7 +180,7 @@ def sample_from_bins(
 
 
 def compute_bin_balance(
-    bins: List[ScoreBin], sampled_counts: List[int]
+    bins: list[ScoreBin], sampled_counts: list[int]
 ) -> float:
     """Compute how uniform the sampled counts are across bins.
 
@@ -214,7 +214,7 @@ def compute_bin_balance(
 
 
 def run_stratified_sampling(
-    scores: Dict[str, float], config: StratifiedConfig
+    scores: dict[str, float], config: StratifiedConfig
 ) -> StratifiedResult:
     """Full stratified sampling pipeline.
 
@@ -235,7 +235,7 @@ def run_stratified_sampling(
     selected = sample_from_bins(bins, sample_per_bin=config.sample_per_bin, seed=config.seed)
 
     # Compute sampled counts per bin
-    sampled_counts: List[int] = []
+    sampled_counts: list[int] = []
     for b in bins:
         take = min(config.sample_per_bin, len(b.item_ids))
         sampled_counts.append(take)
@@ -258,7 +258,7 @@ def run_stratified_sampling(
 
 def format_stratified_report(result: StratifiedResult) -> str:
     """Format a human-readable stratified sampling report with per-bin breakdown."""
-    lines: List[str] = []
+    lines: list[str] = []
     lines.append("Stratified Sampling Report")
     lines.append("=" * 40)
     lines.append(f"Total pool size: {result.total_pool}")

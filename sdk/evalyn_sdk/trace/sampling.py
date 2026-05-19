@@ -2,7 +2,8 @@ from __future__ import annotations
 
 import random
 from dataclasses import dataclass
-from typing import Any, Callable, Dict, Optional
+from typing import Any, Dict, Optional
+from collections.abc import Callable
 
 from ..models import Span
 
@@ -15,9 +16,9 @@ class SamplingConfig:
     always_capture_errors: bool = True
     always_capture_slow: bool = True
     slow_threshold_ms: float = 5000.0
-    seed: Optional[int] = None
+    seed: int | None = None
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "rate": self.rate,
             "always_capture_errors": self.always_capture_errors,
@@ -27,7 +28,7 @@ class SamplingConfig:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> SamplingConfig:
+    def from_dict(cls, data: dict[str, Any]) -> SamplingConfig:
         return cls(
             rate=data["rate"],
             always_capture_errors=data.get("always_capture_errors", True),
@@ -44,7 +45,7 @@ class SamplingDecision:
     should_capture: bool
     reason: str  # "sampled", "rate_excluded", "error_priority", "slow_priority"
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "should_capture": self.should_capture,
             "reason": self.reason,
@@ -52,7 +53,7 @@ class SamplingDecision:
 
 
 def should_sample(
-    config: SamplingConfig, span: Optional[Span] = None
+    config: SamplingConfig, span: Span | None = None
 ) -> SamplingDecision:
     """Determine if a trace should be captured.
 
@@ -81,14 +82,14 @@ def should_sample(
 
 def create_sampler(
     config: SamplingConfig,
-) -> Callable[[Optional[Span]], SamplingDecision]:
+) -> Callable[[Span | None], SamplingDecision]:
     """Return a callable that applies sampling decisions.
 
     Preserves RNG state across calls for consistent behavior.
     """
     rng = random.Random(config.seed)
 
-    def sampler(span: Optional[Span] = None) -> SamplingDecision:
+    def sampler(span: Span | None = None) -> SamplingDecision:
         # Check error priority
         if span is not None and config.always_capture_errors:
             if span.status == "error":

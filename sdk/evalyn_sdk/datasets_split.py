@@ -15,12 +15,12 @@ from typing import Dict, List, Optional, Tuple
 class SplitResult:
     """Result of a dataset split operation."""
 
-    train: List = field(default_factory=list)
-    test: List = field(default_factory=list)
-    validation: List = field(default_factory=list)
+    train: list = field(default_factory=list)
+    test: list = field(default_factory=list)
+    validation: list = field(default_factory=list)
 
     @property
-    def sizes(self) -> Dict[str, int]:
+    def sizes(self) -> dict[str, int]:
         return {
             "train": len(self.train),
             "test": len(self.test),
@@ -28,7 +28,7 @@ class SplitResult:
         }
 
     @property
-    def ratios(self) -> Dict[str, float]:
+    def ratios(self) -> dict[str, float]:
         total = len(self.train) + len(self.test) + len(self.validation)
         if total == 0:
             return {"train": 0.0, "test": 0.0, "validation": 0.0}
@@ -40,12 +40,12 @@ class SplitResult:
 
 
 def split_dataset(
-    items: List,
+    items: list,
     train_ratio: float = 0.7,
     test_ratio: float = 0.15,
     validation_ratio: float = 0.15,
     seed: int = 42,
-    stratify_by: Optional[str] = None,
+    stratify_by: str | None = None,
 ) -> SplitResult:
     """Split a dataset into train/test/validation sets.
 
@@ -81,7 +81,7 @@ def split_dataset(
 
 
 def _random_split(
-    items: List,
+    items: list,
     train_ratio: float,
     test_ratio: float,
     seed: int,
@@ -103,7 +103,7 @@ def _random_split(
 
 
 def _stratified_split(
-    items: List,
+    items: list,
     train_ratio: float,
     test_ratio: float,
     validation_ratio: float,
@@ -112,7 +112,7 @@ def _stratified_split(
 ) -> SplitResult:
     """Stratified split maintaining proportional representation."""
     # Group items by stratification key
-    groups: Dict[str, List] = defaultdict(list)
+    groups: dict[str, list] = defaultdict(list)
     for item in items:
         key = str((item.metadata or {}).get(stratify_by, "_none_"))
         groups[key].append(item)
@@ -134,11 +134,11 @@ def _stratified_split(
 
 
 def split_two_way(
-    items: List,
+    items: list,
     ratio: float = 0.8,
     seed: int = 42,
-    stratify_by: Optional[str] = None,
-) -> Tuple[List, List]:
+    stratify_by: str | None = None,
+) -> tuple[list, list]:
     """Simple two-way split (e.g., for calibration train/validation).
 
     Args:

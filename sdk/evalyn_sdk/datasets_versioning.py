@@ -32,7 +32,7 @@ class DatasetVersion:
     created_at: str  # ISO timestamp
     description: str = ""
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "version_hash": self.version_hash,
             "item_count": self.item_count,
@@ -41,7 +41,7 @@ class DatasetVersion:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> DatasetVersion:
+    def from_dict(cls, data: dict[str, Any]) -> DatasetVersion:
         return cls(
             version_hash=data["version_hash"],
             item_count=data["item_count"],
@@ -68,7 +68,7 @@ def compute_version_hash(dataset_path: Path) -> str:
 def create_snapshot(
     dataset_dir: Path,
     description: str = "",
-) -> Optional[DatasetVersion]:
+) -> DatasetVersion | None:
     """Create a versioned snapshot of the current dataset.
 
     Copies current dataset.jsonl to .versions/v_<hash>.jsonl and
@@ -115,7 +115,7 @@ def create_snapshot(
     return version
 
 
-def list_versions(dataset_dir: Path) -> List[DatasetVersion]:
+def list_versions(dataset_dir: Path) -> list[DatasetVersion]:
     """List all versioned snapshots for a dataset.
 
     Args:

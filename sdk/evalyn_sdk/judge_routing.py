@@ -22,9 +22,9 @@ class JudgeModel:
     model_id: str
     provider: str
     quality_tier: str  # "fast" / "standard" / "premium"
-    specializations: List[str] = field(default_factory=list)
+    specializations: list[str] = field(default_factory=list)
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "model_id": self.model_id,
             "provider": self.provider,
@@ -33,7 +33,7 @@ class JudgeModel:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> JudgeModel:
+    def from_dict(cls, data: dict[str, Any]) -> JudgeModel:
         return cls(
             model_id=data["model_id"],
             provider=data["provider"],
@@ -50,7 +50,7 @@ class JudgeRoute:
     assigned_model: str
     reason: str = ""
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "metric_id": self.metric_id,
             "assigned_model": self.assigned_model,
@@ -58,7 +58,7 @@ class JudgeRoute:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> JudgeRoute:
+    def from_dict(cls, data: dict[str, Any]) -> JudgeRoute:
         return cls(
             metric_id=data["metric_id"],
             assigned_model=data["assigned_model"],
@@ -71,10 +71,10 @@ class JudgeRoutingConfig:
     """Configuration for routing metrics to judge models."""
 
     default_model: str = "gemini-2.0-flash"
-    routes: Dict[str, str] = field(default_factory=dict)  # metric_id -> model_id
-    category_routes: Dict[str, str] = field(default_factory=dict)  # category -> model_id
+    routes: dict[str, str] = field(default_factory=dict)  # metric_id -> model_id
+    category_routes: dict[str, str] = field(default_factory=dict)  # category -> model_id
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "default_model": self.default_model,
             "routes": dict(self.routes),
@@ -82,7 +82,7 @@ class JudgeRoutingConfig:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> JudgeRoutingConfig:
+    def from_dict(cls, data: dict[str, Any]) -> JudgeRoutingConfig:
         return cls(
             default_model=data.get("default_model", "gemini-2.0-flash"),
             routes=dict(data.get("routes", {})),
@@ -94,11 +94,11 @@ class JudgeRoutingConfig:
 class JudgeRoutingResult:
     """Result of routing all metrics to judge models."""
 
-    routes: List[JudgeRoute] = field(default_factory=list)
-    models_used: List[str] = field(default_factory=list)
+    routes: list[JudgeRoute] = field(default_factory=list)
+    models_used: list[str] = field(default_factory=list)
     total_metrics: int = 0
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "routes": [r.as_dict() for r in self.routes],
             "models_used": list(self.models_used),
@@ -106,7 +106,7 @@ class JudgeRoutingResult:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> JudgeRoutingResult:
+    def from_dict(cls, data: dict[str, Any]) -> JudgeRoutingResult:
         return cls(
             routes=[JudgeRoute.from_dict(r) for r in data.get("routes", [])],
             models_used=list(data.get("models_used", [])),
@@ -118,7 +118,7 @@ class JudgeRoutingResult:
 # Built-in Judges
 # ---------------------------------------------------------------------------
 
-BUILTIN_JUDGES: List[JudgeModel] = [
+BUILTIN_JUDGES: list[JudgeModel] = [
     JudgeModel(
         model_id="gemini-2.0-flash",
         provider="google",
@@ -185,14 +185,14 @@ def route_metric(
 
 
 def route_all_metrics(
-    metrics: List[Dict[str, str]],
+    metrics: list[dict[str, str]],
     config: JudgeRoutingConfig,
 ) -> JudgeRoutingResult:
     """Route all metrics to judge models.
 
     Each metric dict must have 'id' and 'category' keys.
     """
-    routes: List[JudgeRoute] = []
+    routes: list[JudgeRoute] = []
     models_seen: dict[str, None] = {}  # ordered set
 
     for metric in metrics:
@@ -209,7 +209,7 @@ def route_all_metrics(
 
 def estimate_routing_cost(
     result: JudgeRoutingResult,
-    cost_per_model: Dict[str, float],
+    cost_per_model: dict[str, float],
 ) -> float:
     """Estimate total cost based on model assignments.
 
@@ -223,7 +223,7 @@ def estimate_routing_cost(
 
 def format_routing_plan(result: JudgeRoutingResult) -> str:
     """Format a routing result as a human-readable plan."""
-    lines: List[str] = []
+    lines: list[str] = []
     lines.append(f"Routing Plan ({result.total_metrics} metrics)")
     lines.append(f"Models: {', '.join(result.models_used)}")
     lines.append("")

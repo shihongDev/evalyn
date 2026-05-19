@@ -20,7 +20,7 @@ class DiagnosticItem:
     status: str = "ok"
     recommendation: str = ""
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "name": self.name,
             "value": self.value,
@@ -33,12 +33,12 @@ class DiagnosticItem:
 class ConnectionHealth:
     """Aggregated health report for a database connection."""
 
-    items: List[DiagnosticItem] = field(default_factory=list)
+    items: list[DiagnosticItem] = field(default_factory=list)
     overall_status: str = "ok"
-    warnings: List[str] = field(default_factory=list)
-    errors: List[str] = field(default_factory=list)
+    warnings: list[str] = field(default_factory=list)
+    errors: list[str] = field(default_factory=list)
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "items": [item.as_dict() for item in self.items],
             "overall_status": self.overall_status,
@@ -47,7 +47,7 @@ class ConnectionHealth:
         }
 
     @classmethod
-    def from_dict(cls, d: Dict[str, Any]) -> ConnectionHealth:
+    def from_dict(cls, d: dict[str, Any]) -> ConnectionHealth:
         items = [
             DiagnosticItem(**item) for item in d.get("items", [])
         ]
@@ -59,7 +59,7 @@ class ConnectionHealth:
         )
 
     def format_text(self) -> str:
-        lines: List[str] = []
+        lines: list[str] = []
         lines.append("Connection Health Report")
         lines.append("-" * 40)
         lines.append(f"Overall status: {self.overall_status}")
@@ -173,7 +173,7 @@ def check_journal_file(db_path: str) -> DiagnosticItem:
     """Check for journal or WAL files alongside the database."""
     journal_path = db_path + "-journal"
     wal_path = db_path + "-wal"
-    found: List[str] = []
+    found: list[str] = []
 
     if os.path.isfile(journal_path):
         found.append("journal")
@@ -195,9 +195,9 @@ def check_journal_file(db_path: str) -> DiagnosticItem:
 
 def run_connection_diagnostics(db_path: str) -> ConnectionHealth:
     """Run all diagnostic checks and aggregate into a health report."""
-    items: List[DiagnosticItem] = []
-    warnings: List[str] = []
-    errors: List[str] = []
+    items: list[DiagnosticItem] = []
+    warnings: list[str] = []
+    errors: list[str] = []
 
     items.append(check_file_exists(db_path))
     if os.path.isfile(db_path):
@@ -227,9 +227,9 @@ def run_connection_diagnostics(db_path: str) -> ConnectionHealth:
     )
 
 
-def suggest_connection_fixes(health: ConnectionHealth) -> List[str]:
+def suggest_connection_fixes(health: ConnectionHealth) -> list[str]:
     """Generate fix suggestions from a health report."""
-    suggestions: List[str] = []
+    suggestions: list[str] = []
     for item in health.items:
         if item.status in ("warning", "error") and item.recommendation:
             suggestions.append(item.recommendation)

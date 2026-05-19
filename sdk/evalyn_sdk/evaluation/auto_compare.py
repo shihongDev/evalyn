@@ -15,9 +15,9 @@ class AutoCompareResult:
     """Result from an automatic comparison against baseline."""
 
     has_baseline: bool
-    baseline_run_id: Optional[str] = None
-    regressions: List[Dict[str, Any]] = field(default_factory=list)
-    improvements: List[Dict[str, Any]] = field(default_factory=list)
+    baseline_run_id: str | None = None
+    regressions: list[dict[str, Any]] = field(default_factory=list)
+    improvements: list[dict[str, Any]] = field(default_factory=list)
     unchanged: int = 0
     overall_delta: float = 0.0
 
@@ -35,7 +35,7 @@ class AutoCompareResult:
             return "IMPROVED"
         return "STABLE"
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "status": self.status,
             "has_baseline": self.has_baseline,
@@ -69,7 +69,7 @@ class AutoCompareResult:
 
 def auto_compare(
     current_run,
-    all_runs: List,
+    all_runs: list,
     regression_threshold: float = 0.05,
 ) -> AutoCompareResult:
     """Automatically compare current run against the pinned baseline.
@@ -138,9 +138,9 @@ def auto_compare(
     )
 
 
-def _compute_pass_rates(run) -> Dict[str, float]:
+def _compute_pass_rates(run) -> dict[str, float]:
     """Compute per-metric pass rates from a run."""
-    counts: Dict[str, Tuple[int, int]] = {}
+    counts: dict[str, tuple[int, int]] = {}
     for mr in run.metric_results:
         mid = mr.metric_id
         if mid not in counts:

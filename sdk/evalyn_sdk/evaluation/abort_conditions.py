@@ -7,7 +7,8 @@ any item" or "abort if overall pass rate drops below 30%".
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Callable, Dict, List
+from typing import Any, Dict, List
+from collections.abc import Callable
 
 
 @dataclass
@@ -18,7 +19,7 @@ class AbortCondition:
     description: str
     check_fn: Callable  # (context: Dict) -> bool, returns True to abort
 
-    def check(self, context: Dict[str, Any]) -> bool:
+    def check(self, context: dict[str, Any]) -> bool:
         """Evaluate this condition against current evaluation state.
 
         Args:
@@ -39,10 +40,10 @@ class AbortCheckResult:
     """Result of checking all abort conditions."""
 
     should_abort: bool
-    triggered_conditions: List[str] = field(default_factory=list)
-    context_snapshot: Dict[str, Any] = field(default_factory=dict)
+    triggered_conditions: list[str] = field(default_factory=list)
+    context_snapshot: dict[str, Any] = field(default_factory=dict)
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "should_abort": self.should_abort,
             "triggered_conditions": list(self.triggered_conditions),
@@ -75,7 +76,7 @@ class AbortController:
     """
 
     def __init__(self):
-        self._conditions: List[AbortCondition] = []
+        self._conditions: list[AbortCondition] = []
 
     @property
     def condition_count(self) -> int:
@@ -95,7 +96,7 @@ class AbortController:
 
     def add_safety_condition(
         self,
-        safety_metrics: List[str],
+        safety_metrics: list[str],
         min_rate: float = 0.5,
     ) -> None:
         """Abort if any safety metric drops below threshold."""
@@ -136,7 +137,7 @@ class AbortController:
             check_fn=lambda ctx: ctx.get("cost_usd", 0) > max_cost_usd,
         ))
 
-    def check(self, context: Dict[str, Any]) -> AbortCheckResult:
+    def check(self, context: dict[str, Any]) -> AbortCheckResult:
         """Evaluate all conditions against current state.
 
         Args:

@@ -26,7 +26,7 @@ class CostEntry:
     tokens: int = 0
     calls: int = 0
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "date": self.date,
             "model": self.model,
@@ -36,7 +36,7 @@ class CostEntry:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> CostEntry:
+    def from_dict(cls, data: dict[str, Any]) -> CostEntry:
         return cls(
             date=data["date"],
             model=data["model"],
@@ -54,9 +54,9 @@ class DailyCost:
     total_cost_usd: float = 0.0
     total_tokens: int = 0
     total_calls: int = 0
-    by_model: Dict[str, float] = field(default_factory=dict)
+    by_model: dict[str, float] = field(default_factory=dict)
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "date": self.date,
             "total_cost_usd": self.total_cost_usd,
@@ -70,14 +70,14 @@ class DailyCost:
 class CostDashboard:
     """Full cost dashboard with trend analysis."""
 
-    daily_costs: List[DailyCost] = field(default_factory=list)
+    daily_costs: list[DailyCost] = field(default_factory=list)
     total_cost_usd: float = 0.0
     total_tokens: int = 0
     avg_daily_cost: float = 0.0
     trend: str = "stable"
     most_expensive_model: str = ""
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "daily_costs": [d.as_dict() for d in self.daily_costs],
             "total_cost_usd": self.total_cost_usd,
@@ -88,7 +88,7 @@ class CostDashboard:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> CostDashboard:
+    def from_dict(cls, data: dict[str, Any]) -> CostDashboard:
         return cls(
             daily_costs=[],  # daily_costs are derived, not round-tripped
             total_cost_usd=data.get("total_cost_usd", 0.0),
@@ -130,12 +130,12 @@ class CostDashboard:
 # ---------------------------------------------------------------------------
 
 
-def aggregate_daily_costs(entries: List[CostEntry]) -> List[DailyCost]:
+def aggregate_daily_costs(entries: list[CostEntry]) -> list[DailyCost]:
     """Group entries by date, sum costs/tokens/calls."""
     if not entries:
         return []
 
-    by_date: Dict[str, DailyCost] = {}
+    by_date: dict[str, DailyCost] = {}
     for e in entries:
         if e.date not in by_date:
             by_date[e.date] = DailyCost(date=e.date)
@@ -149,7 +149,7 @@ def aggregate_daily_costs(entries: List[CostEntry]) -> List[DailyCost]:
     return sorted(by_date.values(), key=lambda d: d.date)
 
 
-def detect_cost_trend(daily_costs: List[DailyCost]) -> str:
+def detect_cost_trend(daily_costs: list[DailyCost]) -> str:
     """Detect trend: compare first 3 vs last 3 days average.
 
     Returns "increasing" if last 3 > first 3 avg,
@@ -175,7 +175,7 @@ def detect_cost_trend(daily_costs: List[DailyCost]) -> str:
     return "stable"
 
 
-def build_cost_dashboard(entries: List[CostEntry]) -> CostDashboard:
+def build_cost_dashboard(entries: list[CostEntry]) -> CostDashboard:
     """Full cost analysis with trend detection."""
     if not entries:
         return CostDashboard()
@@ -187,7 +187,7 @@ def build_cost_dashboard(entries: List[CostEntry]) -> CostDashboard:
     trend = detect_cost_trend(daily)
 
     # Find most expensive model
-    model_totals: Dict[str, float] = defaultdict(float)
+    model_totals: dict[str, float] = defaultdict(float)
     for e in entries:
         model_totals[e.model] += e.cost_usd
 
@@ -225,8 +225,8 @@ def render_cost_chart_ascii(dashboard: CostDashboard, width: int = 60) -> str:
 
 
 def find_cost_spikes(
-    daily_costs: List[DailyCost], threshold_multiplier: float = 2.0
-) -> List[str]:
+    daily_costs: list[DailyCost], threshold_multiplier: float = 2.0
+) -> list[str]:
     """Return dates where cost > threshold_multiplier * average."""
     if not daily_costs:
         return []

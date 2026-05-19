@@ -15,7 +15,7 @@ class QueryPredicate:
     operator: str  # =, !=, >, <, >=, <=, ~ (contains)
     value: str
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "field": self.field,
             "operator": self.operator,
@@ -27,17 +27,17 @@ class QueryPredicate:
 class Query:
     """Collection of predicates with a combine mode."""
 
-    predicates: List[QueryPredicate] = field(default_factory=list)
+    predicates: list[QueryPredicate] = field(default_factory=list)
     combine: str = "and"  # "and" or "or"
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "predicates": [p.as_dict() for p in self.predicates],
             "combine": self.combine,
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> Query:
+    def from_dict(cls, data: dict[str, Any]) -> Query:
         return cls(
             predicates=[
                 QueryPredicate(
@@ -78,7 +78,7 @@ def parse_query(query_str: str) -> Query:
 
     # Detect "or" keyword to decide combine mode
     has_or = False
-    predicate_tokens: List[str] = []
+    predicate_tokens: list[str] = []
     for token in tokens:
         if token.lower() == "or":
             has_or = True
@@ -87,7 +87,7 @@ def parse_query(query_str: str) -> Query:
 
     combine = "or" if has_or else "and"
 
-    predicates: List[QueryPredicate] = []
+    predicates: list[QueryPredicate] = []
     for token in predicate_tokens:
         m = _PRED_RE.match(token)
         if m:
@@ -182,11 +182,11 @@ def match_span(span: Span, query: Query) -> bool:
     return all(results)
 
 
-def filter_spans(spans: List[Span], query: Query) -> List[Span]:
+def filter_spans(spans: list[Span], query: Query) -> list[Span]:
     """Return spans that match the query."""
     return [s for s in spans if match_span(s, query)]
 
 
-def filter_spans_by_string(spans: List[Span], query_str: str) -> List[Span]:
+def filter_spans_by_string(spans: list[Span], query_str: str) -> list[Span]:
     """Convenience: parse query string then filter."""
     return filter_spans(spans, parse_query(query_str))

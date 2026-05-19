@@ -35,7 +35,7 @@ import re
 import secrets
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Iterable
+from collections.abc import Iterable
 
 from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import JSONResponse
@@ -456,7 +456,7 @@ async def create_session(request: Request) -> JSONResponse:
         _write_meta(_session_meta_path(dataset_dir, session_id), meta)
     except OSError as exc:
         logger.warning("session create write failed: %s", exc)
-        raise HTTPException(status_code=503, detail=f"could not create session: {exc}")
+        raise HTTPException(status_code=503, detail=f"could not create session: {exc}") from exc
 
     await _broadcast_invalidate(["annotation/sessions"])
     # Audit log: session creation is the entry point for annotation
@@ -746,7 +746,7 @@ async def post_verdict(session_id: str, request: Request) -> JSONResponse:
         _append_log(log_path, record)
     except OSError as exc:
         logger.warning("session verdict append failed at %s: %s", log_path, exc)
-        raise HTTPException(status_code=503, detail=f"could not save verdict: {exc}")
+        raise HTTPException(status_code=503, detail=f"could not save verdict: {exc}") from exc
 
     # Per-run reviews jsonl (existing surface). Only when source is a run.
     if meta.get("source_kind") == "run":
@@ -837,7 +837,7 @@ async def finalize_session(session_id: str) -> JSONResponse:
         try:
             _write_meta(_session_meta_path(ds_dir, session_id), meta)
         except OSError as exc:
-            raise HTTPException(status_code=503, detail=f"finalize write failed: {exc}")
+            raise HTTPException(status_code=503, detail=f"finalize write failed: {exc}") from exc
         await _broadcast_invalidate(["annotation/sessions", "home"])
         return JSONResponse({"ok": True, "merged": 0})
 
@@ -887,7 +887,7 @@ async def finalize_session(session_id: str) -> JSONResponse:
                 merged += 1
     except OSError as exc:
         logger.warning("annotations canonical write failed: %s", exc)
-        raise HTTPException(status_code=503, detail=f"finalize write failed: {exc}")
+        raise HTTPException(status_code=503, detail=f"finalize write failed: {exc}") from exc
 
     meta["status"] = "completed"
     meta["last_active_iso"] = _now_iso()
@@ -931,7 +931,7 @@ async def abandon_session(session_id: str) -> JSONResponse:
         _write_meta(_session_meta_path(ds_dir, session_id), meta)
     except OSError as exc:
         logger.warning("session abandon write failed: %s", exc)
-        raise HTTPException(status_code=503, detail=f"abandon failed: {exc}")
+        raise HTTPException(status_code=503, detail=f"abandon failed: {exc}") from exc
     await _broadcast_invalidate(["annotation/sessions"])
     # Audit log: abandoned sessions leave their jsonl logs on disk
     # but the verdicts never reach the canonical store. items_done

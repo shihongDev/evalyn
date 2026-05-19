@@ -21,10 +21,10 @@ class SensitivityResult:
     mean_score: float
     std_dev: float
     coefficient_of_variation: float  # std_dev / mean (higher = more sensitive)
-    scores: List[float] = field(default_factory=list)
+    scores: list[float] = field(default_factory=list)
     classification: str = ""  # "stable", "moderate", "volatile"
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "metric_id": self.metric_id,
             "mean_score": round(self.mean_score, 4),
@@ -46,17 +46,17 @@ class SensitivityResult:
 class SensitivityReport:
     """Sensitivity analysis report across all metrics."""
 
-    results: List[SensitivityResult] = field(default_factory=list)
+    results: list[SensitivityResult] = field(default_factory=list)
 
     @property
-    def stable_metrics(self) -> List[str]:
+    def stable_metrics(self) -> list[str]:
         return [r.metric_id for r in self.results if r.classification == "stable"]
 
     @property
-    def volatile_metrics(self) -> List[str]:
+    def volatile_metrics(self) -> list[str]:
         return [r.metric_id for r in self.results if r.classification == "volatile"]
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "metrics": [r.as_dict() for r in self.results],
             "stable_count": len(self.stable_metrics),
@@ -76,7 +76,7 @@ class SensitivityReport:
 
 
 def analyze_sensitivity(
-    scores_by_metric: Dict[str, List[float]],
+    scores_by_metric: dict[str, list[float]],
     stable_threshold: float = 0.05,
     volatile_threshold: float = 0.15,
 ) -> SensitivityReport:

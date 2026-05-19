@@ -17,13 +17,13 @@ from ..models import Span
 class PathPattern:
     """A frequently occurring span-type sequence."""
 
-    sequence: Tuple[str, ...]  # e.g. ("llm_call", "tool_call", "llm_call")
+    sequence: tuple[str, ...]  # e.g. ("llm_call", "tool_call", "llm_call")
     count: int = 0
     total_duration_ms: float = 0.0
     avg_duration_ms: float = 0.0
-    example_span_ids: List[List[str]] = field(default_factory=list)  # up to 3 examples
+    example_span_ids: list[list[str]] = field(default_factory=list)  # up to 3 examples
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "sequence": list(self.sequence),
             "count": self.count,
@@ -45,18 +45,18 @@ class PathPattern:
 class HotPathReport:
     """Report of frequently occurring span patterns."""
 
-    patterns: List[PathPattern] = field(default_factory=list)
+    patterns: list[PathPattern] = field(default_factory=list)
     total_traces: int = 0
 
     @property
-    def top_by_frequency(self) -> List[PathPattern]:
+    def top_by_frequency(self) -> list[PathPattern]:
         return sorted(self.patterns, key=lambda p: p.count, reverse=True)
 
     @property
-    def top_by_cost(self) -> List[PathPattern]:
+    def top_by_cost(self) -> list[PathPattern]:
         return sorted(self.patterns, key=lambda p: p.total_duration_ms, reverse=True)
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "total_traces": self.total_traces,
             "num_patterns": len(self.patterns),
@@ -64,7 +64,7 @@ class HotPathReport:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> HotPathReport:
+    def from_dict(cls, data: dict[str, Any]) -> HotPathReport:
         patterns = []
         for pd in data.get("patterns", []):
             patterns.append(PathPattern(
@@ -86,7 +86,7 @@ class HotPathReport:
 
 
 def detect_hot_paths(
-    traces: List[List[Span]],
+    traces: list[list[Span]],
     window_size: int = 3,
     min_count: int = 2,
     max_patterns: int = 20,
@@ -109,8 +109,8 @@ def detect_hot_paths(
 
     # Count patterns and collect durations
     pattern_counter: Counter = Counter()
-    pattern_durations: Dict[Tuple[str, ...], List[float]] = defaultdict(list)
-    pattern_examples: Dict[Tuple[str, ...], List[List[str]]] = defaultdict(list)
+    pattern_durations: dict[tuple[str, ...], list[float]] = defaultdict(list)
+    pattern_examples: dict[tuple[str, ...], list[list[str]]] = defaultdict(list)
 
     for trace_spans in traces:
         # Order spans by start time

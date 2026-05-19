@@ -27,7 +27,7 @@ class AnnotatorLabel:
     label: float
     confidence: float = 1.0
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "item_id": self.item_id,
             "annotator_id": self.annotator_id,
@@ -37,7 +37,7 @@ class AnnotatorLabel:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> AnnotatorLabel:
+    def from_dict(cls, data: dict[str, Any]) -> AnnotatorLabel:
         return cls(
             item_id=data["item_id"],
             annotator_id=data["annotator_id"],
@@ -57,7 +57,7 @@ class AgreementScore:
     percent_agreement: float
     n_items: int
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "metric_id": self.metric_id,
             "annotator_pair": list(self.annotator_pair),
@@ -67,7 +67,7 @@ class AgreementScore:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> AgreementScore:
+    def from_dict(cls, data: dict[str, Any]) -> AgreementScore:
         pair = data["annotator_pair"]
         return cls(
             metric_id=data["metric_id"],
@@ -89,7 +89,7 @@ class AgreementReport:
     total_items: int
     total_annotators: int
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "scores": [s.as_dict() for s in self.scores],
             "overall_kappa": self.overall_kappa,
@@ -100,7 +100,7 @@ class AgreementReport:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> AgreementReport:
+    def from_dict(cls, data: dict[str, Any]) -> AgreementReport:
         return cls(
             scores=[AgreementScore.from_dict(s) for s in data["scores"]],
             overall_kappa=data["overall_kappa"],

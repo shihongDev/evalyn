@@ -17,10 +17,10 @@ class DatasetStats:
     """Auto-computed statistics for a dataset."""
 
     item_count: int = 0
-    input_lengths: List[int] = field(default_factory=list)
-    output_lengths: List[int] = field(default_factory=list)
+    input_lengths: list[int] = field(default_factory=list)
+    output_lengths: list[int] = field(default_factory=list)
     has_reference_count: int = 0  # items with human_label
-    metadata_fields: Dict[str, int] = field(default_factory=dict)  # field -> count
+    metadata_fields: dict[str, int] = field(default_factory=dict)  # field -> count
     duplicate_input_count: int = 0
     empty_output_count: int = 0
     empty_input_count: int = 0
@@ -50,7 +50,7 @@ class DatasetStats:
     def duplicate_rate(self) -> float:
         return self.duplicate_input_count / self.item_count if self.item_count > 0 else 0.0
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "item_count": self.item_count,
             "avg_input_length": round(self.avg_input_length, 1),
@@ -93,8 +93,8 @@ class HealthCheckResult:
     """Result of a dataset health check."""
 
     passed: bool
-    warnings: List[str] = field(default_factory=list)
-    errors: List[str] = field(default_factory=list)
+    warnings: list[str] = field(default_factory=list)
+    errors: list[str] = field(default_factory=list)
 
     @property
     def status(self) -> str:
@@ -104,7 +104,7 @@ class HealthCheckResult:
             return "WARN"
         return "PASS"
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "passed": self.passed,
             "status": self.status,
@@ -123,7 +123,7 @@ class HealthCheckResult:
         return "\n".join(lines)
 
 
-def compute_dataset_stats(items: List) -> DatasetStats:
+def compute_dataset_stats(items: list) -> DatasetStats:
     """Compute statistics for a dataset.
 
     Args:
@@ -134,7 +134,7 @@ def compute_dataset_stats(items: List) -> DatasetStats:
     """
     stats = DatasetStats(item_count=len(items))
 
-    seen_hashes: Set[str] = set()
+    seen_hashes: set[str] = set()
     metadata_counter: Counter = Counter()
 
     for item in items:
@@ -171,7 +171,7 @@ def compute_dataset_stats(items: List) -> DatasetStats:
 
 
 def check_dataset_health(
-    items: List,
+    items: list,
     *,
     min_items: int = 5,
     max_duplicate_rate: float = 0.20,

@@ -22,7 +22,7 @@ class CalibrationSnapshot:
     timestamp: datetime
     version: int
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "metric_id": self.metric_id,
             "prompt": self.prompt,
@@ -32,7 +32,7 @@ class CalibrationSnapshot:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> CalibrationSnapshot:
+    def from_dict(cls, data: dict[str, Any]) -> CalibrationSnapshot:
         ts = data["timestamp"]
         if isinstance(ts, str):
             ts = datetime.fromisoformat(ts)
@@ -56,7 +56,7 @@ class RollbackDecision:
     score_delta: float
     reason: str
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "metric_id": self.metric_id,
             "should_rollback": self.should_rollback,
@@ -71,7 +71,7 @@ class CalibrationHistory:
     """Maintains version history per metric."""
 
     def __init__(self) -> None:
-        self._history: Dict[str, List[CalibrationSnapshot]] = {}
+        self._history: dict[str, list[CalibrationSnapshot]] = {}
 
     def add_snapshot(
         self, metric_id: str, prompt: str, alignment_score: float
@@ -91,21 +91,21 @@ class CalibrationHistory:
         existing.append(snapshot)
         return snapshot
 
-    def get_history(self, metric_id: str) -> List[CalibrationSnapshot]:
+    def get_history(self, metric_id: str) -> list[CalibrationSnapshot]:
         """Get all snapshots for a metric, ordered by version."""
         return list(self._history.get(metric_id, []))
 
-    def get_latest(self, metric_id: str) -> Optional[CalibrationSnapshot]:
+    def get_latest(self, metric_id: str) -> CalibrationSnapshot | None:
         """Get most recent snapshot."""
         history = self._history.get(metric_id, [])
         return history[-1] if history else None
 
-    def get_previous(self, metric_id: str) -> Optional[CalibrationSnapshot]:
+    def get_previous(self, metric_id: str) -> CalibrationSnapshot | None:
         """Get second-to-last snapshot."""
         history = self._history.get(metric_id, [])
         return history[-2] if len(history) >= 2 else None
 
-    def rollback(self, metric_id: str) -> Optional[CalibrationSnapshot]:
+    def rollback(self, metric_id: str) -> CalibrationSnapshot | None:
         """Remove latest snapshot, return the new latest.
 
         Returns None if no history remains after removal.
@@ -153,14 +153,14 @@ class CalibrationHistory:
             reason=reason,
         )
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             metric_id: [s.as_dict() for s in snapshots]
             for metric_id, snapshots in self._history.items()
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> CalibrationHistory:
+    def from_dict(cls, data: dict[str, Any]) -> CalibrationHistory:
         history = cls()
         for metric_id, snapshot_list in data.items():
             history._history[metric_id] = [

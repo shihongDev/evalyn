@@ -3,7 +3,8 @@ from __future__ import annotations
 import json
 import random
 from dataclasses import dataclass, field
-from typing import Any, Callable, Dict, List
+from typing import Any, Dict, List
+from collections.abc import Callable
 
 
 @dataclass
@@ -12,7 +13,7 @@ class FuzzInput:
     category: str = "random"
     seed: int = 0
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "input_text": self.input_text,
             "category": self.category,
@@ -28,7 +29,7 @@ class FuzzResult:
     error: str = ""
     output: Any = None
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "input_text": self.input_text,
             "parser_name": self.parser_name,
@@ -40,13 +41,13 @@ class FuzzResult:
 
 @dataclass
 class FuzzReport:
-    results: List[FuzzResult] = field(default_factory=list)
+    results: list[FuzzResult] = field(default_factory=list)
     total_inputs: int = 0
     crashes: int = 0
     crash_rate: float = 0.0
-    categories_tested: List[str] = field(default_factory=list)
+    categories_tested: list[str] = field(default_factory=list)
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "results": [r.as_dict() for r in self.results],
             "total_inputs": self.total_inputs,
@@ -56,7 +57,7 @@ class FuzzReport:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> FuzzReport:
+    def from_dict(cls, data: dict[str, Any]) -> FuzzReport:
         results = [
             FuzzResult(
                 input_text=r["input_text"],
@@ -76,7 +77,7 @@ class FuzzReport:
         )
 
     def format_text(self) -> str:
-        lines: List[str] = []
+        lines: list[str] = []
         lines.append("Fuzz Report")
         lines.append(f"  Total inputs: {self.total_inputs}")
         lines.append(f"  Crashes: {self.crashes}")
@@ -160,10 +161,10 @@ def generate_injection_input(seed: int = 0) -> str:
     return rng.choice(templates)
 
 
-def generate_fuzz_inputs(count: int = 50, seed: int = 42) -> List[FuzzInput]:
+def generate_fuzz_inputs(count: int = 50, seed: int = 42) -> list[FuzzInput]:
     """Generate diverse fuzz inputs across all categories."""
     rng = random.Random(seed)
-    inputs: List[FuzzInput] = []
+    inputs: list[FuzzInput] = []
     categories = ["malformed_json", "truncated", "unicode", "injection", "random"]
     generators = {
         "malformed_json": generate_malformed_json,
@@ -188,10 +189,10 @@ def generate_fuzz_inputs(count: int = 50, seed: int = 42) -> List[FuzzInput]:
 
 
 def fuzz_parser(
-    parser_fn: Callable[[str], Any], inputs: List[FuzzInput]
+    parser_fn: Callable[[str], Any], inputs: list[FuzzInput]
 ) -> FuzzReport:
     """Run parser against all inputs, catch exceptions."""
-    results: List[FuzzResult] = []
+    results: list[FuzzResult] = []
     crashes = 0
     categories_seen: set[str] = set()
 
@@ -230,9 +231,9 @@ def fuzz_parser(
     )
 
 
-def find_crash_patterns(report: FuzzReport) -> Dict[str, int]:
+def find_crash_patterns(report: FuzzReport) -> dict[str, int]:
     """Count crashes by category."""
-    patterns: Dict[str, int] = {}
+    patterns: dict[str, int] = {}
     for result in report.results:
         if result.crashed:
             # Find the matching FuzzInput category by input_text

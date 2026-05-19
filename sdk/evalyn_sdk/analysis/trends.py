@@ -20,15 +20,15 @@ class TrendAnalysis:
     """Analysis of trends across multiple evaluation runs for a project."""
 
     project_name: str
-    runs: List[RunAnalysis]  # Ordered oldest to newest
-    metric_trends: Dict[str, List[Optional[float]]]  # metric_id -> [pass_rate per run]
-    overall_trends: List[float]  # overall pass rate per run
-    item_count_trends: List[int]  # items per run
-    timestamps: List[str]  # created_at per run
-    run_ids: List[str]  # run IDs
+    runs: list[RunAnalysis]  # Ordered oldest to newest
+    metric_trends: dict[str, list[float | None]]  # metric_id -> [pass_rate per run]
+    overall_trends: list[float]  # overall pass rate per run
+    item_count_trends: list[int]  # items per run
+    timestamps: list[str]  # created_at per run
+    run_ids: list[str]  # run IDs
 
     @property
-    def metric_deltas(self) -> Dict[str, Optional[float]]:
+    def metric_deltas(self) -> dict[str, float | None]:
         """Change in pass rate from oldest to newest run per metric."""
         deltas = {}
         for metric_id, rates in self.metric_trends.items():
@@ -47,17 +47,17 @@ class TrendAnalysis:
         return 0.0
 
     @property
-    def improving_metrics(self) -> List[str]:
+    def improving_metrics(self) -> list[str]:
         return [m for m, d in self.metric_deltas.items() if d is not None and d > 0.001]
 
     @property
-    def regressing_metrics(self) -> List[str]:
+    def regressing_metrics(self) -> list[str]:
         return [
             m for m, d in self.metric_deltas.items() if d is not None and d < -0.001
         ]
 
     @property
-    def stable_metrics(self) -> List[str]:
+    def stable_metrics(self) -> list[str]:
         return [
             m
             for m, d in self.metric_deltas.items()
@@ -65,7 +65,7 @@ class TrendAnalysis:
         ]
 
 
-def analyze_trends(runs: List[EvalRun]) -> TrendAnalysis:
+def analyze_trends(runs: list[EvalRun]) -> TrendAnalysis:
     """Analyze trends across multiple evaluation runs.
 
     Args:
@@ -97,7 +97,7 @@ def analyze_trends(runs: List[EvalRun]) -> TrendAnalysis:
         all_metrics.update(a.metric_stats.keys())
 
     # Build trend data
-    metric_trends: Dict[str, List[Optional[float]]] = {m: [] for m in all_metrics}
+    metric_trends: dict[str, list[float | None]] = {m: [] for m in all_metrics}
     overall_trends = []
     item_counts = []
     timestamps = []
@@ -254,7 +254,7 @@ def _trend_metric_table_lines_summary(trend: TrendAnalysis) -> list[str]:
 
 
 def _trend_metric_group_summary(
-    label: str, metrics: List[str], *, align_pad: str = ""
+    label: str, metrics: list[str], *, align_pad: str = ""
 ) -> list[str]:
     """Build summary lines for improving/regressing/stable metric groups."""
     if not metrics:

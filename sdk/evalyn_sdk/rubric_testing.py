@@ -8,17 +8,18 @@ from __future__ import annotations
 
 import math
 from dataclasses import dataclass, field
-from typing import Any, Callable, Dict, List
+from typing import Any, Dict, List
+from collections.abc import Callable
 
 
-def _mean(vals: List[float]) -> float:
+def _mean(vals: list[float]) -> float:
     """Arithmetic mean. Returns 0.0 for empty lists."""
     if not vals:
         return 0.0
     return sum(vals) / len(vals)
 
 
-def _std_dev(vals: List[float]) -> float:
+def _std_dev(vals: list[float]) -> float:
     """Population standard deviation. Returns 0.0 for fewer than 2 values."""
     if len(vals) < 2:
         return 0.0
@@ -35,9 +36,9 @@ class RubricTestCase:
     input_text: str
     expected_score: float
     expected_pass: bool
-    tags: List[str] = field(default_factory=list)
+    tags: list[str] = field(default_factory=list)
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "item_id": self.item_id,
             "input_text": self.input_text,
@@ -47,7 +48,7 @@ class RubricTestCase:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> RubricTestCase:
+    def from_dict(cls, data: dict[str, Any]) -> RubricTestCase:
         return cls(
             item_id=data["item_id"],
             input_text=data["input_text"],
@@ -62,7 +63,7 @@ class RubricTestResult:
     """Result of running a single test case multiple times."""
 
     item_id: str
-    scores: List[float]
+    scores: list[float]
     mean_score: float
     std_dev: float
     passed_count: int
@@ -70,7 +71,7 @@ class RubricTestResult:
     consistency: float
     is_edge_case: bool
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "item_id": self.item_id,
             "scores": list(self.scores),
@@ -83,7 +84,7 @@ class RubricTestResult:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> RubricTestResult:
+    def from_dict(cls, data: dict[str, Any]) -> RubricTestResult:
         return cls(
             item_id=data["item_id"],
             scores=data["scores"],
@@ -101,12 +102,12 @@ class RubricTestSuite:
     """Aggregated results for a full rubric test suite."""
 
     rubric_id: str
-    results: List[RubricTestResult]
+    results: list[RubricTestResult]
     overall_consistency: float
     edge_case_count: int
     total_items: int
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "rubric_id": self.rubric_id,
             "results": [r.as_dict() for r in self.results],
@@ -116,7 +117,7 @@ class RubricTestSuite:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> RubricTestSuite:
+    def from_dict(cls, data: dict[str, Any]) -> RubricTestSuite:
         return cls(
             rubric_id=data["rubric_id"],
             results=[RubricTestResult.from_dict(r) for r in data["results"]],
@@ -126,7 +127,7 @@ class RubricTestSuite:
         )
 
 
-def compute_consistency(scores: List[float], threshold: float = 0.5) -> float:
+def compute_consistency(scores: list[float], threshold: float = 0.5) -> float:
     """Fraction of score pairs within threshold of each other.
 
     For n scores, checks all n*(n-1)/2 unique pairs. Returns 1.0 if
@@ -146,15 +147,15 @@ def compute_consistency(scores: List[float], threshold: float = 0.5) -> float:
 
 
 def detect_edge_cases(
-    results: List[RubricTestResult], std_threshold: float = 0.3
-) -> List[RubricTestResult]:
+    results: list[RubricTestResult], std_threshold: float = 0.3
+) -> list[RubricTestResult]:
     """Return results with standard deviation above the threshold."""
     return [r for r in results if r.std_dev > std_threshold]
 
 
 def run_rubric_test_suite(
     rubric_id: str,
-    test_cases: List[RubricTestCase],
+    test_cases: list[RubricTestCase],
     score_fn: Callable[[str, str], float],
     n_runs: int = 5,
     pass_threshold: float = 0.5,
@@ -175,10 +176,10 @@ def run_rubric_test_suite(
     Returns:
         A RubricTestSuite with per-item results and overall statistics.
     """
-    results: List[RubricTestResult] = []
+    results: list[RubricTestResult] = []
 
     for tc in test_cases:
-        scores: List[float] = []
+        scores: list[float] = []
         passed_count = 0
         for _ in range(n_runs):
             score = score_fn(rubric_id, tc.input_text)
@@ -219,7 +220,7 @@ def run_rubric_test_suite(
 
 def compare_rubric_versions(
     suite_a: RubricTestSuite, suite_b: RubricTestSuite
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Compare two rubric test suites showing consistency changes and score drift.
 
     Returns a dict with:
@@ -232,10 +233,10 @@ def compare_rubric_versions(
     b_by_id = {r.item_id: r for r in suite_b.results}
 
     all_ids = sorted(set(a_by_id) | set(b_by_id))
-    items: List[Dict[str, Any]] = []
+    items: list[dict[str, Any]] = []
 
     for item_id in all_ids:
-        entry: Dict[str, Any] = {"item_id": item_id}
+        entry: dict[str, Any] = {"item_id": item_id}
         a_result = a_by_id.get(item_id)
         b_result = b_by_id.get(item_id)
 
@@ -267,7 +268,7 @@ def compare_rubric_versions(
 
 def format_test_report(suite: RubricTestSuite) -> str:
     """Format a human-readable report for a rubric test suite."""
-    lines: List[str] = []
+    lines: list[str] = []
     lines.append(f"Rubric Test Report: {suite.rubric_id}")
     lines.append("=" * 50)
     lines.append(f"Total items: {suite.total_items}")

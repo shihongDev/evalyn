@@ -26,7 +26,7 @@ class CohortStats:
     pass_rate: float = 0.0
     std_dev: float = 0.0
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "cohort_name": self.cohort_name,
             "item_count": self.item_count,
@@ -46,7 +46,7 @@ class CohortComparison:
     pass_rate_delta: float = 0.0
     significant: bool = False
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "cohort_a": self.cohort_a,
             "cohort_b": self.cohort_b,
@@ -69,12 +69,12 @@ class CohortComparison:
 class CohortReport:
     """Full cohort analysis report."""
 
-    cohorts: List[CohortStats] = field(default_factory=list)
-    comparisons: List[CohortComparison] = field(default_factory=list)
+    cohorts: list[CohortStats] = field(default_factory=list)
+    comparisons: list[CohortComparison] = field(default_factory=list)
     best_cohort: str = ""
     worst_cohort: str = ""
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "cohorts": [c.as_dict() for c in self.cohorts],
             "comparisons": [c.as_dict() for c in self.comparisons],
@@ -83,7 +83,7 @@ class CohortReport:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> CohortReport:
+    def from_dict(cls, data: dict[str, Any]) -> CohortReport:
         cohorts = [
             CohortStats(**c) for c in data.get("cohorts", [])
         ]
@@ -100,7 +100,7 @@ class CohortReport:
 
     def format_text(self) -> str:
         """Format as human-readable text."""
-        lines: List[str] = []
+        lines: list[str] = []
         lines.append("Cohort Report")
         if self.best_cohort:
             lines.append(f"  Best cohort: {self.best_cohort}")
@@ -127,13 +127,13 @@ class CohortReport:
 
 
 def define_cohort_by_metadata(
-    items: List[Dict[str, Any]], metadata_key: str
-) -> Dict[str, List[Dict[str, Any]]]:
+    items: list[dict[str, Any]], metadata_key: str
+) -> dict[str, list[dict[str, Any]]]:
     """Group items by metadata field value.
 
     Items missing the metadata_key are placed in an "unknown" cohort.
     """
-    cohorts: Dict[str, List[Dict[str, Any]]] = {}
+    cohorts: dict[str, list[dict[str, Any]]] = {}
     for item in items:
         metadata = item.get("metadata", {})
         if isinstance(metadata, dict):
@@ -148,10 +148,10 @@ def define_cohort_by_metadata(
 
 
 def define_cohort_by_length(
-    items: List[Dict[str, Any]],
+    items: list[dict[str, Any]],
     input_field: str = "input",
     num_buckets: int = 3,
-) -> Dict[str, List[Dict[str, Any]]]:
+) -> dict[str, list[dict[str, Any]]]:
     """Group by input length buckets (short/medium/long).
 
     Divides the range of input lengths evenly into num_buckets. Default
@@ -162,7 +162,7 @@ def define_cohort_by_length(
         return {}
 
     # Compute lengths
-    lengths: List[int] = []
+    lengths: list[int] = []
     for item in items:
         val = item.get(input_field, "")
         if isinstance(val, dict):
@@ -186,7 +186,7 @@ def define_cohort_by_length(
     else:
         names = [f"bucket_{i}" for i in range(num_buckets)]
 
-    cohorts: Dict[str, List[Dict[str, Any]]] = {name: [] for name in names}
+    cohorts: dict[str, list[dict[str, Any]]] = {name: [] for name in names}
 
     for item, length in zip(items, lengths):
         if max_len == min_len:
@@ -200,7 +200,7 @@ def define_cohort_by_length(
 
 def compute_cohort_stats(
     cohort_name: str,
-    items: List[Dict[str, Any]],
+    items: list[dict[str, Any]],
     score_field: str = "score",
 ) -> CohortStats:
     """Compute stats for one cohort.
@@ -210,7 +210,7 @@ def compute_cohort_stats(
     if not items:
         return CohortStats(cohort_name=cohort_name)
 
-    scores: List[float] = []
+    scores: list[float] = []
     passed_count = 0
     total_with_pass = 0
 
@@ -261,15 +261,15 @@ def compare_cohorts(
 
 
 def build_cohort_report(
-    cohorts: Dict[str, List[Dict[str, Any]]],
+    cohorts: dict[str, list[dict[str, Any]]],
     score_field: str = "score",
 ) -> CohortReport:
     """Full analysis with all pairwise comparisons."""
-    stats_list: List[CohortStats] = []
+    stats_list: list[CohortStats] = []
     for name in sorted(cohorts.keys()):
         stats_list.append(compute_cohort_stats(name, cohorts[name], score_field))
 
-    comparisons: List[CohortComparison] = []
+    comparisons: list[CohortComparison] = []
     for i, sa in enumerate(stats_list):
         for sb in stats_list[i + 1 :]:
             comparisons.append(compare_cohorts(sa, sb))
@@ -298,7 +298,7 @@ def render_cohort_chart(report: CohortReport, width: int = 60) -> str:
         return ""
 
     max_name_len = max(len(c.cohort_name) for c in report.cohorts)
-    lines: List[str] = []
+    lines: list[str] = []
 
     # Determine scale: use max score or 1.0, whichever is larger
     max_score = max(c.avg_score for c in report.cohorts)

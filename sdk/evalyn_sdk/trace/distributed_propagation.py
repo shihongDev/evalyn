@@ -13,9 +13,9 @@ class TraceContext:
     trace_id: str
     span_id: str
     sampled: bool = True
-    trace_state: Dict[str, str] = field(default_factory=dict)
+    trace_state: dict[str, str] = field(default_factory=dict)
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "trace_id": self.trace_id,
             "span_id": self.span_id,
@@ -24,7 +24,7 @@ class TraceContext:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> TraceContext:
+    def from_dict(cls, data: dict[str, Any]) -> TraceContext:
         return cls(
             trace_id=data["trace_id"],
             span_id=data["span_id"],
@@ -39,9 +39,9 @@ class PropagationResult:
 
     injected: bool
     extracted: bool
-    context: Optional[TraceContext] = None
+    context: TraceContext | None = None
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "injected": self.injected,
             "extracted": self.extracted,
@@ -75,7 +75,7 @@ def create_traceparent(ctx: TraceContext) -> str:
     return f"00-{ctx.trace_id}-{ctx.span_id}-{flags}"
 
 
-def parse_traceparent(header: str) -> Optional[TraceContext]:
+def parse_traceparent(header: str) -> TraceContext | None:
     """Parse a W3C traceparent header. Return None if malformed."""
     match = _TRACEPARENT_RE.match(header.strip())
     if not match:
@@ -92,9 +92,9 @@ def create_tracestate(ctx: TraceContext) -> str:
     return ",".join(f"{k}={v}" for k, v in ctx.trace_state.items())
 
 
-def parse_tracestate(header: str) -> Dict[str, str]:
+def parse_tracestate(header: str) -> dict[str, str]:
     """Parse tracestate header into a dict."""
-    result: Dict[str, str] = {}
+    result: dict[str, str] = {}
     if not header or not header.strip():
         return result
     for pair in header.split(","):
@@ -105,7 +105,7 @@ def parse_tracestate(header: str) -> Dict[str, str]:
     return result
 
 
-def inject_headers(ctx: TraceContext, headers: Dict[str, str]) -> Dict[str, str]:
+def inject_headers(ctx: TraceContext, headers: dict[str, str]) -> dict[str, str]:
     """Add traceparent and tracestate to a headers dict. Return new dict."""
     out = dict(headers)
     out["traceparent"] = create_traceparent(ctx)
@@ -115,7 +115,7 @@ def inject_headers(ctx: TraceContext, headers: Dict[str, str]) -> Dict[str, str]
     return out
 
 
-def extract_context(headers: Dict[str, str]) -> PropagationResult:
+def extract_context(headers: dict[str, str]) -> PropagationResult:
     """Extract TraceContext from headers.
 
     Looks for 'traceparent' (and optionally 'tracestate') in the headers.

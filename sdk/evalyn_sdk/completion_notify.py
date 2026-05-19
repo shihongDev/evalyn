@@ -27,7 +27,7 @@ class NotifyConfig:
     sound: bool = False
     method: str = "auto"  # "auto", "terminal_bell", "osascript", "notify_send"
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "enabled": self.enabled,
             "min_duration_seconds": self.min_duration_seconds,
@@ -36,7 +36,7 @@ class NotifyConfig:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> NotifyConfig:
+    def from_dict(cls, data: dict[str, Any]) -> NotifyConfig:
         return cls(
             enabled=data.get("enabled", True),
             min_duration_seconds=data.get("min_duration_seconds", 30.0),
@@ -60,7 +60,7 @@ class NotifyEvent:
     message: str
     timestamp: str
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "command": self.command,
             "duration_seconds": self.duration_seconds,
@@ -70,7 +70,7 @@ class NotifyEvent:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> NotifyEvent:
+    def from_dict(cls, data: dict[str, Any]) -> NotifyEvent:
         return cls(
             command=data["command"],
             duration_seconds=data["duration_seconds"],
@@ -119,13 +119,13 @@ def format_terminal_bell() -> str:
     return "\a"
 
 
-def format_osascript_command(message: str, title: str = "evalyn") -> List[str]:
+def format_osascript_command(message: str, title: str = "evalyn") -> list[str]:
     """Build an osascript command list for macOS notifications."""
     script = f'display notification "{message}" with title "{title}"'
     return ["osascript", "-e", script]
 
 
-def format_notify_send_command(message: str, title: str = "evalyn") -> List[str]:
+def format_notify_send_command(message: str, title: str = "evalyn") -> list[str]:
     """Build a notify-send command list for Linux notifications."""
     return ["notify-send", title, message]
 

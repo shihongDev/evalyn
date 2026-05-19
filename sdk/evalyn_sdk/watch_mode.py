@@ -10,7 +10,8 @@ import os
 import time
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import Any, Callable, Dict, List
+from typing import Any, Dict, List
+from collections.abc import Callable
 
 # ---------------------------------------------------------------------------
 # Data model
@@ -21,11 +22,11 @@ from typing import Any, Callable, Dict, List
 class WatchConfig:
     """Configuration for the watch loop."""
 
-    paths: List[str] = field(default_factory=list)
+    paths: list[str] = field(default_factory=list)
     debounce_seconds: float = 2.0
     poll_interval: float = 0.5
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "paths": list(self.paths),
             "debounce_seconds": self.debounce_seconds,
@@ -33,7 +34,7 @@ class WatchConfig:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> WatchConfig:
+    def from_dict(cls, data: dict[str, Any]) -> WatchConfig:
         return cls(
             paths=list(data.get("paths", [])),
             debounce_seconds=float(data.get("debounce_seconds", 2.0)),
@@ -50,7 +51,7 @@ class FileState:
     size: int
     exists: bool
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "path": self.path,
             "mtime": self.mtime,
@@ -59,7 +60,7 @@ class FileState:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> FileState:
+    def from_dict(cls, data: dict[str, Any]) -> FileState:
         return cls(
             path=data["path"],
             mtime=float(data.get("mtime", 0.0)),
@@ -76,7 +77,7 @@ class WatchEvent:
     event_type: str  # "modified", "created", or "deleted"
     timestamp: str
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "path": self.path,
             "event_type": self.event_type,
@@ -84,7 +85,7 @@ class WatchEvent:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> WatchEvent:
+    def from_dict(cls, data: dict[str, Any]) -> WatchEvent:
         return cls(
             path=data["path"],
             event_type=data["event_type"],
@@ -100,12 +101,12 @@ class WatchEvent:
 class ChangeDetector:
     """Polls file metadata to detect modifications, creations, and deletions."""
 
-    def __init__(self, paths: List[str]) -> None:
+    def __init__(self, paths: list[str]) -> None:
         self.paths = list(paths)
 
-    def snapshot(self) -> Dict[str, FileState]:
+    def snapshot(self) -> dict[str, FileState]:
         """Return the current FileState for every watched path."""
-        result: Dict[str, FileState] = {}
+        result: dict[str, FileState] = {}
         for p in self.paths:
             try:
                 st = os.stat(p)
@@ -121,12 +122,12 @@ class ChangeDetector:
 
     @staticmethod
     def detect_changes(
-        old: Dict[str, FileState],
-        new: Dict[str, FileState],
-    ) -> List[WatchEvent]:
+        old: dict[str, FileState],
+        new: dict[str, FileState],
+    ) -> list[WatchEvent]:
         """Compare two snapshots and return a list of WatchEvents."""
         now_iso = datetime.now(timezone.utc).isoformat()
-        events: List[WatchEvent] = []
+        events: list[WatchEvent] = []
 
         all_paths = sorted(set(old) | set(new))
         for p in all_paths:
@@ -150,8 +151,8 @@ class ChangeDetector:
 
     @staticmethod
     def has_changes(
-        old: Dict[str, FileState],
-        new: Dict[str, FileState],
+        old: dict[str, FileState],
+        new: dict[str, FileState],
     ) -> bool:
         """Quick boolean check - are there any differences between snapshots?"""
         all_paths = set(old) | set(new)
@@ -184,8 +185,8 @@ def should_debounce(last_run_time: float, debounce: float) -> bool:
 
 
 def run_watch_loop(
-    paths: List[str],
-    callback: Callable[[List[WatchEvent]], None],
+    paths: list[str],
+    callback: Callable[[list[WatchEvent]], None],
     config: WatchConfig,
     max_iterations: int = 0,
 ) -> int:

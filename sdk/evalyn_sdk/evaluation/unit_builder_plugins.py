@@ -19,14 +19,14 @@ class UnitBuilder(Protocol):
     each containing "unit_id", "unit_type", and "spans".
     """
 
-    def build_units(self, spans: List[Span]) -> List[Dict[str, Any]]: ...
+    def build_units(self, spans: list[Span]) -> list[dict[str, Any]]: ...
 
 
 class PerCallBuilder:
     """Each LLM call span becomes one evaluation unit."""
 
-    def build_units(self, spans: List[Span]) -> List[Dict[str, Any]]:
-        units: List[Dict[str, Any]] = []
+    def build_units(self, spans: list[Span]) -> list[dict[str, Any]]:
+        units: list[dict[str, Any]] = []
         for s in spans:
             if s.span_type == "llm_call":
                 units.append({
@@ -40,13 +40,13 @@ class PerCallBuilder:
 class PerSessionBuilder:
     """Group spans by session_id attribute into evaluation units."""
 
-    def build_units(self, spans: List[Span]) -> List[Dict[str, Any]]:
-        sessions: Dict[str, List[Span]] = {}
+    def build_units(self, spans: list[Span]) -> list[dict[str, Any]]:
+        sessions: dict[str, list[Span]] = {}
         for s in spans:
             session_id = s.attributes.get("session_id")
             if session_id is not None:
                 sessions.setdefault(session_id, []).append(s)
-        units: List[Dict[str, Any]] = []
+        units: list[dict[str, Any]] = []
         for session_id, session_spans in sessions.items():
             units.append({
                 "unit_id": session_id,
@@ -59,9 +59,9 @@ class PerSessionBuilder:
 class PerToolBuilder:
     """Each tool_call span becomes one unit, with its parent llm_call span included."""
 
-    def build_units(self, spans: List[Span]) -> List[Dict[str, Any]]:
-        by_id: Dict[str, Span] = {s.id: s for s in spans}
-        units: List[Dict[str, Any]] = []
+    def build_units(self, spans: list[Span]) -> list[dict[str, Any]]:
+        by_id: dict[str, Span] = {s.id: s for s in spans}
+        units: list[dict[str, Any]] = []
         for s in spans:
             if s.span_type == "tool_call":
                 unit_spans = [s]
@@ -83,10 +83,10 @@ class EvalUnit:
 
     unit_id: str
     unit_type: str
-    span_ids: List[str] = field(default_factory=list)
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    span_ids: list[str] = field(default_factory=list)
+    metadata: dict[str, Any] = field(default_factory=dict)
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "unit_id": self.unit_id,
             "unit_type": self.unit_type,
@@ -95,7 +95,7 @@ class EvalUnit:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> EvalUnit:
+    def from_dict(cls, data: dict[str, Any]) -> EvalUnit:
         return cls(
             unit_id=data["unit_id"],
             unit_type=data["unit_type"],
@@ -108,17 +108,17 @@ class EvalUnit:
 class BuilderRegistry:
     """Registry for named unit builders."""
 
-    builders: Dict[str, Any] = field(default_factory=dict)
+    builders: dict[str, Any] = field(default_factory=dict)
 
     def register(self, name: str, builder: Any) -> None:
         """Add a builder under the given name."""
         self.builders[name] = builder
 
-    def get(self, name: str) -> Optional[Any]:
+    def get(self, name: str) -> Any | None:
         """Get a builder by name, or None if not found."""
         return self.builders.get(name)
 
-    def list_builders(self) -> List[str]:
+    def list_builders(self) -> list[str]:
         """List registered builder names."""
         return list(self.builders.keys())
 
@@ -150,10 +150,10 @@ def get_default_registry() -> BuilderRegistry:
 
 
 def build_units(
-    spans: List[Span],
+    spans: list[Span],
     builder_name: str = "per_call",
-    registry: Optional[BuilderRegistry] = None,
-) -> List[EvalUnit]:
+    registry: BuilderRegistry | None = None,
+) -> list[EvalUnit]:
     """Build evaluation units using a named builder from the registry.
 
     Returns a list of EvalUnit instances.
@@ -164,7 +164,7 @@ def build_units(
     if builder is None:
         raise ValueError(f"Unknown builder: {builder_name!r}")
     raw_units = builder.build_units(spans)
-    result: List[EvalUnit] = []
+    result: list[EvalUnit] = []
     for raw in raw_units:
         span_ids = [s.id for s in raw.get("spans", [])]
         result.append(
@@ -177,7 +177,7 @@ def build_units(
     return result
 
 
-def auto_select_builder(spans: List[Span]) -> str:
+def auto_select_builder(spans: list[Span]) -> str:
     """Heuristic: pick best builder name based on span characteristics.
 
     - If any span has a session_id attribute: "per_session"

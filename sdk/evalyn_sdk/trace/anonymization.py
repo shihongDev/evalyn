@@ -17,7 +17,7 @@ class AnonymizationConfig:
     preserve_structure: bool = True  # keep dict keys, replace values
     salt: str = ""  # for deterministic hashing
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "anonymize_inputs": self.anonymize_inputs,
             "anonymize_outputs": self.anonymize_outputs,
@@ -26,7 +26,7 @@ class AnonymizationConfig:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> AnonymizationConfig:
+    def from_dict(cls, data: dict[str, Any]) -> AnonymizationConfig:
         return cls(
             anonymize_inputs=data.get("anonymize_inputs", True),
             anonymize_outputs=data.get("anonymize_outputs", True),
@@ -41,10 +41,10 @@ class AnonymizationResult:
 
     spans_processed: int
     fields_anonymized: int
-    original_span_ids: List[str] = field(default_factory=list)
-    anonymized_span_ids: List[str] = field(default_factory=list)
+    original_span_ids: list[str] = field(default_factory=list)
+    anonymized_span_ids: list[str] = field(default_factory=list)
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "spans_processed": self.spans_processed,
             "fields_anonymized": self.fields_anonymized,
@@ -65,13 +65,13 @@ def anonymize_text(text: str, salt: str = "") -> str:
     return f"[anon-{digest[:8]}-{len(text)}chars]"
 
 
-def _anonymize_value(value: Any, salt: str, preserve_structure: bool) -> Tuple[Any, int]:
+def _anonymize_value(value: Any, salt: str, preserve_structure: bool) -> tuple[Any, int]:
     """Anonymize a single value, returning (new_value, fields_anonymized)."""
     if isinstance(value, str):
         return anonymize_text(value, salt), 1
     if isinstance(value, dict):
         if preserve_structure:
-            new_dict: Dict[str, Any] = {}
+            new_dict: dict[str, Any] = {}
             count = 0
             for k, v in value.items():
                 anon_v, c = _anonymize_value(v, salt, preserve_structure)
@@ -81,7 +81,7 @@ def _anonymize_value(value: Any, salt: str, preserve_structure: bool) -> Tuple[A
         # Not preserving structure: replace the whole dict as a string
         return anonymize_text(str(value), salt), 1
     if isinstance(value, list):
-        new_list: List[Any] = []
+        new_list: list[Any] = []
         count = 0
         for item in value:
             anon_item, c = _anonymize_value(item, salt, preserve_structure)
@@ -110,7 +110,7 @@ def anonymize_span(span: Span, config: AnonymizationConfig) -> Span:
         new_span.parent_id = _hash_id(span.parent_id, config.salt)
 
     fields_anonymized = 0
-    new_attrs: Dict[str, Any] = {}
+    new_attrs: dict[str, Any] = {}
     for key, value in new_span.attributes.items():
         is_input = key in _INPUT_KEYS
         is_output = key in _OUTPUT_KEYS
@@ -133,12 +133,12 @@ def anonymize_span(span: Span, config: AnonymizationConfig) -> Span:
 
 
 def anonymize_spans(
-    spans: List[Span], config: AnonymizationConfig
-) -> Tuple[List[Span], AnonymizationResult]:
+    spans: list[Span], config: AnonymizationConfig
+) -> tuple[list[Span], AnonymizationResult]:
     """Batch anonymization. Maintains parent-child relationships by remapping IDs."""
-    anonymized: List[Span] = []
-    original_ids: List[str] = []
-    anonymized_ids: List[str] = []
+    anonymized: list[Span] = []
+    original_ids: list[str] = []
+    anonymized_ids: list[str] = []
     total_fields = 0
 
     for s in spans:
@@ -162,8 +162,8 @@ def anonymize_spans(
 
 
 def export_anonymized(
-    spans: List[Span], config: Optional[AnonymizationConfig] = None
-) -> List[Dict[str, Any]]:
+    spans: list[Span], config: AnonymizationConfig | None = None
+) -> list[dict[str, Any]]:
     """Anonymize and export as list of dicts."""
     if config is None:
         config = AnonymizationConfig()

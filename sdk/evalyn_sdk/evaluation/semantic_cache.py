@@ -20,7 +20,7 @@ class CacheEntry:
     key: str
     input_text: str
     output_text: str
-    result: Dict[str, Any]
+    result: dict[str, Any]
     hit_count: int = 0
 
 
@@ -46,7 +46,7 @@ class SemanticCacheStats:
     def api_calls_saved(self) -> int:
         return self.exact_hits + self.fuzzy_hits
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "exact_hits": self.exact_hits,
             "fuzzy_hits": self.fuzzy_hits,
@@ -80,7 +80,7 @@ class SemanticCache:
         self.fuzzy_threshold = fuzzy_threshold
         self.fuzzy_enabled = fuzzy_enabled
         self.max_entries = max_entries
-        self._cache: Dict[str, CacheEntry] = {}
+        self._cache: dict[str, CacheEntry] = {}
         self._stats = SemanticCacheStats()
 
     @property
@@ -105,7 +105,7 @@ class SemanticCache:
         prompt: str,
         input_text: str,
         output_text: str,
-    ) -> Optional[Dict[str, Any]]:
+    ) -> dict[str, Any] | None:
         """Look up a cached result.
 
         Tries exact match first, then fuzzy match if enabled.
@@ -148,7 +148,7 @@ class SemanticCache:
         prompt: str,
         input_text: str,
         output_text: str,
-        result: Dict[str, Any],
+        result: dict[str, Any],
     ) -> None:
         """Store a result in the cache."""
         # Evict if at capacity

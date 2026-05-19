@@ -17,14 +17,14 @@ class RerunConfig:
     history_path: str = ".evalyn/history.jsonl"
     allow_destructive: bool = False
 
-    def as_dict(self) -> Dict[str, object]:
+    def as_dict(self) -> dict[str, object]:
         return {
             "history_path": self.history_path,
             "allow_destructive": self.allow_destructive,
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, object]) -> RerunConfig:
+    def from_dict(cls, data: dict[str, object]) -> RerunConfig:
         return cls(
             history_path=str(data.get("history_path", ".evalyn/history.jsonl")),
             allow_destructive=bool(data.get("allow_destructive", False)),
@@ -36,11 +36,11 @@ class RerunRequest:
     """A fully resolved rerun request."""
 
     original_command: str
-    original_args: List[str]
-    override_args: List[str]
+    original_args: list[str]
+    override_args: list[str]
     merged_command: str
 
-    def as_dict(self) -> Dict[str, object]:
+    def as_dict(self) -> dict[str, object]:
         return {
             "original_command": self.original_command,
             "original_args": self.original_args,
@@ -49,7 +49,7 @@ class RerunRequest:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, object]) -> RerunRequest:
+    def from_dict(cls, data: dict[str, object]) -> RerunRequest:
         return cls(
             original_command=str(data.get("original_command", "")),
             original_args=list(data.get("original_args", [])),  # type: ignore[arg-type]
@@ -58,7 +58,7 @@ class RerunRequest:
         )
 
 
-def get_last_command(history_path: str) -> Optional[Tuple[str, List[str]]]:
+def get_last_command(history_path: str) -> tuple[str, list[str]] | None:
     """Read the last entry from a JSONL history file.
 
     Returns (command, args) or None if the file is empty or missing.
@@ -67,7 +67,7 @@ def get_last_command(history_path: str) -> Optional[Tuple[str, List[str]]]:
     if not path.exists():
         return None
 
-    last_line: Optional[str] = None
+    last_line: str | None = None
     with open(path, encoding="utf-8") as f:
         for line in f:
             stripped = line.strip()
@@ -83,7 +83,7 @@ def get_last_command(history_path: str) -> Optional[Tuple[str, List[str]]]:
     return (command, args)
 
 
-def _parse_flag_name(token: str) -> Optional[str]:
+def _parse_flag_name(token: str) -> str | None:
     """Extract the flag name from a token like --flag=value or --flag."""
     if not token.startswith("-"):
         return None
@@ -92,7 +92,7 @@ def _parse_flag_name(token: str) -> Optional[str]:
     return token
 
 
-def merge_args(original_args: List[str], overrides: List[str]) -> List[str]:
+def merge_args(original_args: list[str], overrides: list[str]) -> list[str]:
     """Merge original args with overrides.
 
     Override rules:
@@ -101,7 +101,7 @@ def merge_args(original_args: List[str], overrides: List[str]) -> List[str]:
     - New flags are appended.
     """
     # Build a list of (flag_name, tokens) from overrides
-    override_entries: List[Tuple[Optional[str], List[str]]] = []
+    override_entries: list[tuple[str | None, list[str]]] = []
     i = 0
     while i < len(overrides):
         token = overrides[i]
@@ -128,7 +128,7 @@ def merge_args(original_args: List[str], overrides: List[str]) -> List[str]:
     used_overrides: set[int] = set()
 
     # Process original args, replacing where overrides match
-    result: List[str] = []
+    result: list[str] = []
     j = 0
     while j < len(original_args):
         token = original_args[j]
@@ -170,8 +170,8 @@ def merge_args(original_args: List[str], overrides: List[str]) -> List[str]:
 
 
 def build_rerun_request(
-    history_path: str, overrides: List[str]
-) -> Optional[RerunRequest]:
+    history_path: str, overrides: list[str]
+) -> RerunRequest | None:
     """Build a rerun request from the last command and given overrides.
 
     Returns None if no previous command exists.

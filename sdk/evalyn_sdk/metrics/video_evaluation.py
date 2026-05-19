@@ -16,7 +16,7 @@ class VideoMetadata:
     format: str = ""
     size_bytes: int = 0
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "duration_seconds": self.duration_seconds,
             "width": self.width,
@@ -27,7 +27,7 @@ class VideoMetadata:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> VideoMetadata:
+    def from_dict(cls, data: dict[str, Any]) -> VideoMetadata:
         return cls(
             duration_seconds=data.get("duration_seconds", 0.0),
             width=data.get("width", 0),
@@ -45,9 +45,9 @@ class VideoScore:
     metric_name: str
     score: float
     passed: bool
-    details: Dict[str, Any] = field(default_factory=dict)
+    details: dict[str, Any] = field(default_factory=dict)
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "metric_name": self.metric_name,
             "score": self.score,
@@ -60,11 +60,11 @@ class VideoScore:
 class VideoEvalReport:
     """Aggregated report from multiple video evaluation checks."""
 
-    scores: List[VideoScore] = field(default_factory=list)
+    scores: list[VideoScore] = field(default_factory=list)
     overall_score: float = 0.0
     pass_rate: float = 0.0
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "scores": [s.as_dict() for s in self.scores],
             "overall_score": self.overall_score,
@@ -72,7 +72,7 @@ class VideoEvalReport:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> VideoEvalReport:
+    def from_dict(cls, data: dict[str, Any]) -> VideoEvalReport:
         scores = [
             VideoScore(
                 metric_name=s["metric_name"],
@@ -89,7 +89,7 @@ class VideoEvalReport:
         )
 
     def format_text(self) -> str:
-        lines: List[str] = []
+        lines: list[str] = []
         lines.append("Video Evaluation Report")
         lines.append("-" * 40)
         for s in self.scores:
@@ -140,7 +140,7 @@ def check_video_exists(file_path: str) -> VideoScore:
 
 def check_video_format(
     file_path: str,
-    expected_formats: Optional[List[str]] = None,
+    expected_formats: list[str] | None = None,
 ) -> VideoScore:
     """Check file extension matches expected formats."""
     if expected_formats is None:
@@ -210,10 +210,10 @@ def extract_video_metadata_from_path(file_path: str) -> VideoMetadata:
 
 def evaluate_video(
     file_path: str,
-    metadata: Optional[VideoMetadata] = None,
+    metadata: VideoMetadata | None = None,
 ) -> VideoEvalReport:
     """Run all video checks and return an aggregated report."""
-    scores: List[VideoScore] = []
+    scores: list[VideoScore] = []
 
     scores.append(check_video_exists(file_path))
     scores.append(check_video_format(file_path))

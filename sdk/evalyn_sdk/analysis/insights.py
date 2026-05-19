@@ -69,11 +69,11 @@ class Recommendation:
 @dataclass
 class InsightsReport:
     """Complete insights report combining all analysis types."""
-    correlations: List[CorrelationResult] = field(default_factory=list)
-    regressions: List[RegressionAlert] = field(default_factory=list)
-    feature_insights: List[FeatureInsight] = field(default_factory=list)
-    distribution_insights: List[DistributionInsight] = field(default_factory=list)
-    recommendations: List[Recommendation] = field(default_factory=list)
+    correlations: list[CorrelationResult] = field(default_factory=list)
+    regressions: list[RegressionAlert] = field(default_factory=list)
+    feature_insights: list[FeatureInsight] = field(default_factory=list)
+    distribution_insights: list[DistributionInsight] = field(default_factory=list)
+    recommendations: list[Recommendation] = field(default_factory=list)
 
 
 # ---------------------------------------------------------------------------
@@ -85,7 +85,7 @@ REDUNDANT_THRESHOLD = 0.7
 TRADEOFF_THRESHOLD = -0.5
 
 
-def _pearson_r(xs: List[float], ys: List[float]) -> Optional[float]:
+def _pearson_r(xs: list[float], ys: list[float]) -> float | None:
     """Compute Pearson correlation coefficient. Returns None if undefined."""
     n = len(xs)
     if n < 2:
@@ -108,7 +108,7 @@ def _classify_correlation(r: float) -> Literal["redundant", "tradeoff", "indepen
     return "independent"
 
 
-def compute_metric_correlations(run_analysis: RunAnalysis) -> List[CorrelationResult]:
+def compute_metric_correlations(run_analysis: RunAnalysis) -> list[CorrelationResult]:
     """Compute pairwise Pearson correlation between metric scores.
 
     For each pair of metrics, collects items that have scores for both,
@@ -118,7 +118,7 @@ def compute_metric_correlations(run_analysis: RunAnalysis) -> List[CorrelationRe
     Requires at least MIN_ITEMS_FOR_CORRELATION items with scores for both metrics.
     """
     # Build per-item score vectors: {metric_id: {item_id: score}}
-    metric_scores: Dict[str, Dict[str, float]] = defaultdict(dict)
+    metric_scores: dict[str, dict[str, float]] = defaultdict(dict)
     for item_id, item_stats in run_analysis.item_stats.items():
         for metric_id, result in item_stats.metric_results.items():
             score = result.get("score")
@@ -126,7 +126,7 @@ def compute_metric_correlations(run_analysis: RunAnalysis) -> List[CorrelationRe
                 metric_scores[metric_id][item_id] = score
 
     metric_ids = sorted(metric_scores.keys())
-    results: List[CorrelationResult] = []
+    results: list[CorrelationResult] = []
 
     for i, m_a in enumerate(metric_ids):
         for m_b in metric_ids[i + 1:]:
@@ -168,7 +168,7 @@ _SEVERITY_ORDER = {"critical": 0, "warning": 1, "info": 2}
 def detect_regressions(
     current: RunAnalysis,
     previous: RunAnalysis,
-) -> List[RegressionAlert]:
+) -> list[RegressionAlert]:
     """Compare two runs and detect metric pass rate drops.
 
     For each metric present in both runs, compares pass rates.
@@ -182,7 +182,7 @@ def detect_regressions(
     Returns alerts sorted by severity (critical first), then by delta magnitude.
     Metrics only in one run are ignored.
     """
-    alerts: List[RegressionAlert] = []
+    alerts: list[RegressionAlert] = []
 
     for metric_id, current_stats in current.metric_stats.items():
         if metric_id not in previous.metric_stats:
@@ -226,7 +226,7 @@ def detect_regressions(
 FEATURE_DIFF_THRESHOLD = 0.10  # 10 percentage point difference to report
 
 
-def _extract_text_length(item: Dict[str, Any], key: str) -> Optional[int]:
+def _extract_text_length(item: dict[str, Any], key: str) -> int | None:
     """Extract text length from a dataset item field.
 
     Handles both string values and dict values (flattens to JSON string length).
@@ -247,9 +247,9 @@ def _extract_text_length(item: Dict[str, Any], key: str) -> Optional[int]:
 
 
 def analyze_input_features(
-    dataset_items: List[Dict[str, Any]],
+    dataset_items: list[dict[str, Any]],
     run_analysis: RunAnalysis,
-) -> List[FeatureInsight]:
+) -> list[FeatureInsight]:
     """Correlate input/output characteristics with pass/fail rates.
 
     Analyzes input and output text length. Splits items at median,
@@ -263,25 +263,25 @@ def analyze_input_features(
     if not dataset_items or not run_analysis.item_stats:
         return []
 
-    item_passed: Dict[str, bool] = {
+    item_passed: dict[str, bool] = {
         item_id: ist.all_passed
         for item_id, ist in run_analysis.item_stats.items()
     }
 
-    item_lookup: Dict[str, Dict[str, Any]] = {}
+    item_lookup: dict[str, dict[str, Any]] = {}
     for item in dataset_items:
         item_id = item.get("id")
         if item_id:
             item_lookup[item_id] = item
 
-    results: List[FeatureInsight] = []
+    results: list[FeatureInsight] = []
     features = [
         ("input_length", lambda item: _extract_text_length(item, "input_length")),
         ("output_length", lambda item: _extract_text_length(item, "output_length")),
     ]
 
     for feature_name, extractor in features:
-        data_points: List[Tuple[int, bool]] = []
+        data_points: list[tuple[int, bool]] = []
         for item_id in run_analysis.item_stats:
             if item_id not in item_lookup:
                 continue
@@ -355,7 +355,7 @@ _UNIFORM_BUCKET_CEILING = 0.35
 _LOW_PASS_RATE = 0.8
 
 
-def _bucket_scores(scores: List[float]) -> List[float]:
+def _bucket_scores(scores: list[float]) -> list[float]:
     """Bucket scores into 5 bins. Returns list of 5 fractions."""
     n = len(scores)
     if n == 0:
@@ -369,7 +369,7 @@ def _bucket_scores(scores: List[float]) -> List[float]:
 
 def analyze_score_distributions(
     run_analysis: RunAnalysis,
-) -> List[DistributionInsight]:
+) -> list[DistributionInsight]:
     """Detect unusual score distribution shapes per metric.
 
     Shapes detected (checked in order - first match wins):
@@ -378,7 +378,7 @@ def analyze_score_distributions(
 
     Requires at least MIN_SCORES_FOR_DISTRIBUTION scores per metric.
     """
-    results: List[DistributionInsight] = []
+    results: list[DistributionInsight] = []
 
     for metric_id, stats in sorted(run_analysis.metric_stats.items()):
         scores = stats.scores
@@ -452,14 +452,14 @@ def analyze_score_distributions(
 def generate_recommendations(
     run_analysis: RunAnalysis,
     report: InsightsReport,
-    dataset_path: Optional[str] = None,
-) -> List[Recommendation]:
+    dataset_path: str | None = None,
+) -> list[Recommendation]:
     """Generate prioritized recommendations from all insight sources.
 
     Combines findings from correlations, regressions, distributions,
     and feature analysis into actionable, prioritized suggestions.
     """
-    recs: List[Recommendation] = []
+    recs: list[Recommendation] = []
     priority = 1
     dataset_flag = f"--dataset {dataset_path}" if dataset_path else "--latest"
 

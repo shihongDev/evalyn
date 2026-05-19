@@ -26,7 +26,7 @@ class NegativeExample:
     error_magnitude: float
     difficulty: float = 0.0
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "item_id": self.item_id,
             "predicted_score": self.predicted_score,
@@ -40,13 +40,13 @@ class NegativeExample:
 class MiningResult:
     """Result of a negative mining pass."""
 
-    negatives: List[NegativeExample]
+    negatives: list[NegativeExample]
     total_failures: int
-    hardest_failures: List[NegativeExample]
+    hardest_failures: list[NegativeExample]
     failure_rate: float
-    common_patterns: List[str] = field(default_factory=list)
+    common_patterns: list[str] = field(default_factory=list)
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "negatives": [n.as_dict() for n in self.negatives],
             "total_failures": self.total_failures,
@@ -56,7 +56,7 @@ class MiningResult:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> MiningResult:
+    def from_dict(cls, data: dict[str, Any]) -> MiningResult:
         negatives = [
             NegativeExample(**n) for n in data.get("negatives", [])
         ]
@@ -96,9 +96,9 @@ class MiningResult:
 
 
 def find_negatives(
-    predictions: List[Tuple[str, float, bool]],
+    predictions: list[tuple[str, float, bool]],
     threshold: float = 0.5,
-) -> List[NegativeExample]:
+) -> list[NegativeExample]:
     """Find items where prediction disagrees with ground truth.
 
     Args:
@@ -108,7 +108,7 @@ def find_negatives(
     Returns:
         List of NegativeExample for each disagreement.
     """
-    negatives: List[NegativeExample] = []
+    negatives: list[NegativeExample] = []
     for item_id, score, truth in predictions:
         predicted_positive = score >= threshold
         if predicted_positive != truth:
@@ -125,14 +125,14 @@ def find_negatives(
 
 
 def rank_by_difficulty(
-    negatives: List[NegativeExample],
-) -> List[NegativeExample]:
+    negatives: list[NegativeExample],
+) -> list[NegativeExample]:
     """Sort negatives by error_magnitude descending (most wrong first)."""
     return sorted(negatives, key=lambda n: n.error_magnitude, reverse=True)
 
 
 def mine_hard_negatives(
-    predictions: List[Tuple[str, float, bool]],
+    predictions: list[tuple[str, float, bool]],
     top_k: int = 10,
 ) -> MiningResult:
     """Find negatives, rank by difficulty, return top_k hardest.
@@ -158,9 +158,9 @@ def mine_hard_negatives(
 
 
 def analyze_failure_patterns(
-    negatives: List[NegativeExample],
-    item_texts: Dict[str, str] | None = None,
-) -> List[str]:
+    negatives: list[NegativeExample],
+    item_texts: dict[str, str] | None = None,
+) -> list[str]:
     """Simple pattern analysis on failure cases.
 
     If item_texts is provided, find common words across failure texts.
@@ -169,7 +169,7 @@ def analyze_failure_patterns(
     if item_texts is None:
         item_texts = {}
 
-    patterns: List[str] = []
+    patterns: list[str] = []
 
     if not negatives:
         return patterns

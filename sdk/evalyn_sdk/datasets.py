@@ -5,7 +5,8 @@ import json
 import logging
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Generator, Iterable, List, Mapping, Optional
+from typing import Any, List, Optional
+from collections.abc import Generator, Iterable, Mapping
 
 from .models import DatasetItem, FunctionCall
 
@@ -49,7 +50,7 @@ def stream_dataset(path: str | Path) -> Generator[DatasetItem, None, None]:
                     )
 
 
-def load_dataset(path: str | Path) -> List[DatasetItem]:
+def load_dataset(path: str | Path) -> list[DatasetItem]:
     """
     Load all dataset items into memory from a JSON array or JSONL file.
 
@@ -106,7 +107,7 @@ def dataset_from_calls(
     *,
     use_only_success: bool = True,
     include_metadata: bool = True,
-) -> List[DatasetItem]:
+) -> list[DatasetItem]:
     """
     Build a dataset from existing traced calls.
 
@@ -116,7 +117,7 @@ def dataset_from_calls(
     - human_label: None (to be filled by human annotators)
     - metadata: call_id, function name, etc.
     """
-    items: List[DatasetItem] = []
+    items: list[DatasetItem] = []
     for call in calls:
         if use_only_success and call.error:
             continue
@@ -127,19 +128,19 @@ def dataset_from_calls(
 def build_dataset_from_storage(
     storage,
     *,
-    function_name: Optional[str] = None,
-    project_id: Optional[str] = None,
-    project_name: Optional[str] = None,
-    version: Optional[str] = None,
+    function_name: str | None = None,
+    project_id: str | None = None,
+    project_name: str | None = None,
+    version: str | None = None,
     simulation_only: bool = False,
     production_only: bool = False,
-    since: Optional[datetime] = None,
-    until: Optional[datetime] = None,
+    since: datetime | None = None,
+    until: datetime | None = None,
     limit: int = 500,
-    fetch_limit: Optional[int] = None,
+    fetch_limit: int | None = None,
     success_only: bool = True,
     include_metadata: bool = True,
-) -> List[DatasetItem]:
+) -> list[DatasetItem]:
     """
     Build a dataset from stored calls with simple filtering.
 
@@ -164,7 +165,7 @@ def build_dataset_from_storage(
         Defaults to ``limit`` for backward compatibility.
     """
 
-    def _as_aware(dt: Optional[datetime]) -> Optional[datetime]:
+    def _as_aware(dt: datetime | None) -> datetime | None:
         if dt is None:
             return None
         if dt.tzinfo is None:
@@ -183,7 +184,7 @@ def build_dataset_from_storage(
         if storage
         else []
     )
-    items: List[DatasetItem] = []
+    items: list[DatasetItem] = []
     for call in calls:
         started_at = call.started_at
         if started_at and started_at.tzinfo is None:

@@ -12,7 +12,8 @@ import json
 import random
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional, Sequence
+from typing import Any, Dict, List, Optional
+from collections.abc import Sequence
 
 # ---------------------------------------------------------------------------
 # Data Models
@@ -27,7 +28,7 @@ class SeedConfig:
     temperature: float = 0.0
     record_in_metadata: bool = True
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "seed": self.seed,
             "temperature": self.temperature,
@@ -35,7 +36,7 @@ class SeedConfig:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> SeedConfig:
+    def from_dict(cls, data: dict[str, Any]) -> SeedConfig:
         return cls(
             seed=data["seed"],
             temperature=data.get("temperature", 0.0),
@@ -51,9 +52,9 @@ class ReproducibilityRecord:
     timestamp: str
     item_count: int
     checksum: str
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    metadata: dict[str, Any] = field(default_factory=dict)
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "seed": self.seed,
             "timestamp": self.timestamp,
@@ -63,7 +64,7 @@ class ReproducibilityRecord:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> ReproducibilityRecord:
+    def from_dict(cls, data: dict[str, Any]) -> ReproducibilityRecord:
         return cls(
             seed=data["seed"],
             timestamp=data["timestamp"],
@@ -88,13 +89,13 @@ class SeededRandom:
     def choice(self, seq: Sequence[Any]) -> Any:
         return self._rng.choice(seq)
 
-    def shuffle(self, lst: List[Any]) -> List[Any]:
+    def shuffle(self, lst: list[Any]) -> list[Any]:
         """Return a new shuffled list without mutating the original."""
         copy = list(lst)
         self._rng.shuffle(copy)
         return copy
 
-    def sample(self, population: Sequence[Any], k: int) -> List[Any]:
+    def sample(self, population: Sequence[Any], k: int) -> list[Any]:
         return self._rng.sample(population, k)
 
     def uniform(self, a: float, b: float) -> float:
@@ -124,7 +125,7 @@ def create_seeded_rng(seed: int | SeedConfig) -> SeededRandom:
 # ---------------------------------------------------------------------------
 
 
-def compute_items_checksum(items: List[Dict[str, Any]]) -> str:
+def compute_items_checksum(items: list[dict[str, Any]]) -> str:
     """SHA-256 of all items concatenated as JSON with sorted keys."""
     parts = [json.dumps(item, sort_keys=True, ensure_ascii=False) for item in items]
     combined = "".join(parts)
@@ -133,8 +134,8 @@ def compute_items_checksum(items: List[Dict[str, Any]]) -> str:
 
 def create_reproducibility_record(
     seed: int,
-    items: List[Dict[str, Any]],
-    metadata: Optional[Dict[str, Any]] = None,
+    items: list[dict[str, Any]],
+    metadata: dict[str, Any] | None = None,
 ) -> ReproducibilityRecord:
     """Build a ReproducibilityRecord from seed and items."""
     return ReproducibilityRecord(
@@ -147,7 +148,7 @@ def create_reproducibility_record(
 
 
 def verify_reproducibility(
-    record: ReproducibilityRecord, items: List[Dict[str, Any]]
+    record: ReproducibilityRecord, items: list[dict[str, Any]]
 ) -> bool:
     """Return True when the items match the recorded checksum."""
     return compute_items_checksum(items) == record.checksum

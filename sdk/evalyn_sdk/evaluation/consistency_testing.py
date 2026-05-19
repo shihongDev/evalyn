@@ -17,11 +17,11 @@ class RunOutput:
 
     run_index: int
     output: str
-    tool_calls: List[str] = field(default_factory=list)
+    tool_calls: list[str] = field(default_factory=list)
     passed: bool = True
     duration_ms: float = 0.0
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "run_index": self.run_index,
             "output": self.output,
@@ -40,9 +40,9 @@ class ConsistencyResult:
     output_consistency: float  # 0-1: fraction matching most common output
     tool_call_consistency: float  # 0-1: fraction with identical tool call sequences
     pass_consistency: float  # 0-1: fraction that passed
-    outputs: List[RunOutput] = field(default_factory=list)
+    outputs: list[RunOutput] = field(default_factory=list)
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "item_id": self.item_id,
             "num_runs": self.num_runs,
@@ -53,7 +53,7 @@ class ConsistencyResult:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> ConsistencyResult:
+    def from_dict(cls, data: dict[str, Any]) -> ConsistencyResult:
         outputs = [
             RunOutput(
                 run_index=o["run_index"],
@@ -78,12 +78,12 @@ class ConsistencyResult:
 class ConsistencyReport:
     """Aggregated consistency report across all items."""
 
-    results: List[ConsistencyResult] = field(default_factory=list)
+    results: list[ConsistencyResult] = field(default_factory=list)
     avg_output_consistency: float = 0.0
     avg_pass_consistency: float = 0.0
     total_items: int = 0
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "results": [r.as_dict() for r in self.results],
             "avg_output_consistency": round(self.avg_output_consistency, 4),
@@ -92,7 +92,7 @@ class ConsistencyReport:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> ConsistencyReport:
+    def from_dict(cls, data: dict[str, Any]) -> ConsistencyReport:
         results = [ConsistencyResult.from_dict(r) for r in data.get("results", [])]
         return cls(
             results=results,
@@ -122,7 +122,7 @@ class ConsistencyReport:
 # ---------------------------------------------------------------------------
 
 
-def measure_output_consistency(outputs: List[str]) -> float:
+def measure_output_consistency(outputs: list[str]) -> float:
     """Fraction of outputs matching the most common output.
 
     Example: ["a", "a", "b"] -> 2/3.
@@ -135,7 +135,7 @@ def measure_output_consistency(outputs: List[str]) -> float:
     return most_common_count / len(outputs)
 
 
-def measure_tool_call_consistency(tool_call_sets: List[List[str]]) -> float:
+def measure_tool_call_consistency(tool_call_sets: list[list[str]]) -> float:
     """Fraction of runs with identical tool call sequences.
 
     Compares each run's tool call list to the most common sequence.
@@ -150,7 +150,7 @@ def measure_tool_call_consistency(tool_call_sets: List[List[str]]) -> float:
     return most_common_count / len(tuples)
 
 
-def analyze_consistency(item_id: str, runs: List[RunOutput]) -> ConsistencyResult:
+def analyze_consistency(item_id: str, runs: list[RunOutput]) -> ConsistencyResult:
     """Compute all consistency metrics for one item."""
     if not runs:
         return ConsistencyResult(
@@ -174,7 +174,7 @@ def analyze_consistency(item_id: str, runs: List[RunOutput]) -> ConsistencyResul
     )
 
 
-def build_consistency_report(results: List[ConsistencyResult]) -> ConsistencyReport:
+def build_consistency_report(results: list[ConsistencyResult]) -> ConsistencyReport:
     """Aggregate individual consistency results into a report."""
     if not results:
         return ConsistencyReport(

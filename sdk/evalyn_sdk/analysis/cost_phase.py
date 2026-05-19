@@ -11,7 +11,7 @@ from typing import Any, Dict, List
 
 from ..models import Span
 
-PHASE_MAPPING: Dict[str, str] = {
+PHASE_MAPPING: dict[str, str] = {
     "llm_call": "reasoning",
     "tool_call": "tool_use",
     "retrieval": "retrieval",
@@ -33,7 +33,7 @@ class PhaseCost:
     total_duration_ms: float
     percentage_cost: float  # 0-100
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "phase": self.phase,
             "span_count": self.span_count,
@@ -48,12 +48,12 @@ class PhaseCost:
 class CostBreakdown:
     """Full cost breakdown across all phases."""
 
-    phases: List[PhaseCost]
+    phases: list[PhaseCost]
     total_cost_usd: float
     total_tokens: int
     dominant_phase: str  # phase with highest cost
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "phases": [p.as_dict() for p in self.phases],
             "total_cost_usd": self.total_cost_usd,
@@ -62,7 +62,7 @@ class CostBreakdown:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> CostBreakdown:
+    def from_dict(cls, data: dict[str, Any]) -> CostBreakdown:
         phases = [
             PhaseCost(
                 phase=p["phase"],
@@ -82,7 +82,7 @@ class CostBreakdown:
         )
 
     def format_text(self) -> str:
-        lines: List[str] = []
+        lines: list[str] = []
         lines.append("Cost Breakdown by Phase")
         lines.append("-" * 40)
         for p in sorted(self.phases, key=lambda x: x.total_cost_usd, reverse=True):
@@ -105,9 +105,9 @@ def classify_phase(span_type: str) -> str:
     return PHASE_MAPPING.get(span_type, "other")
 
 
-def compute_cost_breakdown(spans: List[Span]) -> CostBreakdown:
+def compute_cost_breakdown(spans: list[Span]) -> CostBreakdown:
     """Group spans by phase and compute per-phase cost/token aggregation."""
-    phase_data: Dict[str, Dict[str, Any]] = defaultdict(
+    phase_data: dict[str, dict[str, Any]] = defaultdict(
         lambda: {"cost": 0.0, "tokens": 0, "duration": 0.0, "count": 0}
     )
 
@@ -122,7 +122,7 @@ def compute_cost_breakdown(spans: List[Span]) -> CostBreakdown:
     total_cost = sum(d["cost"] for d in phase_data.values())
     total_tokens = sum(d["tokens"] for d in phase_data.values())
 
-    phase_costs: List[PhaseCost] = []
+    phase_costs: list[PhaseCost] = []
     for phase, d in phase_data.items():
         pct = (d["cost"] / total_cost * 100) if total_cost > 0 else 0.0
         phase_costs.append(

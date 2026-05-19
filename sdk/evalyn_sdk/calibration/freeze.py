@@ -25,7 +25,7 @@ class FreezeRecord:
     reason: str = ""
     prompt_hash: str = ""
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "metric_id": self.metric_id,
             "frozen_at": self.frozen_at.isoformat(),
@@ -35,7 +35,7 @@ class FreezeRecord:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> FreezeRecord:
+    def from_dict(cls, data: dict[str, Any]) -> FreezeRecord:
         frozen_at = data["frozen_at"]
         if isinstance(frozen_at, str):
             frozen_at = datetime.fromisoformat(frozen_at)
@@ -53,9 +53,9 @@ class FreezeStatus:
     """Status of a metric's freeze state."""
 
     is_frozen: bool
-    record: Optional[FreezeRecord] = None
+    record: FreezeRecord | None = None
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "is_frozen": self.is_frozen,
             "record": self.record.as_dict() if self.record else None,
@@ -71,7 +71,7 @@ class CalibrationFreezeManager:
     """Manages freeze state for metric calibrations."""
 
     def __init__(self) -> None:
-        self._frozen: Dict[str, FreezeRecord] = {}
+        self._frozen: dict[str, FreezeRecord] = {}
 
     def freeze(
         self,
@@ -112,11 +112,11 @@ class CalibrationFreezeManager:
             record=record,
         )
 
-    def list_frozen(self) -> List[FreezeRecord]:
+    def list_frozen(self) -> list[FreezeRecord]:
         """Return all frozen metric records."""
         return list(self._frozen.values())
 
-    def check_can_calibrate(self, metric_id: str) -> Tuple[bool, str]:
+    def check_can_calibrate(self, metric_id: str) -> tuple[bool, str]:
         """Check if a metric can be calibrated.
 
         Returns (can_calibrate, reason). False if frozen.
@@ -129,7 +129,7 @@ class CalibrationFreezeManager:
             return False, reason
         return True, ""
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         """Serialize the manager state."""
         return {
             "frozen": {
@@ -138,7 +138,7 @@ class CalibrationFreezeManager:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> CalibrationFreezeManager:
+    def from_dict(cls, data: dict[str, Any]) -> CalibrationFreezeManager:
         """Deserialize manager state."""
         manager = cls()
         for mid, rec_data in data.get("frozen", {}).items():

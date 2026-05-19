@@ -14,7 +14,7 @@ class AssertionResult:
     actual: Any = None
     expected: Any = None
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "passed": self.passed,
             "assertion_type": self.assertion_type,
@@ -26,15 +26,15 @@ class AssertionResult:
 
 @dataclass
 class AssertionConfig:
-    assertions: List[Dict[str, Any]] = field(default_factory=list)
+    assertions: list[dict[str, Any]] = field(default_factory=list)
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "assertions": self.assertions,
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> AssertionConfig:
+    def from_dict(cls, data: dict[str, Any]) -> AssertionConfig:
         return cls(
             assertions=data.get("assertions", []),
         )
@@ -164,12 +164,12 @@ def assert_score_below(score: float, threshold: float) -> AssertionResult:
 
 def run_assertions(
     output: str, config: AssertionConfig, score: float = 0.0
-) -> List[AssertionResult]:
+) -> list[AssertionResult]:
     """Run all configured assertions.
 
     Config assertions are dicts like {"type": "contains", "value": "hello"}.
     """
-    results: List[AssertionResult] = []
+    results: list[AssertionResult] = []
 
     dispatch = {
         "contains": lambda a: assert_contains(output, a["value"]),
@@ -200,6 +200,6 @@ def run_assertions(
     return results
 
 
-def all_passed(results: List[AssertionResult]) -> bool:
+def all_passed(results: list[AssertionResult]) -> bool:
     """True if all passed."""
     return all(r.passed for r in results)

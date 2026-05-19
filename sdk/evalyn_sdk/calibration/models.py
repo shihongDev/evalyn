@@ -20,7 +20,7 @@ from ..utils.api_client import GenerateResult
 class TokenAccumulator:
     """Accumulates token usage across multiple LLM calls for cost tracking."""
 
-    _per_model: Dict[str, Dict[str, int]] = field(default_factory=dict)
+    _per_model: dict[str, dict[str, int]] = field(default_factory=dict)
 
     def _ensure_model(self, model_key: str) -> None:
         """Ensure a model entry exists in the per-model dict."""
@@ -35,7 +35,7 @@ class TokenAccumulator:
         self._per_model[model_key]["output_tokens"] += result.output_tokens
 
     def add_usage(
-        self, input_tokens: int, output_tokens: int, model: Optional[str] = None
+        self, input_tokens: int, output_tokens: int, model: str | None = None
     ) -> None:
         """Add tokens directly from counts (e.g., from LLMJudge.score() result)."""
         model_key = model if model else "_unknown"
@@ -183,7 +183,7 @@ class AlignmentMetrics:
         else:
             self.false_negative += 1
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "confusion_matrix": {
                 "true_positive": self.true_positive,
@@ -214,7 +214,7 @@ class DisagreementCase:
     human_notes: str
     disagreement_type: str  # "false_positive" or "false_negative"
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "call_id": self.call_id,
             "input": self.input_text[:500],  # Truncate for readability
@@ -231,14 +231,14 @@ class DisagreementCase:
 class DisagreementAnalysis:
     """Analysis of disagreement patterns."""
 
-    false_positives: List[DisagreementCase] = field(default_factory=list)
-    false_negatives: List[DisagreementCase] = field(default_factory=list)
+    false_positives: list[DisagreementCase] = field(default_factory=list)
+    false_negatives: list[DisagreementCase] = field(default_factory=list)
 
     @property
     def total_disagreements(self) -> int:
         return len(self.false_positives) + len(self.false_negatives)
 
-    def get_pattern_summary(self) -> Dict[str, Any]:
+    def get_pattern_summary(self) -> dict[str, Any]:
         """Summarize common patterns in disagreements."""
         return {
             "false_positive_count": len(self.false_positives),
@@ -252,18 +252,18 @@ class DisagreementAnalysis:
 class PromptOptimizationResult:
     """Result of prompt optimization (LLM or GEPA)."""
 
-    original_rubric: List[str]
-    improved_rubric: List[str]
+    original_rubric: list[str]
+    improved_rubric: list[str]
     improvement_reasoning: str
-    suggested_additions: List[str]
-    suggested_removals: List[str]
+    suggested_additions: list[str]
+    suggested_removals: list[str]
     estimated_improvement: str  # "low", "medium", "high"
     # New fields for storing the full prompt
     original_preamble: str = ""
     optimized_preamble: str = ""
     full_prompt: str = ""  # Complete prompt ready to use (preamble + rubric + format)
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         result = {
             "original_rubric": self.original_rubric,
             "improved_rubric": self.improved_rubric,
@@ -296,7 +296,7 @@ class ValidationResult:
     recommendation: str  # "use_optimized", "keep_original", "uncertain"
     validation_samples: int
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "original_f1": self.original_f1,
             "optimized_f1": self.optimized_f1,

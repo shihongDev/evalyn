@@ -23,7 +23,7 @@ class SubagentCost:
     call_count: int = 0
     avg_cost_per_call: float = 0.0
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "agent_id": self.agent_id,
             "agent_name": self.agent_name,
@@ -38,12 +38,12 @@ class SubagentCost:
 class CostAllocationReport:
     """Cost allocation across all subagents."""
 
-    agents: List[SubagentCost] = field(default_factory=list)
+    agents: list[SubagentCost] = field(default_factory=list)
     total_cost_usd: float = 0.0
     most_expensive_agent: str = ""
     cheapest_agent: str = ""
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "agents": [a.as_dict() for a in self.agents],
             "total_cost_usd": self.total_cost_usd,
@@ -52,7 +52,7 @@ class CostAllocationReport:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> CostAllocationReport:
+    def from_dict(cls, data: dict[str, Any]) -> CostAllocationReport:
         agents = [
             SubagentCost(
                 agent_id=a["agent_id"],
@@ -72,7 +72,7 @@ class CostAllocationReport:
         )
 
     def format_text(self) -> str:
-        lines: List[str] = []
+        lines: list[str] = []
         lines.append("Subagent Cost Allocation")
         lines.append("-" * 50)
         for a in sorted(self.agents, key=lambda x: x.total_cost_usd, reverse=True):
@@ -102,12 +102,12 @@ def extract_agent_id(span: Span) -> str:
     return span.name
 
 
-def allocate_costs(spans: List[Span]) -> CostAllocationReport:
+def allocate_costs(spans: list[Span]) -> CostAllocationReport:
     """Group spans by agent and compute per-agent cost/token aggregation."""
     if not spans:
         return CostAllocationReport()
 
-    buckets: Dict[str, Dict[str, Any]] = defaultdict(
+    buckets: dict[str, dict[str, Any]] = defaultdict(
         lambda: {"cost": 0.0, "tokens": 0, "count": 0, "name": ""}
     )
 
@@ -121,7 +121,7 @@ def allocate_costs(spans: List[Span]) -> CostAllocationReport:
         if not d["name"] and "agent_name" in s.attributes:
             d["name"] = str(s.attributes["agent_name"])
 
-    agent_costs: List[SubagentCost] = []
+    agent_costs: list[SubagentCost] = []
     for aid, d in buckets.items():
         avg = d["cost"] / d["count"] if d["count"] > 0 else 0.0
         agent_costs.append(
@@ -151,7 +151,7 @@ def allocate_costs(spans: List[Span]) -> CostAllocationReport:
     )
 
 
-def compare_agent_costs(report: CostAllocationReport) -> Dict[str, Any]:
+def compare_agent_costs(report: CostAllocationReport) -> dict[str, Any]:
     """Compare agents by cost ratio, token ratio, and efficiency ranking."""
     if not report.agents:
         return {"cost_ratio": {}, "token_ratio": {}, "efficiency_ranking": []}
@@ -159,8 +159,8 @@ def compare_agent_costs(report: CostAllocationReport) -> Dict[str, Any]:
     total_cost = report.total_cost_usd
     total_tokens = sum(a.total_tokens for a in report.agents)
 
-    cost_ratio: Dict[str, float] = {}
-    token_ratio: Dict[str, float] = {}
+    cost_ratio: dict[str, float] = {}
+    token_ratio: dict[str, float] = {}
 
     for a in report.agents:
         cost_ratio[a.agent_id] = (
@@ -185,7 +185,7 @@ def compare_agent_costs(report: CostAllocationReport) -> Dict[str, Any]:
 
 def find_cost_anomalies(
     report: CostAllocationReport, threshold_multiplier: float = 2.0
-) -> List[str]:
+) -> list[str]:
     """Find agents whose avg cost per call exceeds threshold * overall average."""
     if not report.agents:
         return []
@@ -196,7 +196,7 @@ def find_cost_anomalies(
 
     overall_avg = report.total_cost_usd / total_calls
 
-    anomalies: List[str] = []
+    anomalies: list[str] = []
     for a in report.agents:
         if a.avg_cost_per_call > threshold_multiplier * overall_avg:
             anomalies.append(a.agent_id)

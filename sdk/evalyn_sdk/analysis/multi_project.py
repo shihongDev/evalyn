@@ -17,11 +17,11 @@ class ProjectSummary:
     project_name: str
     dataset_count: int = 0
     run_count: int = 0
-    latest_pass_rate: Optional[float] = None
+    latest_pass_rate: float | None = None
     total_cost_usd: float = 0.0
     latest_run_date: str = ""
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "project_name": self.project_name,
             "dataset_count": self.dataset_count,
@@ -32,7 +32,7 @@ class ProjectSummary:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> ProjectSummary:
+    def from_dict(cls, data: dict[str, Any]) -> ProjectSummary:
         return cls(
             project_name=data["project_name"],
             dataset_count=data.get("dataset_count", 0),
@@ -49,10 +49,10 @@ class ProjectComparison:
 
     project_a: str
     project_b: str
-    pass_rate_delta: Optional[float] = None
+    pass_rate_delta: float | None = None
     cost_delta: float = 0.0
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "project_a": self.project_a,
             "project_b": self.project_b,
@@ -82,13 +82,13 @@ class ProjectComparison:
 class MultiProjectReport:
     """Full multi-project dashboard report."""
 
-    projects: List[ProjectSummary] = field(default_factory=list)
-    comparisons: List[ProjectComparison] = field(default_factory=list)
+    projects: list[ProjectSummary] = field(default_factory=list)
+    comparisons: list[ProjectComparison] = field(default_factory=list)
     total_projects: int = 0
     total_cost_usd: float = 0.0
-    regressions: List[str] = field(default_factory=list)
+    regressions: list[str] = field(default_factory=list)
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "projects": [p.as_dict() for p in self.projects],
             "comparisons": [c.as_dict() for c in self.comparisons],
@@ -98,7 +98,7 @@ class MultiProjectReport:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> MultiProjectReport:
+    def from_dict(cls, data: dict[str, Any]) -> MultiProjectReport:
         projects = [
             ProjectSummary.from_dict(p) for p in data.get("projects", [])
         ]
@@ -143,7 +143,7 @@ def create_project_summary(
     name: str,
     datasets: int = 0,
     runs: int = 0,
-    pass_rate: Optional[float] = None,
+    pass_rate: float | None = None,
     cost: float = 0.0,
     latest_date: str = "",
 ) -> ProjectSummary:
@@ -168,7 +168,7 @@ def compare_projects(
     cost_delta = b.total_cost_usd - a.total_cost_usd.
     """
     if a.latest_pass_rate is not None and b.latest_pass_rate is not None:
-        pr_delta: Optional[float] = b.latest_pass_rate - a.latest_pass_rate
+        pr_delta: float | None = b.latest_pass_rate - a.latest_pass_rate
     else:
         pr_delta = None
     return ProjectComparison(
@@ -180,9 +180,9 @@ def compare_projects(
 
 
 def detect_regressions(
-    projects: List[ProjectSummary],
+    projects: list[ProjectSummary],
     min_pass_rate: float = 0.8,
-) -> List[str]:
+) -> list[str]:
     """Return names of projects whose pass rate is below min_pass_rate."""
     return [
         p.project_name
@@ -192,10 +192,10 @@ def detect_regressions(
 
 
 def build_multi_project_report(
-    projects: List[ProjectSummary],
+    projects: list[ProjectSummary],
 ) -> MultiProjectReport:
     """Build a full report with pairwise comparisons and regression detection."""
-    comparisons: List[ProjectComparison] = []
+    comparisons: list[ProjectComparison] = []
     for i, a in enumerate(projects):
         for b in projects[i + 1 :]:
             comparisons.append(compare_projects(a, b))
@@ -213,9 +213,9 @@ def build_multi_project_report(
 
 
 def rank_projects(
-    projects: List[ProjectSummary],
+    projects: list[ProjectSummary],
     by: str = "pass_rate",
-) -> List[ProjectSummary]:
+) -> list[ProjectSummary]:
     """Sort projects by pass_rate (descending) or cost (ascending).
 
     Projects with None pass_rate are sorted to the end when sorting by pass_rate.

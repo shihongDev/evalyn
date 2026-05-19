@@ -24,7 +24,7 @@ class PoolConfig:
     timeout_seconds: float = 30.0
     check_on_return: bool = True
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "max_connections": self.max_connections,
             "timeout_seconds": self.timeout_seconds,
@@ -32,7 +32,7 @@ class PoolConfig:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> PoolConfig:
+    def from_dict(cls, data: dict[str, Any]) -> PoolConfig:
         return cls(
             max_connections=data.get("max_connections", 5),
             timeout_seconds=data.get("timeout_seconds", 30.0),
@@ -51,7 +51,7 @@ class PoolStats:
     total_released: int = 0
     wait_count: int = 0
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "total_created": self.total_created,
             "active": self.active,
@@ -84,7 +84,7 @@ class ConnectionPool:
 
     def __init__(self, config: PoolConfig) -> None:
         self._config = config
-        self._pool: List[Any] = []
+        self._pool: list[Any] = []
         self._active: int = 0
         self._total_created: int = 0
         self._stats = PoolStats()

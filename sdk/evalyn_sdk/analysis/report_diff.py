@@ -20,12 +20,12 @@ class MetricChange:
     """Change in a single metric between two reports."""
 
     metric_id: str
-    old_pass_rate: Optional[float] = None
-    new_pass_rate: Optional[float] = None
+    old_pass_rate: float | None = None
+    new_pass_rate: float | None = None
     delta: float = 0.0
     status: str = ""  # improved / degraded / unchanged / added / removed
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "metric_id": self.metric_id,
             "old_pass_rate": self.old_pass_rate,
@@ -41,13 +41,13 @@ class ReportDiff:
 
     run_a_id: str
     run_b_id: str
-    metric_changes: List[MetricChange] = field(default_factory=list)
+    metric_changes: list[MetricChange] = field(default_factory=list)
     pass_rate_delta: float = 0.0
     item_count_delta: int = 0
     improved_count: int = 0
     degraded_count: int = 0
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "run_a_id": self.run_a_id,
             "run_b_id": self.run_b_id,
@@ -59,7 +59,7 @@ class ReportDiff:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> ReportDiff:
+    def from_dict(cls, data: dict[str, Any]) -> ReportDiff:
         changes = []
         for c in data.get("metric_changes", []):
             changes.append(MetricChange(
@@ -81,7 +81,7 @@ class ReportDiff:
 
     def format_text(self) -> str:
         """Human-readable multi-line summary."""
-        lines: List[str] = []
+        lines: list[str] = []
         lines.append(f"Report Diff: {self.run_a_id} -> {self.run_b_id}")
         lines.append(f"  Pass rate delta: {self.pass_rate_delta:+.1%}")
         lines.append(f"  Item count delta: {self.item_count_delta:+d}")
@@ -108,8 +108,8 @@ class ReportDiff:
 
 def compute_metric_change(
     metric_id: str,
-    old_rate: Optional[float],
-    new_rate: Optional[float],
+    old_rate: float | None,
+    new_rate: float | None,
     threshold: float = 0.01,
 ) -> MetricChange:
     """Classify a single metric's change between two reports.
@@ -160,8 +160,8 @@ def compute_metric_change(
 
 
 def diff_reports(
-    report_a: Dict[str, Any],
-    report_b: Dict[str, Any],
+    report_a: dict[str, Any],
+    report_b: dict[str, Any],
 ) -> ReportDiff:
     """Compare two analysis report dicts.
 
@@ -178,7 +178,7 @@ def diff_reports(
     stats_b = report_b.get("metric_stats", {})
     all_metrics = sorted(set(stats_a.keys()) | set(stats_b.keys()))
 
-    changes: List[MetricChange] = []
+    changes: list[MetricChange] = []
     improved = 0
     degraded = 0
 
@@ -208,7 +208,7 @@ def diff_reports(
     )
 
 
-def filter_changes(diff: ReportDiff, status: str) -> List[MetricChange]:
+def filter_changes(diff: ReportDiff, status: str) -> list[MetricChange]:
     """Filter metric changes by status."""
     return [c for c in diff.metric_changes if c.status == status]
 
@@ -252,7 +252,7 @@ def summarize_diff(diff: ReportDiff) -> str:
     added = sum(1 for c in diff.metric_changes if c.status == "added")
     removed = sum(1 for c in diff.metric_changes if c.status == "removed")
 
-    parts: List[str] = []
+    parts: list[str] = []
     if diff.improved_count:
         parts.append(f"{diff.improved_count} improved")
     if diff.degraded_count:

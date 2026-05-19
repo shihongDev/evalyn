@@ -25,7 +25,7 @@ class SearchConfig:
     min_similarity: float = 0.1
     boost_exact_match: bool = True
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "max_results": self.max_results,
             "min_similarity": self.min_similarity,
@@ -33,7 +33,7 @@ class SearchConfig:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> SearchConfig:
+    def from_dict(cls, data: dict[str, Any]) -> SearchConfig:
         return cls(
             max_results=data.get("max_results", 10),
             min_similarity=data.get("min_similarity", 0.1),
@@ -48,9 +48,9 @@ class SearchHit:
     item_id: str
     text: str
     similarity: float
-    matched_terms: List[str] = field(default_factory=list)
+    matched_terms: list[str] = field(default_factory=list)
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "item_id": self.item_id,
             "text": self.text,
@@ -59,7 +59,7 @@ class SearchHit:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> SearchHit:
+    def from_dict(cls, data: dict[str, Any]) -> SearchHit:
         return cls(
             item_id=data["item_id"],
             text=data["text"],
@@ -72,11 +72,11 @@ class SearchHit:
 class SearchResult:
     """Aggregated search results."""
 
-    hits: List[SearchHit] = field(default_factory=list)
+    hits: list[SearchHit] = field(default_factory=list)
     query: str = ""
     total_searched: int = 0
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "hits": [h.as_dict() for h in self.hits],
             "query": self.query,
@@ -84,7 +84,7 @@ class SearchResult:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> SearchResult:
+    def from_dict(cls, data: dict[str, Any]) -> SearchResult:
         return cls(
             hits=[SearchHit.from_dict(h) for h in data.get("hits", [])],
             query=data.get("query", ""),
@@ -112,7 +112,7 @@ def compute_similarity(query_tokens: set[str], item_tokens: set[str]) -> float:
     return len(intersection) / len(union)
 
 
-def find_matched_terms(query_tokens: set[str], item_tokens: set[str]) -> List[str]:
+def find_matched_terms(query_tokens: set[str], item_tokens: set[str]) -> list[str]:
     """Return sorted list of tokens appearing in both sets."""
     return sorted(query_tokens & item_tokens)
 
@@ -124,7 +124,7 @@ def find_matched_terms(query_tokens: set[str], item_tokens: set[str]) -> List[st
 
 def search_dataset(
     query: str,
-    items: Dict[str, str],
+    items: dict[str, str],
     config: SearchConfig | None = None,
 ) -> SearchResult:
     """Search all items by query, rank by Jaccard similarity.
@@ -137,7 +137,7 @@ def search_dataset(
 
     query_tokens = tokenize_query(query)
     query_lower = query.lower()
-    hits: List[SearchHit] = []
+    hits: list[SearchHit] = []
 
     for item_id, text in items.items():
         item_tokens = tokenize_query(text)
@@ -165,8 +165,8 @@ def search_dataset(
 
 def search_with_filters(
     query: str,
-    items: Dict[str, str],
-    metadata: Optional[Dict[str, Dict[str, Any]]] = None,
+    items: dict[str, str],
+    metadata: dict[str, dict[str, Any]] | None = None,
     filter_field: str = "",
     filter_value: str = "",
     config: SearchConfig | None = None,
@@ -198,7 +198,7 @@ def format_search_results(result: SearchResult) -> str:
     if not result.hits:
         return f'No results for "{result.query}" (searched {result.total_searched} items).'
 
-    lines: List[str] = [
+    lines: list[str] = [
         f'Results for "{result.query}" ({len(result.hits)} of {result.total_searched} items):'
     ]
     for i, hit in enumerate(result.hits, 1):

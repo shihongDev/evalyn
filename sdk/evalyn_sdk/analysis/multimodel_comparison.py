@@ -27,7 +27,7 @@ class ModelResult:
     avg_cost_usd: float = 0.0
     item_count: int = 0
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "model": self.model,
             "provider": self.provider,
@@ -39,7 +39,7 @@ class ModelResult:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> ModelResult:
+    def from_dict(cls, data: dict[str, Any]) -> ModelResult:
         return cls(
             model=data["model"],
             provider=data.get("provider", ""),
@@ -62,7 +62,7 @@ class ModelComparison:
     latency_delta: float = 0.0
     winner: str = ""
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "model_a": self.model_a,
             "model_b": self.model_b,
@@ -85,13 +85,13 @@ class ModelComparison:
 class MultiModelReport:
     """Full multi-model comparison report."""
 
-    models: List[ModelResult] = field(default_factory=list)
-    comparisons: List[ModelComparison] = field(default_factory=list)
+    models: list[ModelResult] = field(default_factory=list)
+    comparisons: list[ModelComparison] = field(default_factory=list)
     best_quality: str = ""
     best_cost: str = ""
     best_latency: str = ""
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "models": [m.as_dict() for m in self.models],
             "comparisons": [c.as_dict() for c in self.comparisons],
@@ -101,7 +101,7 @@ class MultiModelReport:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> MultiModelReport:
+    def from_dict(cls, data: dict[str, Any]) -> MultiModelReport:
         return cls(
             models=[ModelResult.from_dict(m) for m in data.get("models", [])],
             comparisons=[],  # comparisons are derived, not stored
@@ -148,9 +148,9 @@ class MultiModelReport:
 
 def build_model_result(
     model: str,
-    scores: List[float],
-    latencies: Optional[List[float]] = None,
-    costs: Optional[List[float]] = None,
+    scores: list[float],
+    latencies: list[float] | None = None,
+    costs: list[float] | None = None,
     provider: str = "",
 ) -> ModelResult:
     """Aggregate per-model stats from raw score/latency/cost lists."""
@@ -209,12 +209,12 @@ def compare_two_models(a: ModelResult, b: ModelResult) -> ModelComparison:
     )
 
 
-def build_multimodel_report(results: List[ModelResult]) -> MultiModelReport:
+def build_multimodel_report(results: list[ModelResult]) -> MultiModelReport:
     """All pairwise comparisons and find best per dimension."""
     if not results:
         return MultiModelReport()
 
-    comparisons: List[ModelComparison] = []
+    comparisons: list[ModelComparison] = []
     for i, a in enumerate(results):
         for b in results[i + 1 :]:
             comparisons.append(compare_two_models(a, b))
@@ -233,8 +233,8 @@ def build_multimodel_report(results: List[ModelResult]) -> MultiModelReport:
 
 
 def rank_models(
-    results: List[ModelResult], by: str = "score"
-) -> List[ModelResult]:
+    results: list[ModelResult], by: str = "score"
+) -> list[ModelResult]:
     """Sort models by score (desc), cost (asc), or latency (asc)."""
     if by == "score":
         return sorted(results, key=lambda r: r.avg_score, reverse=True)
@@ -245,9 +245,9 @@ def rank_models(
     return list(results)
 
 
-def compute_cost_efficiency(results: List[ModelResult]) -> Dict[str, float]:
+def compute_cost_efficiency(results: list[ModelResult]) -> dict[str, float]:
     """Score per dollar for each model. Returns 0.0 if cost is zero."""
-    out: Dict[str, float] = {}
+    out: dict[str, float] = {}
     for r in results:
         if r.avg_cost_usd > 0:
             out[r.model] = r.avg_score / r.avg_cost_usd

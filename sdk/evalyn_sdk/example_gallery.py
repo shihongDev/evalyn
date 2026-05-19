@@ -21,10 +21,10 @@ class ExampleAgent:
     description: str
     code_template: str
     dataset_template: str
-    expected_metrics: List[str] = field(default_factory=list)
-    tags: List[str] = field(default_factory=list)
+    expected_metrics: list[str] = field(default_factory=list)
+    tags: list[str] = field(default_factory=list)
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "framework": self.framework,
             "name": self.name,
@@ -36,7 +36,7 @@ class ExampleAgent:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> ExampleAgent:
+    def from_dict(cls, data: dict[str, Any]) -> ExampleAgent:
         return cls(
             framework=data.get("framework", ""),
             name=data.get("name", ""),
@@ -52,17 +52,17 @@ class ExampleAgent:
 class ExampleGallery:
     """A collection of example agents grouped by framework."""
 
-    agents: List[ExampleAgent] = field(default_factory=list)
-    frameworks: List[str] = field(default_factory=list)
+    agents: list[ExampleAgent] = field(default_factory=list)
+    frameworks: list[str] = field(default_factory=list)
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "agents": [a.as_dict() for a in self.agents],
             "frameworks": list(self.frameworks),
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> ExampleGallery:
+    def from_dict(cls, data: dict[str, Any]) -> ExampleGallery:
         return cls(
             agents=[ExampleAgent.from_dict(a) for a in data.get("agents", [])],
             frameworks=data.get("frameworks", []),
@@ -373,9 +373,9 @@ BUILTIN_EXAMPLES = ExampleGallery(
 
 def list_examples(
     gallery: ExampleGallery,
-    framework: Optional[str] = None,
-    tag: Optional[str] = None,
-) -> List[ExampleAgent]:
+    framework: str | None = None,
+    tag: str | None = None,
+) -> list[ExampleAgent]:
     """Filter examples by framework and/or tag."""
     results = gallery.agents
     if framework is not None:
@@ -385,7 +385,7 @@ def list_examples(
     return results
 
 
-def get_example(gallery: ExampleGallery, framework: str) -> Optional[ExampleAgent]:
+def get_example(gallery: ExampleGallery, framework: str) -> ExampleAgent | None:
     """Get a single example by framework name. Returns None if not found."""
     for agent in gallery.agents:
         if agent.framework == framework:
@@ -393,14 +393,14 @@ def get_example(gallery: ExampleGallery, framework: str) -> Optional[ExampleAgen
     return None
 
 
-def scaffold_example(agent: ExampleAgent, output_dir: str) -> List[str]:
+def scaffold_example(agent: ExampleAgent, output_dir: str) -> list[str]:
     """Write agent.py, dataset.jsonl, and README.txt to output_dir.
 
     Creates output_dir if it does not exist. Returns a list of created
     file paths (absolute).
     """
     os.makedirs(output_dir, exist_ok=True)
-    created: List[str] = []
+    created: list[str] = []
 
     agent_path = os.path.join(output_dir, "agent.py")
     with open(agent_path, "w") as f:
@@ -447,10 +447,10 @@ def format_gallery_listing(gallery: ExampleGallery) -> str:
     return "\n".join(lines)
 
 
-def search_examples(gallery: ExampleGallery, query: str) -> List[ExampleAgent]:
+def search_examples(gallery: ExampleGallery, query: str) -> list[ExampleAgent]:
     """Search examples by matching query against name, description, and tags."""
     q = query.lower()
-    results: List[ExampleAgent] = []
+    results: list[ExampleAgent] = []
     for agent in gallery.agents:
         searchable = (
             agent.name.lower()

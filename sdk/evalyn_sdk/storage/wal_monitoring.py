@@ -26,7 +26,7 @@ class WALStatus:
     shm_size_bytes: int = 0
     estimated_pending_writes: int = 0
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "wal_exists": self.wal_exists,
             "wal_size_bytes": self.wal_size_bytes,
@@ -36,7 +36,7 @@ class WALStatus:
         }
 
     def format_text(self) -> str:
-        lines: List[str] = []
+        lines: list[str] = []
         lines.append("WAL Status")
         lines.append("-" * 40)
         lines.append(f"  WAL exists: {self.wal_exists}")
@@ -55,7 +55,7 @@ class WALConfig:
     checkpoint_threshold_bytes: int = 5_000_000
     monitor_interval_seconds: float = 60.0
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "max_wal_size_bytes": self.max_wal_size_bytes,
             "checkpoint_threshold_bytes": self.checkpoint_threshold_bytes,
@@ -63,7 +63,7 @@ class WALConfig:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> WALConfig:
+    def from_dict(cls, data: dict[str, Any]) -> WALConfig:
         return cls(
             max_wal_size_bytes=data.get("max_wal_size_bytes", 10_000_000),
             checkpoint_threshold_bytes=data.get("checkpoint_threshold_bytes", 5_000_000),
@@ -77,9 +77,9 @@ class WALReport:
 
     status: WALStatus = field(default_factory=WALStatus)
     needs_checkpoint: bool = False
-    recommendations: List[str] = field(default_factory=list)
+    recommendations: list[str] = field(default_factory=list)
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "status": self.status.as_dict(),
             "needs_checkpoint": self.needs_checkpoint,
@@ -87,7 +87,7 @@ class WALReport:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> WALReport:
+    def from_dict(cls, data: dict[str, Any]) -> WALReport:
         status_data = data.get("status", {})
         status = WALStatus(
             wal_exists=status_data.get("wal_exists", False),
@@ -103,7 +103,7 @@ class WALReport:
         )
 
     def format_text(self) -> str:
-        lines: List[str] = []
+        lines: list[str] = []
         lines.append("WAL Report")
         lines.append("=" * 40)
         lines.append(self.status.format_text())
@@ -162,7 +162,7 @@ def estimate_pending_writes(wal_size_bytes: int, avg_write_bytes: int = 4096) ->
     return wal_size_bytes // avg_write_bytes
 
 
-def build_wal_report(db_path: str, config: Optional[WALConfig] = None) -> WALReport:
+def build_wal_report(db_path: str, config: WALConfig | None = None) -> WALReport:
     """Build a full WAL analysis report for the given database path."""
     if config is None:
         config = WALConfig()
@@ -184,9 +184,9 @@ def build_wal_report(db_path: str, config: Optional[WALConfig] = None) -> WALRep
     )
 
 
-def suggest_wal_actions(report: WALReport) -> List[str]:
+def suggest_wal_actions(report: WALReport) -> list[str]:
     """Generate action suggestions based on WAL state."""
-    actions: List[str] = []
+    actions: list[str] = []
 
     if not report.status.wal_exists:
         actions.append("No WAL file found - database may not be in WAL mode")

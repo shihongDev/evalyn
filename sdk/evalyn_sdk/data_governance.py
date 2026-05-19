@@ -48,7 +48,7 @@ class ComplianceFlag:
     checked_at: str
     details: str
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "flag_name": self.flag_name,
             "passed": self.passed,
@@ -57,7 +57,7 @@ class ComplianceFlag:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> ComplianceFlag:
+    def from_dict(cls, data: dict[str, Any]) -> ComplianceFlag:
         return cls(
             flag_name=data["flag_name"],
             passed=data["passed"],
@@ -71,14 +71,14 @@ class DataGovernanceRecord:
     """Governance metadata for a single dataset."""
 
     dataset_id: str
-    tags: List[str]
-    compliance_flags: List[ComplianceFlag]
+    tags: list[str]
+    compliance_flags: list[ComplianceFlag]
     owner: str
     created_at: str
     retention_days: int = 365
     classification: str = "internal"
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "dataset_id": self.dataset_id,
             "tags": list(self.tags),
@@ -90,7 +90,7 @@ class DataGovernanceRecord:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> DataGovernanceRecord:
+    def from_dict(cls, data: dict[str, Any]) -> DataGovernanceRecord:
         return cls(
             dataset_id=data["dataset_id"],
             tags=list(data.get("tags", [])),
@@ -109,11 +109,11 @@ class DataGovernanceRecord:
 class GovernanceReport:
     """Aggregated governance report across multiple datasets."""
 
-    records: List[DataGovernanceRecord]
-    summary: Dict[str, Any]
+    records: list[DataGovernanceRecord]
+    summary: dict[str, Any]
     generated_at: str
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "records": [r.as_dict() for r in self.records],
             "summary": dict(self.summary),
@@ -121,7 +121,7 @@ class GovernanceReport:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> GovernanceReport:
+    def from_dict(cls, data: dict[str, Any]) -> GovernanceReport:
         return cls(
             records=[
                 DataGovernanceRecord.from_dict(r)
@@ -212,8 +212,8 @@ def generate_governance_report(
 ) -> GovernanceReport:
     """Generate an aggregated governance report."""
     total = len(records)
-    tag_counts: Dict[str, int] = {}
-    classification_counts: Dict[str, int] = {}
+    tag_counts: dict[str, int] = {}
+    classification_counts: dict[str, int] = {}
     total_flags = 0
     passed_flags = 0
     failed_flags = 0
@@ -230,7 +230,7 @@ def generate_governance_report(
             else:
                 failed_flags += 1
 
-    summary: Dict[str, Any] = {
+    summary: dict[str, Any] = {
         "total_records": total,
         "tag_counts": tag_counts,
         "classification_counts": classification_counts,

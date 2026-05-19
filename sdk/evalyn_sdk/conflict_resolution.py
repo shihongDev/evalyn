@@ -24,7 +24,7 @@ class AnnotatorLabel:
     confidence: float = 1.0
     reasoning: str = ""
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "item_id": self.item_id,
             "annotator_id": self.annotator_id,
@@ -34,7 +34,7 @@ class AnnotatorLabel:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> AnnotatorLabel:
+    def from_dict(cls, data: dict[str, Any]) -> AnnotatorLabel:
         return cls(
             item_id=data["item_id"],
             annotator_id=data["annotator_id"],
@@ -49,11 +49,11 @@ class Conflict:
     """A conflict where annotators disagree on an item."""
 
     item_id: str
-    labels: List[AnnotatorLabel]
+    labels: list[AnnotatorLabel]
     max_disagreement: float
     needs_tiebreaker: bool
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "item_id": self.item_id,
             "labels": [lbl.as_dict() for lbl in self.labels],
@@ -62,7 +62,7 @@ class Conflict:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> Conflict:
+    def from_dict(cls, data: dict[str, Any]) -> Conflict:
         return cls(
             item_id=data["item_id"],
             labels=[AnnotatorLabel.from_dict(d) for d in data["labels"]],
@@ -76,10 +76,10 @@ class ResolutionPolicy:
     """Policy for resolving annotation conflicts."""
 
     policy_name: str  # "majority_vote" / "senior_override" / "discussion_required"
-    senior_annotators: List[str] = field(default_factory=list)
+    senior_annotators: list[str] = field(default_factory=list)
     min_agreement: float = 0.5
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "policy_name": self.policy_name,
             "senior_annotators": self.senior_annotators,
@@ -87,7 +87,7 @@ class ResolutionPolicy:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> ResolutionPolicy:
+    def from_dict(cls, data: dict[str, Any]) -> ResolutionPolicy:
         return cls(
             policy_name=data["policy_name"],
             senior_annotators=data.get("senior_annotators", []),
@@ -103,9 +103,9 @@ class Resolution:
     resolved_label: float
     method: str
     resolved_by: str = ""
-    original_labels: List[AnnotatorLabel] = field(default_factory=list)
+    original_labels: list[AnnotatorLabel] = field(default_factory=list)
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "item_id": self.item_id,
             "resolved_label": self.resolved_label,
@@ -115,7 +115,7 @@ class Resolution:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> Resolution:
+    def from_dict(cls, data: dict[str, Any]) -> Resolution:
         return cls(
             item_id=data["item_id"],
             resolved_label=data["resolved_label"],
@@ -134,18 +134,18 @@ class Resolution:
 
 
 def detect_conflicts(
-    labels: List[AnnotatorLabel], threshold: float = 0.5
-) -> List[Conflict]:
+    labels: list[AnnotatorLabel], threshold: float = 0.5
+) -> list[Conflict]:
     """Find items where annotator labels differ by more than *threshold*.
 
     Groups labels by item_id, computes pairwise max disagreement, and
     returns a Conflict for each item that exceeds the threshold.
     """
-    by_item: Dict[str, List[AnnotatorLabel]] = defaultdict(list)
+    by_item: dict[str, list[AnnotatorLabel]] = defaultdict(list)
     for lbl in labels:
         by_item[lbl.item_id].append(lbl)
 
-    conflicts: List[Conflict] = []
+    conflicts: list[Conflict] = []
     for item_id, item_labels in sorted(by_item.items()):
         if len(item_labels) < 2:
             continue
@@ -179,7 +179,7 @@ def resolve_by_majority_vote(
 
     Returns the majority binary label. Ties go to 1.
     """
-    votes: List[float] = []
+    votes: list[float] = []
     for lbl in conflict.labels:
         votes.append(1.0 if lbl.label >= threshold else 0.0)
     ones = sum(v for v in votes)
@@ -195,8 +195,8 @@ def resolve_by_majority_vote(
 
 
 def resolve_by_senior_override(
-    conflict: Conflict, senior_ids: List[str]
-) -> Optional[Resolution]:
+    conflict: Conflict, senior_ids: list[str]
+) -> Resolution | None:
     """Use the first matching senior annotator's label.
 
     Returns None if no senior annotator is present in the conflict labels.
@@ -215,7 +215,7 @@ def resolve_by_senior_override(
 
 def apply_resolution_policy(
     conflict: Conflict, policy: ResolutionPolicy
-) -> Optional[Resolution]:
+) -> Resolution | None:
     """Dispatch to the correct resolution method based on policy.
 
     Returns None if the policy is "discussion_required" (needs human) or if
@@ -230,14 +230,14 @@ def apply_resolution_policy(
 
 
 def resolve_all_conflicts(
-    conflicts: List[Conflict], policy: ResolutionPolicy
-) -> Tuple[List[Resolution], List[Conflict]]:
+    conflicts: list[Conflict], policy: ResolutionPolicy
+) -> tuple[list[Resolution], list[Conflict]]:
     """Resolve what can be resolved; return remaining unresolved.
 
     Returns (resolutions, unresolved_conflicts).
     """
-    resolved: List[Resolution] = []
-    unresolved: List[Conflict] = []
+    resolved: list[Resolution] = []
+    unresolved: list[Conflict] = []
     for conflict in conflicts:
         result = apply_resolution_policy(conflict, policy)
         if result is not None:
@@ -254,7 +254,7 @@ def resolve_all_conflicts(
 
 def format_conflict_view(conflict: Conflict) -> str:
     """Side-by-side text display showing each annotator's label, confidence, reasoning."""
-    lines: List[str] = []
+    lines: list[str] = []
     lines.append(f"CONFLICT: {conflict.item_id}")
     lines.append(f"  Max disagreement: {conflict.max_disagreement:.3f}")
     lines.append(f"  Needs tiebreaker: {conflict.needs_tiebreaker}")
@@ -271,10 +271,10 @@ def format_conflict_view(conflict: Conflict) -> str:
 
 
 def format_resolution_summary(
-    resolutions: List[Resolution], unresolved: List[Conflict]
+    resolutions: list[Resolution], unresolved: list[Conflict]
 ) -> str:
     """Summary report of resolutions and remaining conflicts."""
-    lines: List[str] = []
+    lines: list[str] = []
     total = len(resolutions) + len(unresolved)
     lines.append("RESOLUTION SUMMARY")
     lines.append(f"  Total conflicts: {total}")

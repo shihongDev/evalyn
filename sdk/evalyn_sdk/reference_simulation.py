@@ -23,9 +23,9 @@ class ReferencePair:
     reference_output: str
     confidence: float = 0.0
     quality_passed: bool = False
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    metadata: dict[str, Any] = field(default_factory=dict)
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "input_text": self.input_text,
             "reference_output": self.reference_output,
@@ -35,7 +35,7 @@ class ReferencePair:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> ReferencePair:
+    def from_dict(cls, data: dict[str, Any]) -> ReferencePair:
         return cls(
             input_text=data["input_text"],
             reference_output=data["reference_output"],
@@ -54,7 +54,7 @@ class QualityConfig:
     max_output_length: int = 5000
     require_non_empty: bool = True
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "min_confidence": self.min_confidence,
             "min_output_length": self.min_output_length,
@@ -63,7 +63,7 @@ class QualityConfig:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> QualityConfig:
+    def from_dict(cls, data: dict[str, Any]) -> QualityConfig:
         return cls(
             min_confidence=data.get("min_confidence", 0.8),
             min_output_length=data.get("min_output_length", 10),
@@ -76,12 +76,12 @@ class QualityConfig:
 class ReferenceSet:
     """A collection of filtered reference pairs with stats."""
 
-    pairs: List[ReferencePair]
+    pairs: list[ReferencePair]
     total_generated: int
     quality_filtered: int
     acceptance_rate: float
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "pairs": [p.as_dict() for p in self.pairs],
             "total_generated": self.total_generated,
@@ -90,7 +90,7 @@ class ReferenceSet:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> ReferenceSet:
+    def from_dict(cls, data: dict[str, Any]) -> ReferenceSet:
         return cls(
             pairs=[ReferencePair.from_dict(p) for p in data["pairs"]],
             total_generated=data["total_generated"],
@@ -105,8 +105,8 @@ class ReferenceSet:
 
 
 def apply_quality_filter(
-    pairs: List[ReferencePair], config: QualityConfig
-) -> List[ReferencePair]:
+    pairs: list[ReferencePair], config: QualityConfig
+) -> list[ReferencePair]:
     """Filter reference pairs by quality criteria.
 
     Checks confidence threshold, output length bounds, and non-empty constraint.
@@ -142,7 +142,7 @@ def apply_quality_filter(
 
 
 def build_reference_set(
-    pairs: List[ReferencePair], config: Optional[QualityConfig] = None
+    pairs: list[ReferencePair], config: QualityConfig | None = None
 ) -> ReferenceSet:
     """Filter pairs and build a reference set with statistics."""
     if config is None:
@@ -193,13 +193,13 @@ def score_reference_quality(pair: ReferencePair) -> float:
 
 
 def detect_low_quality_pairs(
-    pairs: List[ReferencePair], threshold: float = 0.3
-) -> List[ReferencePair]:
+    pairs: list[ReferencePair], threshold: float = 0.3
+) -> list[ReferencePair]:
     """Find pairs below the quality score threshold."""
     return [p for p in pairs if score_reference_quality(p) < threshold]
 
 
-def export_as_dataset(ref_set: ReferenceSet) -> List[Dict[str, Any]]:
+def export_as_dataset(ref_set: ReferenceSet) -> list[dict[str, Any]]:
     """Convert a reference set to evalyn dataset format.
 
     Each item has: input, expected_output, metadata.
@@ -247,7 +247,7 @@ def format_reference_report(ref_set: ReferenceSet) -> str:
     return "\n".join(lines)
 
 
-def compute_reference_stats(ref_set: ReferenceSet) -> Dict[str, Any]:
+def compute_reference_stats(ref_set: ReferenceSet) -> dict[str, Any]:
     """Compute summary statistics for a reference set."""
     total = ref_set.total_generated
     accepted = ref_set.quality_filtered

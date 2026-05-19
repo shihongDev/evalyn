@@ -15,9 +15,9 @@ class PlanStep:
 
     index: int
     description: str
-    dependencies: List[int] = field(default_factory=list)
+    dependencies: list[int] = field(default_factory=list)
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "index": self.index,
             "description": self.description,
@@ -25,7 +25,7 @@ class PlanStep:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> PlanStep:
+    def from_dict(cls, data: dict[str, Any]) -> PlanStep:
         return cls(
             index=data["index"],
             description=data["description"],
@@ -42,9 +42,9 @@ class PlanEvalResult:
     efficiency: float
     replanning_quality: float
     overall: float
-    details: Dict[str, Any] = field(default_factory=dict)
+    details: dict[str, Any] = field(default_factory=dict)
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "completeness": self.completeness,
             "ordering_correctness": self.ordering_correctness,
@@ -55,7 +55,7 @@ class PlanEvalResult:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> PlanEvalResult:
+    def from_dict(cls, data: dict[str, Any]) -> PlanEvalResult:
         return cls(
             completeness=data["completeness"],
             ordering_correctness=data["ordering_correctness"],
@@ -78,7 +78,7 @@ class PlanEvalResult:
 
 
 def evaluate_completeness(
-    plan_steps: List[PlanStep], required_topics: List[str]
+    plan_steps: list[PlanStep], required_topics: list[str]
 ) -> float:
     """Fraction of required_topics mentioned in plan step descriptions.
 
@@ -96,7 +96,7 @@ def evaluate_completeness(
     return covered / len(required_topics)
 
 
-def evaluate_ordering(plan_steps: List[PlanStep]) -> float:
+def evaluate_ordering(plan_steps: list[PlanStep]) -> float:
     """Check dependency ordering.
 
     For each step, its dependencies must have lower indices.
@@ -111,7 +111,7 @@ def evaluate_ordering(plan_steps: List[PlanStep]) -> float:
     return correct / len(plan_steps)
 
 
-def evaluate_efficiency(plan_steps: List[PlanStep], max_steps: int = 20) -> float:
+def evaluate_efficiency(plan_steps: list[PlanStep], max_steps: int = 20) -> float:
     """Penalize overly long plans.
 
     Score = 1.0 if len <= max_steps/2, linear decrease to 0.0 at 2*max_steps.
@@ -127,7 +127,7 @@ def evaluate_efficiency(plan_steps: List[PlanStep], max_steps: int = 20) -> floa
 
 
 def evaluate_replanning(
-    original_plan: List[PlanStep], revised_plan: List[PlanStep]
+    original_plan: list[PlanStep], revised_plan: list[PlanStep]
 ) -> float:
     """Measure how well a revised plan preserves completed steps.
 
@@ -147,8 +147,8 @@ def evaluate_replanning(
 
 
 def evaluate_plan(
-    plan_steps: List[PlanStep],
-    required_topics: Optional[List[str]] = None,
+    plan_steps: list[PlanStep],
+    required_topics: list[str] | None = None,
     max_steps: int = 20,
 ) -> PlanEvalResult:
     """Full plan evaluation.

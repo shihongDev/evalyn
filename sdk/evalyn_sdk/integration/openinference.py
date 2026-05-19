@@ -29,7 +29,7 @@ OPENINFERENCE_SPAN_KINDS = {
     "GUARDRAIL",
 }
 
-SPAN_TYPE_TO_OI: Dict[str, str] = {
+SPAN_TYPE_TO_OI: dict[str, str] = {
     "llm_call": "LLM",
     "tool_call": "TOOL",
     "retrieval": "RETRIEVER",
@@ -59,9 +59,9 @@ class OpenInferenceSpan:
     start_time: str = ""
     end_time: str = ""
     status_code: str = "OK"
-    attributes: Dict[str, Any] = field(default_factory=dict)
+    attributes: dict[str, Any] = field(default_factory=dict)
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "name": self.name,
             "span_kind": self.span_kind,
@@ -75,7 +75,7 @@ class OpenInferenceSpan:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> OpenInferenceSpan:
+    def from_dict(cls, data: dict[str, Any]) -> OpenInferenceSpan:
         return cls(
             name=data.get("name", ""),
             span_kind=data.get("span_kind", "CHAIN"),
@@ -94,10 +94,10 @@ class OpenInferenceTrace:
     """A collection of OpenInference spans forming a trace."""
 
     trace_id: str
-    spans: List[OpenInferenceSpan] = field(default_factory=list)
+    spans: list[OpenInferenceSpan] = field(default_factory=list)
     project_name: str = "evalyn"
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "trace_id": self.trace_id,
             "spans": [s.as_dict() for s in self.spans],
@@ -105,7 +105,7 @@ class OpenInferenceTrace:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> OpenInferenceTrace:
+    def from_dict(cls, data: dict[str, Any]) -> OpenInferenceTrace:
         return cls(
             trace_id=data.get("trace_id", ""),
             spans=[
@@ -121,10 +121,10 @@ class ComplianceReport:
 
     total_spans: int = 0
     compliant_spans: int = 0
-    issues: List[str] = field(default_factory=list)
+    issues: list[str] = field(default_factory=list)
     compliance_rate: float = 0.0
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "total_spans": self.total_spans,
             "compliant_spans": self.compliant_spans,
@@ -157,7 +157,7 @@ def convert_span_to_oi(span: Span) -> OpenInferenceSpan:
     end_time = span.end_time.isoformat() if span.end_time else ""
     status_code = "OK" if span.status == "ok" else "ERROR"
 
-    attributes: Dict[str, Any] = dict(span.attributes)
+    attributes: dict[str, Any] = dict(span.attributes)
     attributes["openinference.span.kind"] = span_kind
 
     return OpenInferenceSpan(
@@ -174,7 +174,7 @@ def convert_span_to_oi(span: Span) -> OpenInferenceSpan:
 
 
 def convert_trace_to_oi(
-    spans: List[Span], project_name: str = "evalyn"
+    spans: list[Span], project_name: str = "evalyn"
 ) -> OpenInferenceTrace:
     """Convert a list of evalyn Spans into a full OpenInference trace."""
     if not spans:
@@ -198,12 +198,12 @@ def convert_trace_to_oi(
     )
 
 
-def check_compliance(oi_span: OpenInferenceSpan) -> List[str]:
+def check_compliance(oi_span: OpenInferenceSpan) -> list[str]:
     """Validate a single OpenInference span against the spec.
 
     Returns a list of issue strings. Empty list means fully compliant.
     """
-    issues: List[str] = []
+    issues: list[str] = []
 
     if not oi_span.name:
         issues.append("missing span name")
@@ -224,7 +224,7 @@ def check_compliance(oi_span: OpenInferenceSpan) -> List[str]:
 
 def check_trace_compliance(trace: OpenInferenceTrace) -> ComplianceReport:
     """Run compliance checks on all spans in a trace."""
-    all_issues: List[str] = []
+    all_issues: list[str] = []
     compliant = 0
 
     for span in trace.spans:

@@ -18,9 +18,9 @@ class CoverageConfig:
 
     sample_size: int = 100
     diversity_weight: float = 1.0
-    seed: Optional[int] = None
+    seed: int | None = None
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "sample_size": self.sample_size,
             "diversity_weight": self.diversity_weight,
@@ -28,7 +28,7 @@ class CoverageConfig:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> CoverageConfig:
+    def from_dict(cls, data: dict[str, Any]) -> CoverageConfig:
         return cls(
             sample_size=data.get("sample_size", 100),
             diversity_weight=data.get("diversity_weight", 1.0),
@@ -43,14 +43,14 @@ class CoverageScore:
     item_id: str
     marginal_coverage: float
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "item_id": self.item_id,
             "marginal_coverage": self.marginal_coverage,
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> CoverageScore:
+    def from_dict(cls, data: dict[str, Any]) -> CoverageScore:
         return cls(
             item_id=data["item_id"],
             marginal_coverage=data["marginal_coverage"],
@@ -61,13 +61,13 @@ class CoverageScore:
 class CoverageResult:
     """Result of a coverage-aware sampling run."""
 
-    selected_ids: List[str] = field(default_factory=list)
+    selected_ids: list[str] = field(default_factory=list)
     coverage_rate: float = 0.0
     total_pool: int = 0
     vocabulary_covered: int = 0
     vocabulary_total: int = 0
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "selected_ids": self.selected_ids,
             "coverage_rate": self.coverage_rate,
@@ -77,7 +77,7 @@ class CoverageResult:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> CoverageResult:
+    def from_dict(cls, data: dict[str, Any]) -> CoverageResult:
         return cls(
             selected_ids=data.get("selected_ids", []),
             coverage_rate=data.get("coverage_rate", 0.0),
@@ -90,7 +90,7 @@ class CoverageResult:
 _WORD_RE = re.compile(r"[a-zA-Z0-9]+")
 
 
-def compute_item_features(text: str) -> Set[str]:
+def compute_item_features(text: str) -> set[str]:
     """Extract lowercased word tokens as a feature set.
 
     Words shorter than 2 characters are excluded.
@@ -100,7 +100,7 @@ def compute_item_features(text: str) -> Set[str]:
 
 
 def compute_coverage_rate(
-    selected_features: Set[str], total_features: Set[str]
+    selected_features: set[str], total_features: set[str]
 ) -> float:
     """Fraction of total vocabulary covered by selected features."""
     if not total_features:
@@ -109,9 +109,9 @@ def compute_coverage_rate(
 
 
 def score_marginal_coverage(
-    item_features: Set[str],
-    already_covered: Set[str],
-    total_features: Set[str],
+    item_features: set[str],
+    already_covered: set[str],
+    total_features: set[str],
 ) -> float:
     """Fraction of currently-uncovered features that this item would cover."""
     uncovered = total_features - already_covered
@@ -122,9 +122,9 @@ def score_marginal_coverage(
 
 
 def greedy_max_coverage(
-    items: Dict[str, str],
+    items: dict[str, str],
     sample_size: int,
-    seed: Optional[int] = None,
+    seed: int | None = None,
 ) -> CoverageResult:
     """Greedily select items that maximize cumulative vocabulary coverage.
 
@@ -143,16 +143,16 @@ def greedy_max_coverage(
     rng = random.Random(seed)
 
     # Pre-compute features for every item
-    item_features: Dict[str, Set[str]] = {}
-    total_vocab: Set[str] = set()
+    item_features: dict[str, set[str]] = {}
+    total_vocab: set[str] = set()
     for item_id, text in items.items():
         feats = compute_item_features(text)
         item_features[item_id] = feats
         total_vocab |= feats
 
     actual_size = min(sample_size, len(items))
-    selected: List[str] = []
-    covered: Set[str] = set()
+    selected: list[str] = []
+    covered: set[str] = set()
     remaining = set(items.keys())
 
     for _ in range(actual_size):
@@ -161,7 +161,7 @@ def greedy_max_coverage(
 
         # Score all remaining items by how many new words they add
         best_count = -1
-        candidates: List[str] = []
+        candidates: list[str] = []
         for item_id in remaining:
             new_words = item_features[item_id] - covered
             count = len(new_words)
@@ -192,7 +192,7 @@ def greedy_max_coverage(
 
 
 def run_coverage_sampling(
-    items: Dict[str, str], config: CoverageConfig
+    items: dict[str, str], config: CoverageConfig
 ) -> CoverageResult:
     """Full coverage-aware sampling pipeline.
 
@@ -207,7 +207,7 @@ def run_coverage_sampling(
 
 def format_coverage_sampling_report(result: CoverageResult) -> str:
     """Format a human-readable coverage sampling report."""
-    lines: List[str] = []
+    lines: list[str] = []
     lines.append("Coverage Sampling Report")
     lines.append("=" * 40)
     lines.append(f"Total pool size: {result.total_pool}")

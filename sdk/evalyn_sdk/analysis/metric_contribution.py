@@ -24,7 +24,7 @@ class MetricContribution:
     direction: str = "positive"  # "positive", "negative", "neutral"
     items_influenced: int = 0
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "metric_id": self.metric_id,
             "contribution_score": self.contribution_score,
@@ -33,7 +33,7 @@ class MetricContribution:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> MetricContribution:
+    def from_dict(cls, data: dict[str, Any]) -> MetricContribution:
         return cls(
             metric_id=data["metric_id"],
             contribution_score=data["contribution_score"],
@@ -46,12 +46,12 @@ class MetricContribution:
 class ContributionReport:
     """Report of metric contributions across all metrics."""
 
-    contributions: List[MetricContribution] = field(default_factory=list)
+    contributions: list[MetricContribution] = field(default_factory=list)
     most_positive: str = ""
     most_negative: str = ""
     total_items: int = 0
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "contributions": [c.as_dict() for c in self.contributions],
             "most_positive": self.most_positive,
@@ -60,7 +60,7 @@ class ContributionReport:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> ContributionReport:
+    def from_dict(cls, data: dict[str, Any]) -> ContributionReport:
         contributions = [
             MetricContribution.from_dict(c)
             for c in data.get("contributions", [])
@@ -101,7 +101,7 @@ class ContributionReport:
 
 
 def _overall_without_metric(
-    item: Dict[str, Any],
+    item: dict[str, Any],
     exclude_metric: str,
 ) -> bool:
     """Recompute overall pass/fail excluding one metric.
@@ -121,7 +121,7 @@ def _overall_without_metric(
 
 def compute_marginal_contribution(
     metric_id: str,
-    item_results: List[Dict[str, Any]],
+    item_results: list[dict[str, Any]],
 ) -> MetricContribution:
     """Compute marginal contribution of a metric.
 
@@ -174,8 +174,8 @@ def compute_marginal_contribution(
 
 
 def compute_all_contributions(
-    item_results: List[Dict[str, Any]],
-    metric_ids: List[str],
+    item_results: list[dict[str, Any]],
+    metric_ids: list[str],
 ) -> ContributionReport:
     """Compute contributions for all metrics.
 
@@ -210,7 +210,7 @@ def compute_all_contributions(
 
 def rank_by_contribution(
     report: ContributionReport,
-) -> List[MetricContribution]:
+) -> list[MetricContribution]:
     """Sort contributions by absolute contribution score descending."""
     return sorted(
         report.contributions,
@@ -222,7 +222,7 @@ def rank_by_contribution(
 def identify_bottleneck_metrics(
     report: ContributionReport,
     threshold: float = 0.3,
-) -> List[str]:
+) -> list[str]:
     """Identify metrics with high negative contribution (causing most failures).
 
     Returns metric IDs where contribution_score <= -threshold.

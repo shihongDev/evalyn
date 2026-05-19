@@ -18,8 +18,8 @@ class BudgetConfig:
     the tracker signals to stop evaluation gracefully.
     """
 
-    max_cost_usd: Optional[float] = None
-    max_tokens: Optional[int] = None
+    max_cost_usd: float | None = None
+    max_tokens: int | None = None
     warning_threshold: float = 0.8  # warn at 80% of limit
 
     def is_configured(self) -> bool:
@@ -38,7 +38,7 @@ class BudgetTracker:
             tracker.record(cost=result.cost, tokens=result.tokens)
     """
 
-    def __init__(self, config: Optional[BudgetConfig] = None):
+    def __init__(self, config: BudgetConfig | None = None):
         self.config = config or BudgetConfig()
         self.total_cost_usd: float = 0.0
         self.total_tokens: int = 0
@@ -80,28 +80,28 @@ class BudgetTracker:
         return False
 
     @property
-    def cost_remaining(self) -> Optional[float]:
+    def cost_remaining(self) -> float | None:
         """Remaining cost budget, or None if no cost limit."""
         if self.config.max_cost_usd is None:
             return None
         return max(0.0, self.config.max_cost_usd - self.total_cost_usd)
 
     @property
-    def tokens_remaining(self) -> Optional[int]:
+    def tokens_remaining(self) -> int | None:
         """Remaining token budget, or None if no token limit."""
         if self.config.max_tokens is None:
             return None
         return max(0, self.config.max_tokens - self.total_tokens)
 
     @property
-    def cost_utilization(self) -> Optional[float]:
+    def cost_utilization(self) -> float | None:
         """Fraction of cost budget used (0.0-1.0), or None if no limit."""
         if self.config.max_cost_usd is None or self.config.max_cost_usd == 0:
             return None
         return min(1.0, self.total_cost_usd / self.config.max_cost_usd)
 
     @property
-    def token_utilization(self) -> Optional[float]:
+    def token_utilization(self) -> float | None:
         """Fraction of token budget used (0.0-1.0), or None if no limit."""
         if self.config.max_tokens is None or self.config.max_tokens == 0:
             return None

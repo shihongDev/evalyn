@@ -20,7 +20,7 @@ class CalibrationBin:
     actual_accuracy: float
     count: int
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "bin_start": round(self.bin_start, 2),
             "bin_end": round(self.bin_end, 2),
@@ -35,13 +35,13 @@ class MethodCalibration:
     """Calibration analysis for one confidence method."""
 
     method: str
-    bins: List[CalibrationBin] = field(default_factory=list)
+    bins: list[CalibrationBin] = field(default_factory=list)
     ece: float = 0.0  # expected calibration error
     mce: float = 0.0  # maximum calibration error
     brier_score: float = 0.0  # Brier score (lower is better)
     num_samples: int = 0
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "method": self.method,
             "ece": round(self.ece, 6),
@@ -52,7 +52,7 @@ class MethodCalibration:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> MethodCalibration:
+    def from_dict(cls, data: dict[str, Any]) -> MethodCalibration:
         bins = [
             CalibrationBin(
                 bin_start=b["bin_start"], bin_end=b["bin_end"],
@@ -82,22 +82,22 @@ class MethodCalibration:
 class ComparisonReport:
     """Side-by-side comparison of confidence methods."""
 
-    calibrations: List[MethodCalibration] = field(default_factory=list)
+    calibrations: list[MethodCalibration] = field(default_factory=list)
     recommended_method: str = ""
 
     @property
-    def best_by_ece(self) -> Optional[str]:
+    def best_by_ece(self) -> str | None:
         if not self.calibrations:
             return None
         return min(self.calibrations, key=lambda c: c.ece).method
 
     @property
-    def best_by_brier(self) -> Optional[str]:
+    def best_by_brier(self) -> str | None:
         if not self.calibrations:
             return None
         return min(self.calibrations, key=lambda c: c.brier_score).method
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "recommended_method": self.recommended_method,
             "best_by_ece": self.best_by_ece,
@@ -106,7 +106,7 @@ class ComparisonReport:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> ComparisonReport:
+    def from_dict(cls, data: dict[str, Any]) -> ComparisonReport:
         calibrations = [
             MethodCalibration.from_dict(m) for m in data.get("methods", [])
         ]
@@ -126,7 +126,7 @@ class ComparisonReport:
 
 def compute_calibration(
     method: str,
-    predictions: List[Tuple[float, bool]],
+    predictions: list[tuple[float, bool]],
     num_bins: int = 10,
 ) -> MethodCalibration:
     """Compute calibration metrics for a single confidence method.
@@ -195,7 +195,7 @@ def compute_calibration(
 
 
 def compare_methods(
-    method_predictions: Dict[str, List[Tuple[float, bool]]],
+    method_predictions: dict[str, list[tuple[float, bool]]],
     num_bins: int = 10,
 ) -> ComparisonReport:
     """Compare multiple confidence methods side by side.

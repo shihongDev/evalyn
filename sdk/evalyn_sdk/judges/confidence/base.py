@@ -23,7 +23,7 @@ class ConfidenceResult:
 
     score: float
     method: str
-    details: Dict[str, Any] = field(default_factory=dict)
+    details: dict[str, Any] = field(default_factory=dict)
 
     def __post_init__(self):
         # Clamp score to [0, 1]

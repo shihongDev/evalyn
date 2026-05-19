@@ -28,7 +28,7 @@ class CheckpointInfo:
     created_at: str
     size_bytes: int
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "path": self.path,
             "run_id": self.run_id,
@@ -39,7 +39,7 @@ class CheckpointInfo:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> CheckpointInfo:
+    def from_dict(cls, data: dict[str, Any]) -> CheckpointInfo:
         return cls(
             path=data["path"],
             run_id=data.get("run_id", ""),
@@ -54,11 +54,11 @@ class CheckpointInfo:
 class CheckpointSummary:
     """Aggregated summary of all discovered checkpoints."""
 
-    checkpoints: List[CheckpointInfo] = field(default_factory=list)
+    checkpoints: list[CheckpointInfo] = field(default_factory=list)
     total_count: int = 0
     total_size_bytes: int = 0
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "checkpoints": [c.as_dict() for c in self.checkpoints],
             "total_count": self.total_count,
@@ -66,7 +66,7 @@ class CheckpointSummary:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> CheckpointSummary:
+    def from_dict(cls, data: dict[str, Any]) -> CheckpointSummary:
         checkpoints = [
             CheckpointInfo.from_dict(c) for c in data.get("checkpoints", [])
         ]
@@ -83,7 +83,7 @@ def scan_checkpoints(data_dir: str) -> CheckpointSummary:
     Walks the directory tree, reading each matching file to extract
     run_id, processed_count, and total_count from the JSON content.
     """
-    checkpoints: List[CheckpointInfo] = []
+    checkpoints: list[CheckpointInfo] = []
     total_size = 0
 
     if not os.path.isdir(data_dir):
@@ -198,7 +198,7 @@ def format_checkpoint_list(summary: CheckpointSummary) -> str:
     if not summary.checkpoints:
         return "No checkpoints found."
 
-    lines: List[str] = []
+    lines: list[str] = []
     lines.append(
         f"Checkpoints: {summary.total_count} "
         f"(total size: {_format_size(summary.total_size_bytes)})"

@@ -14,7 +14,7 @@ class HealthCheckItem:
     passed: bool
     details: str = ""
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "name": self.name,
             "passed": self.passed,
@@ -26,12 +26,12 @@ class HealthCheckItem:
 class HealthCheckReport:
     """Aggregated health check report."""
 
-    checks: List[HealthCheckItem] = field(default_factory=list)
+    checks: list[HealthCheckItem] = field(default_factory=list)
     all_passed: bool = True
     passed_count: int = 0
     failed_count: int = 0
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "checks": [c.as_dict() for c in self.checks],
             "all_passed": self.all_passed,
@@ -40,7 +40,7 @@ class HealthCheckReport:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> HealthCheckReport:
+    def from_dict(cls, data: dict[str, Any]) -> HealthCheckReport:
         checks = [
             HealthCheckItem(
                 name=c["name"],
@@ -57,7 +57,7 @@ class HealthCheckReport:
         )
 
     def format_text(self) -> str:
-        lines: List[str] = []
+        lines: list[str] = []
         lines.append("Instrumentation Health Check")
         lines.append("-" * 40)
         for c in self.checks:
@@ -78,7 +78,7 @@ class HealthCheckReport:
 
 
 def check_spans_captured(
-    spans: List[Span], min_expected: int = 1
+    spans: list[Span], min_expected: int = 1
 ) -> HealthCheckItem:
     """Check that at least min_expected spans were captured."""
     count = len(spans)
@@ -96,7 +96,7 @@ def check_spans_captured(
 
 
 def check_span_types_present(
-    spans: List[Span], required_types: List[str] | None = None
+    spans: list[Span], required_types: list[str] | None = None
 ) -> HealthCheckItem:
     """Check that required span types exist."""
     if required_types is None:
@@ -116,7 +116,7 @@ def check_span_types_present(
     )
 
 
-def check_no_orphans(spans: List[Span]) -> HealthCheckItem:
+def check_no_orphans(spans: list[Span]) -> HealthCheckItem:
     """Check that all spans with parent_id reference an existing span."""
     span_ids = {s.id for s in spans}
     orphans = [
@@ -137,9 +137,9 @@ def check_no_orphans(spans: List[Span]) -> HealthCheckItem:
     )
 
 
-def check_timestamps_valid(spans: List[Span]) -> HealthCheckItem:
+def check_timestamps_valid(spans: list[Span]) -> HealthCheckItem:
     """Check that all spans have start_time and none have end_time before start_time."""
-    invalid: List[str] = []
+    invalid: list[str] = []
     for s in spans:
         if s.start_time is None:
             invalid.append(s.id)
@@ -160,7 +160,7 @@ def check_timestamps_valid(spans: List[Span]) -> HealthCheckItem:
 
 
 def check_attributes_present(
-    spans: List[Span], required_keys: List[str] | None = None
+    spans: list[Span], required_keys: list[str] | None = None
 ) -> HealthCheckItem:
     """Check that spans have required attribute keys."""
     if required_keys is None:
@@ -171,7 +171,7 @@ def check_attributes_present(
             passed=True,
             details="No required attributes specified",
         )
-    missing_map: Dict[str, List[str]] = {}
+    missing_map: dict[str, list[str]] = {}
     for s in spans:
         missing = [k for k in required_keys if k not in s.attributes]
         if missing:
@@ -190,9 +190,9 @@ def check_attributes_present(
 
 
 def run_health_check(
-    spans: List[Span],
-    required_types: List[str] | None = None,
-    required_attributes: List[str] | None = None,
+    spans: list[Span],
+    required_types: list[str] | None = None,
+    required_attributes: list[str] | None = None,
 ) -> HealthCheckReport:
     """Run all health checks and return aggregated report."""
     if required_types is None:

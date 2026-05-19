@@ -59,7 +59,7 @@ class PowerAnalysis:
 
 
 def bootstrap_confidence_interval(
-    values: List[float],
+    values: list[float],
     statistic: str = "mean",
     confidence_level: float = 0.95,
     n_resamples: int = 1000,

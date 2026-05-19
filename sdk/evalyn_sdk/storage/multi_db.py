@@ -9,7 +9,8 @@ from __future__ import annotations
 
 import time
 from dataclasses import dataclass, field
-from typing import Any, Callable, Dict, List
+from typing import Any, Dict, List
+from collections.abc import Callable
 
 # ---------------------------------------------------------------------------
 # Data Models
@@ -25,7 +26,7 @@ class DatabaseSource:
     db_type: str = "sqlite"
     description: str = ""
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "name": self.name,
             "path": self.path,
@@ -34,7 +35,7 @@ class DatabaseSource:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> DatabaseSource:
+    def from_dict(cls, data: dict[str, Any]) -> DatabaseSource:
         return cls(
             name=data.get("name", ""),
             path=data.get("path", ""),
@@ -47,17 +48,17 @@ class DatabaseSource:
 class MultiDBConfig:
     """Configuration for multi-database queries."""
 
-    sources: List[DatabaseSource] = field(default_factory=list)
+    sources: list[DatabaseSource] = field(default_factory=list)
     default_source: str = ""
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "sources": [s.as_dict() for s in self.sources],
             "default_source": self.default_source,
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> MultiDBConfig:
+    def from_dict(cls, data: dict[str, Any]) -> MultiDBConfig:
         sources = [
             DatabaseSource.from_dict(s) for s in data.get("sources", [])
         ]
@@ -72,11 +73,11 @@ class CrossDBQueryResult:
     """Result from querying a single database source."""
 
     source: str
-    records: List[Dict[str, Any]] = field(default_factory=list)
+    records: list[dict[str, Any]] = field(default_factory=list)
     count: int = 0
     duration_ms: float = 0.0
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "source": self.source,
             "records": self.records,
@@ -89,11 +90,11 @@ class CrossDBQueryResult:
 class MultiDBReport:
     """Aggregated report across multiple database sources."""
 
-    results: List[CrossDBQueryResult] = field(default_factory=list)
+    results: list[CrossDBQueryResult] = field(default_factory=list)
     total_records: int = 0
-    sources_queried: List[str] = field(default_factory=list)
+    sources_queried: list[str] = field(default_factory=list)
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "results": [r.as_dict() for r in self.results],
             "total_records": self.total_records,
@@ -101,7 +102,7 @@ class MultiDBReport:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> MultiDBReport:
+    def from_dict(cls, data: dict[str, Any]) -> MultiDBReport:
         results = [
             CrossDBQueryResult(
                 source=r.get("source", ""),
@@ -139,7 +140,7 @@ class MultiDBManager:
 
     def __init__(self, config: MultiDBConfig) -> None:
         self._config = config
-        self._sources: List[DatabaseSource] = list(config.sources)
+        self._sources: list[DatabaseSource] = list(config.sources)
 
     def add_source(self, source: DatabaseSource) -> None:
         """Add a database source."""
@@ -153,23 +154,23 @@ class MultiDBManager:
                 return True
         return False
 
-    def list_sources(self) -> List[DatabaseSource]:
+    def list_sources(self) -> list[DatabaseSource]:
         """Return all registered sources."""
         return list(self._sources)
 
     def query_all(
         self,
-        filter_fn: Callable[[Dict[str, Any]], bool],
-        records_by_source: Dict[str, List[Dict[str, Any]]],
+        filter_fn: Callable[[dict[str, Any]], bool],
+        records_by_source: dict[str, list[dict[str, Any]]],
     ) -> MultiDBReport:
         """Query all sources with a filter function.
 
         records_by_source maps source name to its records. The filter_fn
         is applied to each record to decide inclusion.
         """
-        results: List[CrossDBQueryResult] = []
+        results: list[CrossDBQueryResult] = []
         total = 0
-        queried: List[str] = []
+        queried: list[str] = []
 
         for source in self._sources:
             records = records_by_source.get(source.name, [])
@@ -195,15 +196,15 @@ class MultiDBManager:
 
     def compare_sources(
         self,
-        records_by_source: Dict[str, List[Dict[str, Any]]],
-    ) -> Dict[str, Any]:
+        records_by_source: dict[str, list[dict[str, Any]]],
+    ) -> dict[str, Any]:
         """Compare record counts, overlap, and unique records per source.
 
         Uses the "id" field in records to determine overlap.
         """
         source_names = [s.name for s in self._sources]
-        counts: Dict[str, int] = {}
-        id_sets: Dict[str, set] = {}
+        counts: dict[str, int] = {}
+        id_sets: dict[str, set] = {}
 
         for name in source_names:
             records = records_by_source.get(name, [])
@@ -222,7 +223,7 @@ class MultiDBManager:
             common = set()
 
         # Unique per source (present only in that source)
-        unique: Dict[str, List[str]] = {}
+        unique: dict[str, list[str]] = {}
         for name in source_names:
             other_ids: set = set()
             for other_name, ids in id_sets.items():
@@ -238,10 +239,10 @@ class MultiDBManager:
 
     def merge_results(
         self,
-        results: List[CrossDBQueryResult],
-    ) -> List[Dict[str, Any]]:
+        results: list[CrossDBQueryResult],
+    ) -> list[dict[str, Any]]:
         """Merge records from all results, adding a _source tag to each."""
-        merged: List[Dict[str, Any]] = []
+        merged: list[dict[str, Any]] = []
         for result in results:
             for record in result.records:
                 tagged = dict(record)
@@ -255,7 +256,7 @@ class MultiDBManager:
 # ---------------------------------------------------------------------------
 
 
-def create_multi_db(sources: List[Dict[str, str]]) -> MultiDBManager:
+def create_multi_db(sources: list[dict[str, str]]) -> MultiDBManager:
     """Factory: create a MultiDBManager from a list of source dicts."""
     db_sources = [DatabaseSource.from_dict(s) for s in sources]
     config = MultiDBConfig(sources=db_sources)
@@ -263,10 +264,10 @@ def create_multi_db(sources: List[Dict[str, str]]) -> MultiDBManager:
 
 
 def find_common_records(
-    records_a: List[Dict],
-    records_b: List[Dict],
+    records_a: list[dict],
+    records_b: list[dict],
     key: str = "id",
-) -> List[str]:
+) -> list[str]:
     """Find record IDs (by key) present in both lists."""
     ids_a = {r.get(key) for r in records_a if key in r}
     ids_b = {r.get(key) for r in records_b if key in r}

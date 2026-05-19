@@ -25,7 +25,7 @@ class PreAnnotationConfig:
     human_review_below: float = 0.8
     batch_size: int = 10
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "confidence_threshold": self.confidence_threshold,
             "auto_accept_above": self.auto_accept_above,
@@ -34,7 +34,7 @@ class PreAnnotationConfig:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> PreAnnotationConfig:
+    def from_dict(cls, data: dict[str, Any]) -> PreAnnotationConfig:
         return cls(
             confidence_threshold=data.get("confidence_threshold", 0.8),
             auto_accept_above=data.get("auto_accept_above", 0.95),
@@ -53,7 +53,7 @@ class PreAnnotation:
     status: str = ""  # "auto_accepted", "needs_review", "rejected"
     reasoning: str = ""
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "item_id": self.item_id,
             "predicted_label": self.predicted_label,
@@ -63,7 +63,7 @@ class PreAnnotation:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> PreAnnotation:
+    def from_dict(cls, data: dict[str, Any]) -> PreAnnotation:
         return cls(
             item_id=data.get("item_id", ""),
             predicted_label=data.get("predicted_label", 0.0),
@@ -77,14 +77,14 @@ class PreAnnotation:
 class PreAnnotationReport:
     """Summary report for a batch of pre-annotations."""
 
-    annotations: List[PreAnnotation] = field(default_factory=list)
+    annotations: list[PreAnnotation] = field(default_factory=list)
     auto_accepted: int = 0
     needs_review: int = 0
     rejected: int = 0
     total: int = 0
     accuracy: float = 0.0
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "annotations": [a.as_dict() for a in self.annotations],
             "auto_accepted": self.auto_accepted,
@@ -95,7 +95,7 @@ class PreAnnotationReport:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> PreAnnotationReport:
+    def from_dict(cls, data: dict[str, Any]) -> PreAnnotationReport:
         return cls(
             annotations=[
                 PreAnnotation.from_dict(a) for a in data.get("annotations", [])
@@ -133,9 +133,9 @@ def triage_annotation(
 
 
 def triage_batch(
-    annotations: List[PreAnnotation],
+    annotations: list[PreAnnotation],
     config: PreAnnotationConfig,
-) -> List[PreAnnotation]:
+) -> list[PreAnnotation]:
     """Triage all annotations in a batch."""
     return [triage_annotation(a, config) for a in annotations]
 
@@ -146,7 +146,7 @@ def triage_batch(
 
 
 def build_pre_annotation_prompt(
-    item: Dict[str, Any],
+    item: dict[str, Any],
     metric_id: str,
     rubric: str = "",
 ) -> str:
@@ -188,8 +188,8 @@ def build_pre_annotation_prompt(
 
 
 def compute_pre_annotation_accuracy(
-    pre_annotations: List[PreAnnotation],
-    human_labels: Dict[str, float],
+    pre_annotations: list[PreAnnotation],
+    human_labels: dict[str, float],
     threshold: float = 0.5,
 ) -> float:
     """Compare pre-annotations against human labels.
@@ -225,8 +225,8 @@ def compute_pre_annotation_accuracy(
 
 
 def build_pre_annotation_report(
-    annotations: List[PreAnnotation],
-    human_labels: Optional[Dict[str, float]] = None,
+    annotations: list[PreAnnotation],
+    human_labels: dict[str, float] | None = None,
 ) -> PreAnnotationReport:
     """Build a summary report from a list of pre-annotations.
 

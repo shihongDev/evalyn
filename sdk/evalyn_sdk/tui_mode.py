@@ -25,7 +25,7 @@ class TUIConfig:
     show_help: bool = True
     color_enabled: bool = True
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "width": self.width,
             "height": self.height,
@@ -34,7 +34,7 @@ class TUIConfig:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> TUIConfig:
+    def from_dict(cls, data: dict[str, Any]) -> TUIConfig:
         return cls(
             width=data.get("width", 80),
             height=data.get("height", 24),
@@ -49,10 +49,10 @@ class TUIPanel:
 
     panel_id: str
     title: str
-    content_lines: List[str] = field(default_factory=list)
+    content_lines: list[str] = field(default_factory=list)
     focused: bool = False
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "panel_id": self.panel_id,
             "title": self.title,
@@ -61,7 +61,7 @@ class TUIPanel:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> TUIPanel:
+    def from_dict(cls, data: dict[str, Any]) -> TUIPanel:
         return cls(
             panel_id=data["panel_id"],
             title=data["title"],
@@ -74,12 +74,12 @@ class TUIPanel:
 class TUIState:
     """Full TUI state: panels, active selection, filter, status."""
 
-    panels: List[TUIPanel] = field(default_factory=list)
+    panels: list[TUIPanel] = field(default_factory=list)
     active_panel: int = 0
     filter_text: str = ""
     status_message: str = ""
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "panels": [p.as_dict() for p in self.panels],
             "active_panel": self.active_panel,
@@ -88,7 +88,7 @@ class TUIState:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> TUIState:
+    def from_dict(cls, data: dict[str, Any]) -> TUIState:
         return cls(
             panels=[TUIPanel.from_dict(p) for p in data.get("panels", [])],
             active_panel=data.get("active_panel", 0),
@@ -104,14 +104,14 @@ class TUIAction:
     action: str  # "navigate", "filter", "select", "quit", "refresh"
     value: str = ""
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "action": self.action,
             "value": self.value,
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> TUIAction:
+    def from_dict(cls, data: dict[str, Any]) -> TUIAction:
         return cls(
             action=data["action"],
             value=data.get("value", ""),
@@ -151,7 +151,7 @@ def render_panel(panel: TUIPanel, width: int, height: int) -> str:
 
     bottom = "+" + border_char * inner_w + "+"
 
-    lines: List[str] = [top]
+    lines: list[str] = [top]
     for i in range(content_rows):
         if i < len(panel.content_lines):
             text = panel.content_lines[i]
@@ -193,7 +193,7 @@ def render_layout(state: TUIState, config: TUIConfig) -> str:
 
     available_height = config.height - reserved
 
-    output_lines: List[str] = []
+    output_lines: list[str] = []
 
     if len(panels) <= 2:
         # Side by side
@@ -323,9 +323,9 @@ def process_action(state: TUIState, action: TUIAction) -> TUIState:
 
 
 def create_eval_tui(
-    metrics: Dict[str, float],
-    items: List[Dict[str, Any]],
-    run_info: Dict[str, Any],
+    metrics: dict[str, float],
+    items: list[dict[str, Any]],
+    run_info: dict[str, Any],
 ) -> TUIState:
     """Build a TUI state from evaluation data.
 
@@ -335,7 +335,7 @@ def create_eval_tui(
       3. Run details - key/value pairs from run_info
     """
     # Metrics panel
-    metric_lines: List[str] = []
+    metric_lines: list[str] = []
     for name, score in sorted(metrics.items()):
         metric_lines.append(f"  {name}: {score:.3f}")
     metrics_panel = TUIPanel(
@@ -346,7 +346,7 @@ def create_eval_tui(
     )
 
     # Items panel
-    item_lines: List[str] = []
+    item_lines: list[str] = []
     for idx, item in enumerate(items):
         label = item.get("id", item.get("input", f"item_{idx}"))
         score_val = item.get("score", "")
@@ -361,7 +361,7 @@ def create_eval_tui(
     )
 
     # Details panel
-    detail_lines: List[str] = []
+    detail_lines: list[str] = []
     for key, val in sorted(run_info.items()):
         detail_lines.append(f"  {key}: {val}")
     details_panel = TUIPanel(

@@ -3,7 +3,8 @@
 from __future__ import annotations
 
 import os
-from typing import Optional, Sequence, Tuple
+from typing import Optional, Tuple
+from collections.abc import Sequence
 
 
 def _is_suppressed(quiet: bool = False, format: str = "table") -> bool:
@@ -13,7 +14,7 @@ def _is_suppressed(quiet: bool = False, format: str = "table") -> bool:
 
 
 # Type alias: each option is (flag_text, description)
-HintOption = Tuple[str, str]
+HintOption = tuple[str, str]
 
 
 class HintCollector:
@@ -33,7 +34,7 @@ class HintCollector:
         self,
         command: str,
         description: str,
-        options: Optional[Sequence[HintOption]] = None,
+        options: Sequence[HintOption] | None = None,
     ) -> None:
         """Add a hint with a command, description, and optional key flags."""
         self._hints.append((command, description, list(options or [])))

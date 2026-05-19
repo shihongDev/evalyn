@@ -11,14 +11,14 @@ from typing import Any, Dict, Optional
 from ..constants import DEFAULT_CONFIG_PATHS
 
 # Cache for project root to avoid repeated filesystem lookups
-_project_root_cache: Optional[Path] = None
+_project_root_cache: Path | None = None
 
 # Cache for loaded config (read once per process - config doesn't change during a CLI session)
 _UNSET = object()
 _config_cache: Any = _UNSET
 
 
-def find_project_root(cwd: Optional[Path] = None) -> Path:
+def find_project_root(cwd: Path | None = None) -> Path:
     """Find the project root directory.
 
     Searches upward from cwd for project markers:
@@ -89,7 +89,7 @@ def _expand_env_vars(value: Any) -> Any:
     return value
 
 
-def load_config() -> Dict[str, Any]:
+def load_config() -> dict[str, Any]:
     """Load configuration from evalyn.yaml or .evalynrc if present.
 
     The result is cached for the lifetime of the process because the config
@@ -137,7 +137,7 @@ def clear_config_cache() -> None:
     _config_cache = _UNSET
 
 
-def get_config_default(config: Dict[str, Any], *keys: str, default: Any = None) -> Any:
+def get_config_default(config: dict[str, Any], *keys: str, default: Any = None) -> Any:
     """Get nested config value with fallback."""
     value = config
     for key in keys:
@@ -150,7 +150,7 @@ def get_config_default(config: Dict[str, Any], *keys: str, default: Any = None) 
     return value
 
 
-def find_latest_dataset(data_dir: str = "data") -> Optional[Path]:
+def find_latest_dataset(data_dir: str = "data") -> Path | None:
     """Find the most recently modified dataset directory."""
     data_path = Path(data_dir)
     if not data_path.exists():
@@ -185,8 +185,8 @@ def find_latest_dataset(data_dir: str = "data") -> Optional[Path]:
 
 
 def resolve_dataset_path(
-    dataset_arg: Optional[str], use_latest: bool = False, config: Optional[Dict] = None
-) -> Optional[Path]:
+    dataset_arg: str | None, use_latest: bool = False, config: dict | None = None
+) -> Path | None:
     """Resolve dataset path from argument, --latest flag, or config."""
     if dataset_arg:
         path = Path(dataset_arg)
@@ -224,7 +224,7 @@ defaults:
 
 
 def create_evalyn_yaml(
-    output_path: Optional[Path] = None,
+    output_path: Path | None = None,
     force: bool = False,
 ) -> tuple[Path, bool]:
     """Create evalyn.yaml from the example template or a minimal fallback.

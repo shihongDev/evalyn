@@ -42,7 +42,7 @@ class BiasIndicator:
     severity: str = "low"
     description: str = ""
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "name": self.name,
             "value": self.value,
@@ -55,12 +55,12 @@ class BiasIndicator:
 class BiasAuditReport:
     """Aggregated bias audit across all checked dimensions."""
 
-    indicators: List[BiasIndicator] = field(default_factory=list)
+    indicators: list[BiasIndicator] = field(default_factory=list)
     overall_bias_score: float = 0.0
     high_severity_count: int = 0
-    recommendations: List[str] = field(default_factory=list)
+    recommendations: list[str] = field(default_factory=list)
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "indicators": [i.as_dict() for i in self.indicators],
             "overall_bias_score": self.overall_bias_score,
@@ -69,7 +69,7 @@ class BiasAuditReport:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> BiasAuditReport:
+    def from_dict(cls, data: dict[str, Any]) -> BiasAuditReport:
         indicators = [BiasIndicator(**i) for i in data.get("indicators", [])]
         return cls(
             indicators=indicators,
@@ -79,7 +79,7 @@ class BiasAuditReport:
         )
 
     def format_text(self) -> str:
-        lines: List[str] = []
+        lines: list[str] = []
         lines.append("Bias Audit Report")
         lines.append("-" * 40)
         for ind in self.indicators:
@@ -109,7 +109,7 @@ def _severity_from_value(value: float, medium_threshold: float, high_threshold: 
     return "low"
 
 
-def check_length_bias(texts: List[str]) -> BiasIndicator:
+def check_length_bias(texts: list[str]) -> BiasIndicator:
     """Check if input lengths are heavily skewed.
 
     Uses coefficient of variation (std / mean). CV > 1.0 = high bias.
@@ -132,7 +132,7 @@ def check_length_bias(texts: List[str]) -> BiasIndicator:
             severity="low",
             description="All texts are empty",
         )
-    variance = sum((l - mean) ** 2 for l in lengths) / n
+    variance = sum((length - mean) ** 2 for length in lengths) / n
     std = math.sqrt(variance)
     cv = std / mean
 
@@ -145,7 +145,7 @@ def check_length_bias(texts: List[str]) -> BiasIndicator:
     )
 
 
-def check_category_imbalance(categories: List[str]) -> BiasIndicator:
+def check_category_imbalance(categories: list[str]) -> BiasIndicator:
     """Check if categories are highly imbalanced.
 
     Ratio of max pct to min pct > 5 = high bias.
@@ -178,7 +178,7 @@ def check_category_imbalance(categories: List[str]) -> BiasIndicator:
     )
 
 
-def check_vocabulary_concentration(texts: List[str], top_n: int = 10) -> BiasIndicator:
+def check_vocabulary_concentration(texts: list[str], top_n: int = 10) -> BiasIndicator:
     """Check if vocabulary is dominated by few words.
 
     Top-N words covering > 50% of total word count = high bias.
@@ -217,7 +217,7 @@ def check_vocabulary_concentration(texts: List[str], top_n: int = 10) -> BiasInd
     )
 
 
-def check_sentiment_skew(texts: List[str]) -> BiasIndicator:
+def check_sentiment_skew(texts: list[str]) -> BiasIndicator:
     """Simple heuristic: count positive vs negative sentiment words.
 
     Ratio > 3:1 in either direction = high bias.
@@ -267,7 +267,7 @@ def check_sentiment_skew(texts: List[str]) -> BiasIndicator:
 
 
 def audit_dataset(
-    items: List[Dict[str, Any]],
+    items: list[dict[str, Any]],
     input_field: str = "input",
     category_field: str = "category",
 ) -> BiasAuditReport:
@@ -275,7 +275,7 @@ def audit_dataset(
     texts = [str(item.get(input_field, "")) for item in items]
     categories = [item[category_field] for item in items if category_field in item]
 
-    indicators: List[BiasIndicator] = []
+    indicators: list[BiasIndicator] = []
 
     indicators.append(check_length_bias(texts))
     indicators.append(check_vocabulary_concentration(texts))
@@ -307,9 +307,9 @@ def audit_dataset(
     )
 
 
-def suggest_debiasing(report: BiasAuditReport) -> List[str]:
+def suggest_debiasing(report: BiasAuditReport) -> list[str]:
     """Suggestions to reduce detected biases."""
-    suggestions: List[str] = []
+    suggestions: list[str] = []
 
     for ind in report.indicators:
         if ind.severity in ("medium", "high"):

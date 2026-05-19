@@ -14,11 +14,11 @@ class OrphanSpan:
     """An orphan span with optional match information."""
 
     span: Span
-    matched_to: Optional[str] = None
+    matched_to: str | None = None
     match_confidence: float = 0.0
     match_method: str = ""
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "span": self.span.as_dict(),
             "matched_to": self.matched_to,
@@ -35,9 +35,9 @@ class RecoveryResult:
     recovered: int
     truly_lost: int
     recovery_rate: float
-    matches: List[OrphanSpan] = field(default_factory=list)
+    matches: list[OrphanSpan] = field(default_factory=list)
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "total_orphans": self.total_orphans,
             "recovered": self.recovered,
@@ -47,7 +47,7 @@ class RecoveryResult:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> RecoveryResult:
+    def from_dict(cls, data: dict[str, Any]) -> RecoveryResult:
         matches = []
         for m in data.get("matches", []):
             span = Span.from_dict(m["span"])
@@ -84,7 +84,7 @@ class RecoveryResult:
         return "\n".join(lines)
 
 
-def find_orphan_spans(spans: List[Span]) -> List[Span]:
+def find_orphan_spans(spans: list[Span]) -> list[Span]:
     """Find spans whose parent_id references a span not in the list."""
     known_ids = {s.id for s in spans}
     orphans = []
@@ -115,8 +115,8 @@ def _time_gap_ms(orphan: Span, candidate: Span) -> float:
 
 
 def match_by_timestamp(
-    orphan: Span, candidates: List[Span], max_gap_ms: float = 1000.0
-) -> Optional[Tuple[str, float]]:
+    orphan: Span, candidates: list[Span], max_gap_ms: float = 1000.0
+) -> tuple[str, float] | None:
     """Find the candidate span closest in time to the orphan.
 
     Returns (span_id, confidence) or None if the gap exceeds max_gap_ms.
@@ -125,7 +125,7 @@ def match_by_timestamp(
     if not candidates:
         return None
 
-    best_id: Optional[str] = None
+    best_id: str | None = None
     best_gap = float("inf")
 
     for c in candidates:
@@ -142,8 +142,8 @@ def match_by_timestamp(
 
 
 def match_by_name(
-    orphan: Span, candidates: List[Span]
-) -> Optional[Tuple[str, float]]:
+    orphan: Span, candidates: list[Span]
+) -> tuple[str, float] | None:
     """Find a candidate with matching span_type.
 
     If multiple match, pick the one closest in time.
@@ -154,7 +154,7 @@ def match_by_name(
         return None
 
     # Pick the closest in time among type matches
-    best_id: Optional[str] = None
+    best_id: str | None = None
     best_gap = float("inf")
 
     for c in type_matches:
@@ -170,15 +170,15 @@ def match_by_name(
 
 
 def recover_orphans(
-    orphans: List[Span],
-    active_spans: List[Span],
+    orphans: list[Span],
+    active_spans: list[Span],
     max_gap_ms: float = 1000.0,
 ) -> RecoveryResult:
     """Try to recover orphan spans by matching against active spans.
 
     Tries timestamp match first, then falls back to name match.
     """
-    matches: List[OrphanSpan] = []
+    matches: list[OrphanSpan] = []
     recovered = 0
 
     for orphan in orphans:
@@ -229,19 +229,19 @@ def recover_orphans(
 
 
 def reattach_orphans(
-    spans: List[Span], recovery: RecoveryResult
-) -> List[Span]:
+    spans: list[Span], recovery: RecoveryResult
+) -> list[Span]:
     """Return new list of spans with orphans' parent_id updated to their match.
 
     Does not mutate the originals.
     """
     # Build lookup: orphan span id -> matched parent id
-    remap: Dict[str, str] = {}
+    remap: dict[str, str] = {}
     for m in recovery.matches:
         if m.matched_to is not None:
             remap[m.span.id] = m.matched_to
 
-    result: List[Span] = []
+    result: list[Span] = []
     for s in spans:
         if s.id in remap:
             new_span = copy.deepcopy(s)

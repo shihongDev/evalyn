@@ -29,12 +29,12 @@ class Persona:
     persona_id: str
     name: str
     description: str
-    traits: List[str]
+    traits: list[str]
     language_style: str  # "formal" / "casual" / "technical" / "simple"
     expertise_level: str  # "novice" / "intermediate" / "expert" / "adversarial"
     custom_instructions: str = ""
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "persona_id": self.persona_id,
             "name": self.name,
@@ -46,7 +46,7 @@ class Persona:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> Persona:
+    def from_dict(cls, data: dict[str, Any]) -> Persona:
         return cls(
             persona_id=data["persona_id"],
             name=data["name"],
@@ -66,7 +66,7 @@ class PersonaTemplate:
     text_template: str  # Python format string: {persona_name}, {trait_list}, {style}, {topic}
     persona_id: str
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "template_id": self.template_id,
             "text_template": self.text_template,
@@ -74,7 +74,7 @@ class PersonaTemplate:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> PersonaTemplate:
+    def from_dict(cls, data: dict[str, Any]) -> PersonaTemplate:
         return cls(
             template_id=data["template_id"],
             text_template=data["text_template"],
@@ -89,10 +89,10 @@ class SimulatedInput:
     input_text: str
     persona_id: str
     persona_name: str
-    tags: List[str]
+    tags: list[str]
     generated_at: str
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "input_text": self.input_text,
             "persona_id": self.persona_id,
@@ -102,7 +102,7 @@ class SimulatedInput:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> SimulatedInput:
+    def from_dict(cls, data: dict[str, Any]) -> SimulatedInput:
         return cls(
             input_text=data["input_text"],
             persona_id=data["persona_id"],
@@ -116,7 +116,7 @@ class SimulatedInput:
 # Built-in Personas
 # ---------------------------------------------------------------------------
 
-BUILTIN_PERSONAS: Dict[str, Persona] = {
+BUILTIN_PERSONAS: dict[str, Persona] = {
     "novice": Persona(
         persona_id="novice",
         name="Novice User",

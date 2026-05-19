@@ -24,12 +24,12 @@ class BatchJobState:
     status: str = "pending"  # pending / running / completed / failed / paused
     total_items: int = 0
     completed_items: int = 0
-    results: List[Dict[str, Any]] = field(default_factory=list)
+    results: list[dict[str, Any]] = field(default_factory=list)
     created_at: str = ""
     updated_at: str = ""
     error: str = ""
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "job_id": self.job_id,
             "status": self.status,
@@ -42,7 +42,7 @@ class BatchJobState:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> BatchJobState:
+    def from_dict(cls, data: dict[str, Any]) -> BatchJobState:
         return cls(
             job_id=data["job_id"],
             status=data.get("status", "pending"),
@@ -63,7 +63,7 @@ class PersistenceConfig:
     save_interval: int = 10  # save every N items
     auto_resume: bool = True
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "save_dir": self.save_dir,
             "save_interval": self.save_interval,
@@ -71,7 +71,7 @@ class PersistenceConfig:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> PersistenceConfig:
+    def from_dict(cls, data: dict[str, Any]) -> PersistenceConfig:
         return cls(
             save_dir=data.get("save_dir", ".evalyn_batch"),
             save_interval=data.get("save_interval", 10),
@@ -93,7 +93,7 @@ class BatchJobManager:
 
     def __init__(self, config: PersistenceConfig) -> None:
         self.config = config
-        self._jobs: Dict[str, BatchJobState] = {}
+        self._jobs: dict[str, BatchJobState] = {}
 
     def create_job(self, job_id: str, total_items: int) -> BatchJobState:
         """Create a new batch job."""
@@ -112,7 +112,7 @@ class BatchJobManager:
         self,
         job_id: str,
         completed: int,
-        results: List[Dict[str, Any]] | None = None,
+        results: list[dict[str, Any]] | None = None,
     ) -> BatchJobState:
         """Update job progress."""
         job = self._jobs.get(job_id)
@@ -144,11 +144,11 @@ class BatchJobManager:
         job.updated_at = _now_iso()
         return job
 
-    def get_job(self, job_id: str) -> Optional[BatchJobState]:
+    def get_job(self, job_id: str) -> BatchJobState | None:
         """Retrieve a job by ID, or None if not found."""
         return self._jobs.get(job_id)
 
-    def list_jobs(self) -> List[BatchJobState]:
+    def list_jobs(self) -> list[BatchJobState]:
         """Return all tracked jobs."""
         return list(self._jobs.values())
 

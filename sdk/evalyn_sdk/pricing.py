@@ -9,7 +9,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional
 
-MODEL_PRICING: Dict[str, Dict[str, float]] = {
+MODEL_PRICING: dict[str, dict[str, float]] = {
     "gemini-2.5-flash": {
         "input_per_1k": 0.00015,
         "output_per_1k": 0.0006,
@@ -48,7 +48,7 @@ class ModelPrice:
     output_per_1k_tokens: float
     cached_per_1k_tokens: float = 0.0
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "model": self.model,
             "input_per_1k_tokens": self.input_per_1k_tokens,
@@ -57,7 +57,7 @@ class ModelPrice:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> ModelPrice:
+    def from_dict(cls, data: dict[str, Any]) -> ModelPrice:
         return cls(
             model=data["model"],
             input_per_1k_tokens=data["input_per_1k_tokens"],
@@ -76,7 +76,7 @@ class CostEstimate:
     cached_tokens: int = 0
     estimated_cost_usd: float = 0.0
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "model": self.model,
             "input_tokens": self.input_tokens,
@@ -101,9 +101,9 @@ class CostEstimate:
 class PricingTable:
     """Collection of model prices for cost estimation."""
 
-    prices: Dict[str, ModelPrice] = field(default_factory=dict)
+    prices: dict[str, ModelPrice] = field(default_factory=dict)
 
-    def get_price(self, model: str) -> Optional[ModelPrice]:
+    def get_price(self, model: str) -> ModelPrice | None:
         """Look up pricing for a model. Returns None if not found."""
         return self.prices.get(model)
 
@@ -111,17 +111,17 @@ class PricingTable:
         """Add or update pricing for a model."""
         self.prices[model] = price
 
-    def list_models(self) -> List[str]:
+    def list_models(self) -> list[str]:
         """Return sorted list of model names in the table."""
         return sorted(self.prices.keys())
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "prices": {k: v.as_dict() for k, v in self.prices.items()},
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> PricingTable:
+    def from_dict(cls, data: dict[str, Any]) -> PricingTable:
         prices = {
             k: ModelPrice.from_dict(v)
             for k, v in data.get("prices", {}).items()
@@ -150,7 +150,7 @@ def estimate_cost(
     input_tokens: int,
     output_tokens: int,
     cached_tokens: int = 0,
-    pricing: Optional[PricingTable] = None,
+    pricing: PricingTable | None = None,
 ) -> CostEstimate:
     """Compute cost from token counts.
 
@@ -179,7 +179,7 @@ def estimate_run_cost(
     num_items: int,
     avg_input_tokens: int = 500,
     avg_output_tokens: int = 200,
-    pricing: Optional[PricingTable] = None,
+    pricing: PricingTable | None = None,
 ) -> CostEstimate:
     """Estimate total cost for a full evaluation run."""
     total_input = num_items * avg_input_tokens
@@ -193,10 +193,10 @@ def estimate_run_cost(
 
 
 def compare_model_costs(
-    models: List[str],
+    models: list[str],
     input_tokens: int,
     output_tokens: int,
-) -> List[CostEstimate]:
+) -> list[CostEstimate]:
     """Compare costs across models, sorted cheapest first."""
     table = get_default_pricing()
     estimates = [

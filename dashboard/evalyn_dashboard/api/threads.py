@@ -87,7 +87,7 @@ def _resolve_threads_dir() -> Path:
         Path.cwd() / ".evalyn" / "threads",
         Path.home() / ".evalyn" / "threads",
     ]
-    last_err: Optional[Exception] = None
+    last_err: Exception | None = None
     for candidate in candidates:
         try:
             candidate.mkdir(parents=True, exist_ok=True)

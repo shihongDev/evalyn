@@ -27,7 +27,7 @@ class ConversationTurn:
     content: str
     turn_number: int
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "role": self.role,
             "content": self.content,
@@ -35,7 +35,7 @@ class ConversationTurn:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> ConversationTurn:
+    def from_dict(cls, data: dict[str, Any]) -> ConversationTurn:
         return cls(
             role=data["role"],
             content=data["content"],
@@ -51,7 +51,7 @@ class ConversationFlow:
     pattern: str  # "clarification" / "topic_shift" / "error_recovery" / "deepening"
     description: str
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "flow_id": self.flow_id,
             "pattern": self.pattern,
@@ -59,7 +59,7 @@ class ConversationFlow:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> ConversationFlow:
+    def from_dict(cls, data: dict[str, Any]) -> ConversationFlow:
         return cls(
             flow_id=data["flow_id"],
             pattern=data["pattern"],
@@ -77,7 +77,7 @@ class ConversationConfig:
     topic: str = ""
     seed_message: str = ""
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "min_turns": self.min_turns,
             "max_turns": self.max_turns,
@@ -87,7 +87,7 @@ class ConversationConfig:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> ConversationConfig:
+    def from_dict(cls, data: dict[str, Any]) -> ConversationConfig:
         return cls(
             min_turns=data.get("min_turns", 2),
             max_turns=data.get("max_turns", 6),
@@ -102,12 +102,12 @@ class SimulatedConversation:
     """A generated multi-turn conversation."""
 
     conversation_id: str
-    turns: List[ConversationTurn]
+    turns: list[ConversationTurn]
     flow_pattern: str
     topic: str
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    metadata: dict[str, Any] = field(default_factory=dict)
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "conversation_id": self.conversation_id,
             "turns": [t.as_dict() for t in self.turns],
@@ -117,7 +117,7 @@ class SimulatedConversation:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> SimulatedConversation:
+    def from_dict(cls, data: dict[str, Any]) -> SimulatedConversation:
         return cls(
             conversation_id=data["conversation_id"],
             turns=[ConversationTurn.from_dict(t) for t in data.get("turns", [])],
@@ -132,7 +132,7 @@ class SimulatedConversation:
 # ---------------------------------------------------------------------------
 
 
-FLOW_PATTERNS: Dict[str, ConversationFlow] = {
+FLOW_PATTERNS: dict[str, ConversationFlow] = {
     "clarification": ConversationFlow(
         flow_id="clarification",
         pattern="clarification",
@@ -280,7 +280,7 @@ def generate_conversation(
     if num_turns % 2 != 0:
         num_turns += 1
 
-    turns: List[ConversationTurn] = []
+    turns: list[ConversationTurn] = []
 
     # First user turn
     if config.seed_message:
@@ -320,20 +320,20 @@ def generate_conversation(
 
 
 def generate_batch(
-    configs: List[ConversationConfig],
-) -> List[SimulatedConversation]:
+    configs: list[ConversationConfig],
+) -> list[SimulatedConversation]:
     """Batch generate conversations from a list of configs."""
     return [generate_conversation(cfg) for cfg in configs]
 
 
-def conversation_to_dataset_items(conv: SimulatedConversation) -> List[Dict[str, Any]]:
+def conversation_to_dataset_items(conv: SimulatedConversation) -> list[dict[str, Any]]:
     """Convert a conversation to evalyn dataset items (one per turn pair).
 
     Each dataset item represents one user-assistant exchange, with the
     conversation history up to that point included as context.
     """
-    items: List[Dict[str, Any]] = []
-    history: List[Dict[str, str]] = []
+    items: list[dict[str, Any]] = []
+    history: list[dict[str, str]] = []
 
     for i in range(0, len(conv.turns) - 1, 2):
         user_turn = conv.turns[i]
@@ -374,8 +374,8 @@ def format_conversation(conv: SimulatedConversation) -> str:
 
 
 def get_conversation_stats(
-    conversations: List[SimulatedConversation],
-) -> Dict[str, Any]:
+    conversations: list[SimulatedConversation],
+) -> dict[str, Any]:
     """Compute statistics over a batch of conversations.
 
     Returns avg turns, turn distribution, and pattern distribution.

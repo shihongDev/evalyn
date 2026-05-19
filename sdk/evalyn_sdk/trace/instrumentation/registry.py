@@ -23,12 +23,12 @@ class InstrumentorRegistry:
         registry.instrument("openai")  # Instrument specific SDK
     """
 
-    _instance: Optional[InstrumentorRegistry] = None
+    _instance: InstrumentorRegistry | None = None
 
     def __init__(self):
-        self._instrumentors: Dict[str, Instrumentor] = {}
+        self._instrumentors: dict[str, Instrumentor] = {}
         self._auto_instrumented = False
-        self._instrument_result_cache: Dict[str, bool] = {}
+        self._instrument_result_cache: dict[str, bool] = {}
 
     @classmethod
     def get(cls) -> InstrumentorRegistry:
@@ -46,21 +46,21 @@ class InstrumentorRegistry:
         """Register an instrumentor."""
         self._instrumentors[instrumentor.name] = instrumentor
 
-    def get_instrumentor(self, name: str) -> Optional[Instrumentor]:
+    def get_instrumentor(self, name: str) -> Instrumentor | None:
         """Get an instrumentor by name."""
         return self._instrumentors.get(name)
 
-    def list_instrumentors(self) -> List[str]:
+    def list_instrumentors(self) -> list[str]:
         """List all registered instrumentor names."""
         return list(self._instrumentors.keys())
 
-    def list_available(self) -> List[str]:
+    def list_available(self) -> list[str]:
         """List instrumentors whose SDKs are available."""
         return [
             name for name, inst in self._instrumentors.items() if inst.is_available()
         ]
 
-    def list_instrumented(self) -> List[str]:
+    def list_instrumented(self) -> list[str]:
         """List currently instrumented SDKs."""
         return [
             name for name, inst in self._instrumentors.items() if inst.is_instrumented()
@@ -71,7 +71,7 @@ class InstrumentorRegistry:
         inst = self._instrumentors.get(name)
         return inst.is_instrumented() if inst else False
 
-    def instrument(self, *names: str) -> Dict[str, bool]:
+    def instrument(self, *names: str) -> dict[str, bool]:
         """
         Instrument specific SDKs by name.
 
@@ -90,7 +90,7 @@ class InstrumentorRegistry:
                 results[name] = False
         return results
 
-    def instrument_all(self) -> Dict[str, bool]:
+    def instrument_all(self) -> dict[str, bool]:
         """
         Instrument all available SDKs.
 
@@ -105,7 +105,7 @@ class InstrumentorRegistry:
                 results[name] = False
         return results
 
-    def uninstrument(self, *names: str) -> Dict[str, bool]:
+    def uninstrument(self, *names: str) -> dict[str, bool]:
         """Uninstrument specific SDKs."""
         results = {}
         for name in names:
@@ -116,14 +116,14 @@ class InstrumentorRegistry:
                 results[name] = False
         return results
 
-    def uninstrument_all(self) -> Dict[str, bool]:
+    def uninstrument_all(self) -> dict[str, bool]:
         """Uninstrument all SDKs."""
         results = {}
         for name, inst in self._instrumentors.items():
             results[name] = inst.uninstrument()
         return results
 
-    def ensure_instrumented(self) -> Dict[str, bool]:
+    def ensure_instrumented(self) -> dict[str, bool]:
         """
         Lazily instrument all SDKs on first trace.
 
@@ -141,13 +141,13 @@ class InstrumentorRegistry:
             "0",
             "no",
         ):
-            self._instrument_result_cache: Dict[str, bool] = {}
+            self._instrument_result_cache: dict[str, bool] = {}
             return self._instrument_result_cache
 
         self._instrument_result_cache = self.instrument_all()
         return self._instrument_result_cache
 
-    def get_hooks(self, name: str) -> Optional[Any]:
+    def get_hooks(self, name: str) -> Any | None:
         """
         Get hook adapter for a hook-based instrumentor.
 

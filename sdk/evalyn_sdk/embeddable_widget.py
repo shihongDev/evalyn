@@ -17,12 +17,12 @@ class WidgetConfig:
 
     width: str = "100%"
     height: str = "400px"
-    charts: List[str] = field(default_factory=lambda: ["bar"])
+    charts: list[str] = field(default_factory=lambda: ["bar"])
     theme: str = "light"
     show_header: bool = True
     show_footer: bool = True
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "width": self.width,
             "height": self.height,
@@ -33,7 +33,7 @@ class WidgetConfig:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> WidgetConfig:
+    def from_dict(cls, data: dict[str, Any]) -> WidgetConfig:
         return cls(
             width=data.get("width", "100%"),
             height=data.get("height", "400px"),
@@ -49,12 +49,12 @@ class WidgetData:
     """Data payload for widget rendering."""
 
     title: str
-    metrics: Dict[str, float]
-    labels: List[str] = field(default_factory=list)
-    series: List[Dict[str, Any]] = field(default_factory=list)
+    metrics: dict[str, float]
+    labels: list[str] = field(default_factory=list)
+    series: list[dict[str, Any]] = field(default_factory=list)
     summary_text: str = ""
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "title": self.title,
             "metrics": dict(self.metrics),
@@ -64,7 +64,7 @@ class WidgetData:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> WidgetData:
+    def from_dict(cls, data: dict[str, Any]) -> WidgetData:
         return cls(
             title=data["title"],
             metrics=data.get("metrics", {}),
@@ -78,7 +78,7 @@ DEFAULT_CONFIG = WidgetConfig()
 
 
 def generate_score_bar_svg(
-    metrics: Dict[str, float], width: int = 400, height: int = 200
+    metrics: dict[str, float], width: int = 400, height: int = 200
 ) -> str:
     """Generate an SVG bar chart for the given metrics.
 
@@ -98,7 +98,7 @@ def generate_score_bar_svg(
     chart_bottom = height - 30
     chart_height = chart_bottom - chart_top
 
-    bars: List[str] = []
+    bars: list[str] = []
     for i, (name, value) in enumerate(metrics.items()):
         bar_h = (abs(value) / max_val) * chart_height
         x = 10 + i * (bar_width + 4)
@@ -195,7 +195,7 @@ def _css_for_theme(theme: str) -> str:
 
 
 def generate_widget_html(
-    data: WidgetData, config: Optional[WidgetConfig] = None
+    data: WidgetData, config: WidgetConfig | None = None
 ) -> str:
     """Generate a minimal self-contained HTML widget.
 
@@ -204,7 +204,7 @@ def generate_widget_html(
     """
     cfg = config or DEFAULT_CONFIG
 
-    parts: List[str] = []
+    parts: list[str] = []
     parts.append("<!DOCTYPE html>")
     parts.append('<html lang="en">')
     parts.append("<head>")

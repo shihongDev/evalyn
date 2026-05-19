@@ -24,7 +24,7 @@ class TableStats:
     row_count: int = 0
     estimated_size_bytes: int = 0
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "table_name": self.table_name,
             "row_count": self.row_count,
@@ -39,9 +39,9 @@ class StorageSnapshot:
     timestamp: str
     total_size_bytes: int = 0
     total_rows: int = 0
-    tables: List[TableStats] = field(default_factory=list)
+    tables: list[TableStats] = field(default_factory=list)
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "timestamp": self.timestamp,
             "total_size_bytes": self.total_size_bytes,
@@ -50,7 +50,7 @@ class StorageSnapshot:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> StorageSnapshot:
+    def from_dict(cls, data: dict[str, Any]) -> StorageSnapshot:
         tables = [
             TableStats(
                 table_name=t["table_name"],
@@ -76,7 +76,7 @@ class GrowthRate:
     row_growth: int = 0
     growth_pct: float = 0.0
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "period": self.period,
             "size_growth_bytes": self.size_growth_bytes,
@@ -90,12 +90,12 @@ class StorageReport:
     """Full storage report with history, growth, and recommendations."""
 
     current: StorageSnapshot
-    history: List[StorageSnapshot] = field(default_factory=list)
-    growth: Optional[GrowthRate] = None
+    history: list[StorageSnapshot] = field(default_factory=list)
+    growth: GrowthRate | None = None
     largest_table: str = ""
-    recommendations: List[str] = field(default_factory=list)
+    recommendations: list[str] = field(default_factory=list)
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "current": self.current.as_dict(),
             "history": [s.as_dict() for s in self.history],
@@ -105,7 +105,7 @@ class StorageReport:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> StorageReport:
+    def from_dict(cls, data: dict[str, Any]) -> StorageReport:
         current = StorageSnapshot.from_dict(data["current"])
         history = [StorageSnapshot.from_dict(s) for s in data.get("history", [])]
         growth = None
@@ -126,7 +126,7 @@ class StorageReport:
         )
 
     def format_text(self) -> str:
-        lines: List[str] = []
+        lines: list[str] = []
         lines.append("Storage Report")
         lines.append("=" * 40)
         lines.append(f"Total size: {format_size(self.current.total_size_bytes)}")
@@ -153,13 +153,13 @@ class StorageReport:
 
 
 def create_snapshot(
-    tables: List[Dict[str, Any]], total_size_bytes: int = 0
+    tables: list[dict[str, Any]], total_size_bytes: int = 0
 ) -> StorageSnapshot:
     """Create a snapshot from table info dicts.
 
     Each dict should have "name", "row_count", "size_bytes".
     """
-    table_stats: List[TableStats] = []
+    table_stats: list[TableStats] = []
     total_rows = 0
     computed_size = 0
     for t in tables:
@@ -185,8 +185,8 @@ def create_snapshot(
 
 
 def compute_growth_rate(
-    snapshots: List[StorageSnapshot],
-) -> Optional[GrowthRate]:
+    snapshots: list[StorageSnapshot],
+) -> GrowthRate | None:
     """Compare latest to earliest snapshot and compute growth."""
     if len(snapshots) < 2:
         return None
@@ -211,7 +211,7 @@ def compute_growth_rate(
 
 
 def build_storage_report(
-    snapshots: List[StorageSnapshot],
+    snapshots: list[StorageSnapshot],
 ) -> StorageReport:
     """Build full report with growth analysis and recommendations."""
     if not snapshots:
@@ -254,9 +254,9 @@ def format_size(bytes_val: int) -> str:
     return f"{bytes_val / (1024 * 1024 * 1024):.1f} GB"
 
 
-def suggest_recommendations(report: StorageReport) -> List[str]:
+def suggest_recommendations(report: StorageReport) -> list[str]:
     """Generate storage recommendations based on report data."""
-    recs: List[str] = []
+    recs: list[str] = []
     size_mb = report.current.total_size_bytes / (1024 * 1024)
 
     if size_mb > 500:
@@ -306,7 +306,7 @@ def render_storage_chart(report: StorageReport, width: int = 60) -> str:
     if bar_width < 10:
         bar_width = 10
 
-    lines: List[str] = []
+    lines: list[str] = []
     for t in sorted(tables, key=lambda x: x.estimated_size_bytes, reverse=True):
         bar_len = int((t.estimated_size_bytes / max_size) * bar_width)
         bar_len = max(bar_len, 0)

@@ -59,8 +59,8 @@ class VerbalizedConfidence(ConfidenceEstimator):
 
     def estimate(
         self,
-        response: Optional[str] = None,
-        parsed_response: Optional[dict] = None,
+        response: str | None = None,
+        parsed_response: dict | None = None,
         **kwargs,
     ) -> ConfidenceResult:
         """Extract verbalized confidence from response.

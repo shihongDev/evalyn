@@ -15,12 +15,12 @@ from typing import Any, Dict, List, Optional
 class OpenAIEvalSample:
     """A single evaluation sample in OpenAI Evals format."""
 
-    input_messages: List[Dict[str, str]]
+    input_messages: list[dict[str, str]]
     ideal: str = ""
     output: str = ""
-    metrics: Dict[str, float] = field(default_factory=dict)
+    metrics: dict[str, float] = field(default_factory=dict)
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "input": [dict(m) for m in self.input_messages],
             "ideal": self.ideal,
@@ -29,7 +29,7 @@ class OpenAIEvalSample:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> OpenAIEvalSample:
+    def from_dict(cls, data: dict[str, Any]) -> OpenAIEvalSample:
         return cls(
             input_messages=data.get("input", []),
             ideal=data.get("ideal", ""),
@@ -43,10 +43,10 @@ class OpenAIEvalSet:
     """A collection of evaluation samples."""
 
     eval_name: str
-    samples: List[OpenAIEvalSample]
+    samples: list[OpenAIEvalSample]
     created_at: str = ""
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "eval_name": self.eval_name,
             "samples": [s.as_dict() for s in self.samples],
@@ -54,7 +54,7 @@ class OpenAIEvalSet:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> OpenAIEvalSet:
+    def from_dict(cls, data: dict[str, Any]) -> OpenAIEvalSet:
         return cls(
             eval_name=data.get("eval_name", ""),
             samples=[OpenAIEvalSample.from_dict(s) for s in data.get("samples", [])],
@@ -63,14 +63,14 @@ class OpenAIEvalSet:
 
 
 def convert_evalyn_to_openai(
-    items: List[Dict[str, Any]],
-    results: Optional[List[Dict[str, Any]]] = None,
+    items: list[dict[str, Any]],
+    results: list[dict[str, Any]] | None = None,
     input_field: str = "input",
     output_field: str = "output",
     expected_field: str = "expected_output",
 ) -> OpenAIEvalSet:
     """Convert evalyn dataset items to OpenAI Evals format."""
-    results_by_id: Dict[str, Dict[str, float]] = {}
+    results_by_id: dict[str, dict[str, float]] = {}
     if results:
         for r in results:
             item_id = r.get("item_id", "")
@@ -80,7 +80,7 @@ def convert_evalyn_to_openai(
                 results_by_id[item_id] = {}
             results_by_id[item_id][metric_id] = score
 
-    samples: List[OpenAIEvalSample] = []
+    samples: list[OpenAIEvalSample] = []
     for item in items:
         input_text = str(item.get(input_field, ""))
         output_text = str(item.get(output_field, ""))
@@ -105,7 +105,7 @@ def convert_evalyn_to_openai(
 
 def export_as_jsonl(eval_set: OpenAIEvalSet) -> str:
     """Export as JSONL - one JSON object per line."""
-    lines: List[str] = []
+    lines: list[str] = []
     for sample in eval_set.samples:
         lines.append(json.dumps(sample.as_dict(), separators=(",", ":")))
     return "\n".join(lines)
@@ -118,7 +118,7 @@ def export_as_json(eval_set: OpenAIEvalSet) -> str:
 
 def import_from_openai_jsonl(content: str) -> OpenAIEvalSet:
     """Parse OpenAI JSONL back into an OpenAIEvalSet."""
-    samples: List[OpenAIEvalSample] = []
+    samples: list[OpenAIEvalSample] = []
     for line in content.strip().split("\n"):
         line = line.strip()
         if not line:
@@ -134,7 +134,7 @@ def import_from_openai_jsonl(content: str) -> OpenAIEvalSet:
 
 def format_export_summary(eval_set: OpenAIEvalSet) -> str:
     """Human-readable summary of the export."""
-    lines: List[str] = []
+    lines: list[str] = []
     lines.append(f"OpenAI Evals Export: {eval_set.eval_name}")
     lines.append(f"Samples: {len(eval_set.samples)}")
     lines.append(f"Created: {eval_set.created_at}")

@@ -18,10 +18,10 @@ class TracePattern:
 
     name: str
     description: str
-    sequence: List[str]  # ordered span types to match
+    sequence: list[str]  # ordered span types to match
     allow_gaps: bool = True  # if True, extra spans between pattern elements are ok
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "name": self.name,
             "description": self.description,
@@ -30,7 +30,7 @@ class TracePattern:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> TracePattern:
+    def from_dict(cls, data: dict[str, Any]) -> TracePattern:
         return cls(
             name=data["name"],
             description=data.get("description", ""),
@@ -45,10 +45,10 @@ class MatchResult:
 
     pattern_name: str
     matched: bool
-    matched_span_ids: List[str] = field(default_factory=list)
+    matched_span_ids: list[str] = field(default_factory=list)
     coverage: float = 0.0  # fraction of trace spans involved in the match
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "pattern_name": self.pattern_name,
             "matched": self.matched,
@@ -64,14 +64,14 @@ class ClassificationReport:
     trace_count: int = 0
     classified: int = 0
     unclassified: int = 0
-    pattern_counts: Dict[str, int] = field(default_factory=dict)
-    results: List[Dict[str, Any]] = field(default_factory=list)  # per-trace results
+    pattern_counts: dict[str, int] = field(default_factory=dict)
+    results: list[dict[str, Any]] = field(default_factory=list)  # per-trace results
 
     @property
     def coverage_rate(self) -> float:
         return self.classified / self.trace_count if self.trace_count > 0 else 0.0
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "trace_count": self.trace_count,
             "classified": self.classified,
@@ -81,7 +81,7 @@ class ClassificationReport:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> ClassificationReport:
+    def from_dict(cls, data: dict[str, Any]) -> ClassificationReport:
         return cls(
             trace_count=data.get("trace_count", 0),
             classified=data.get("classified", 0),
@@ -135,7 +135,7 @@ AGENT_LOOP = TracePattern(
     sequence=["llm_call", "tool_call", "llm_call"],
 )
 
-BUILTIN_PATTERNS: Dict[str, TracePattern] = {
+BUILTIN_PATTERNS: dict[str, TracePattern] = {
     "rag": RAG_PATTERN,
     "retry_loop": RETRY_LOOP,
     "tool_use": TOOL_USE,
@@ -145,7 +145,7 @@ BUILTIN_PATTERNS: Dict[str, TracePattern] = {
 
 
 def match_trace(
-    spans: List[Span],
+    spans: list[Span],
     pattern: TracePattern,
 ) -> MatchResult:
     """Check if a trace matches a pattern.
@@ -179,9 +179,9 @@ def match_trace(
 
 
 def classify_traces(
-    traces: List[List[Span]],
-    patterns: Optional[List[TracePattern]] = None,
-    custom_patterns: Optional[List[Dict[str, Any]]] = None,
+    traces: list[list[Span]],
+    patterns: list[TracePattern] | None = None,
+    custom_patterns: list[dict[str, Any]] | None = None,
 ) -> ClassificationReport:
     """Classify multiple traces against known patterns.
 
@@ -202,7 +202,7 @@ def classify_traces(
             all_patterns.append(TracePattern.from_dict(cp))
 
     report = ClassificationReport(trace_count=len(traces))
-    pattern_counts: Dict[str, int] = {}
+    pattern_counts: dict[str, int] = {}
 
     for trace_spans in traces:
         matched_any = False
@@ -228,9 +228,9 @@ def classify_traces(
 
 
 def _subsequence_match(
-    types: List[str],
-    pattern: List[str],
-) -> Optional[List[int]]:
+    types: list[str],
+    pattern: list[str],
+) -> list[int] | None:
     """Find pattern as a subsequence in types (gaps allowed)."""
     indices = []
     j = 0
@@ -242,9 +242,9 @@ def _subsequence_match(
 
 
 def _contiguous_match(
-    types: List[str],
-    pattern: List[str],
-) -> Optional[List[int]]:
+    types: list[str],
+    pattern: list[str],
+) -> list[int] | None:
     """Find pattern as a contiguous substring in types."""
     plen = len(pattern)
     for i in range(len(types) - plen + 1):

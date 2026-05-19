@@ -23,16 +23,16 @@ if TYPE_CHECKING:
 class LoadedRun:
     """Result of loading an eval run, with metadata about the source."""
     run: EvalRun
-    run_file_path: Optional[Path] = None
+    run_file_path: Path | None = None
 
 
 def load_eval_run_for_command(
     *,
-    run_id: Optional[str] = None,
-    dataset_path: Optional[Path] = None,
-    metric_id: Optional[str] = None,
+    run_id: str | None = None,
+    dataset_path: Path | None = None,
+    metric_id: str | None = None,
     fallback_to_storage: bool = False,
-    storage: Optional[StorageBackend] = None,
+    storage: StorageBackend | None = None,
     error_message: str = "No eval runs found",
     error_hint: str = "Run 'evalyn run-eval' first",
 ) -> LoadedRun:
@@ -101,7 +101,7 @@ def load_eval_run_for_command(
     return LoadedRun(run=run, run_file_path=run_file_path)
 
 
-def _normalize_dataset_path(path: Path) -> Optional[tuple[Path, Path]]:
+def _normalize_dataset_path(path: Path) -> tuple[Path, Path] | None:
     """Normalize a path to (dataset_dir, dataset_file).
 
     Handles both directory paths (looks for dataset.jsonl/dataset.json inside)
@@ -122,10 +122,10 @@ def _normalize_dataset_path(path: Path) -> Optional[tuple[Path, Path]]:
 
 
 def resolve_dataset_dir_and_file(
-    dataset_arg: Optional[str],
+    dataset_arg: str | None,
     use_latest: bool,
     *,
-    config: Optional[dict] = None,
+    config: dict | None = None,
 ) -> tuple[Path, Path]:
     """Resolve dataset input into (dataset_dir, dataset_file)."""
     cfg = config if config is not None else load_config()
@@ -141,11 +141,11 @@ def resolve_dataset_dir_and_file(
 
 
 def try_resolve_dataset_dir_and_file(
-    dataset_arg: Optional[str],
+    dataset_arg: str | None,
     use_latest: bool,
     *,
-    config: Optional[dict] = None,
-) -> Optional[tuple[Path, Path]]:
+    config: dict | None = None,
+) -> tuple[Path, Path] | None:
     """Resolve dataset input into (dataset_dir, dataset_file) without failing."""
     cfg = config if config is not None else load_config()
     resolved_path = resolve_dataset_path(dataset_arg, use_latest, cfg)
@@ -182,7 +182,7 @@ def resolve_call_id(
     return input_id
 
 
-def try_resolve_call_id(storage: Any, input_id: str) -> Optional[str]:
+def try_resolve_call_id(storage: Any, input_id: str) -> str | None:
     """Resolve a call ID and return None when prefix resolution fails."""
     if hasattr(storage, "resolve_call_id"):
         return storage.resolve_call_id(input_id)
@@ -192,7 +192,7 @@ def try_resolve_call_id(storage: Any, input_id: str) -> Optional[str]:
 def resolve_call_id_or_last(
     storage: Any,
     *,
-    input_id: Optional[str],
+    input_id: str | None,
     use_last: bool,
 ) -> str:
     """Resolve call ID from --id/--last semantics used by trace commands."""

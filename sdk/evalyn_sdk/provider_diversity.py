@@ -25,7 +25,7 @@ class ProviderConfig:
     weight: float = 1.0
     enabled: bool = True
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "provider_id": self.provider_id,
             "name": self.name,
@@ -35,7 +35,7 @@ class ProviderConfig:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> ProviderConfig:
+    def from_dict(cls, data: dict[str, Any]) -> ProviderConfig:
         return cls(
             provider_id=data["provider_id"],
             name=data.get("name", data["provider_id"]),
@@ -49,12 +49,12 @@ class ProviderConfig:
 class ProviderResult:
     """Result from a single provider's simulation run."""
 
-    items: List[Dict[str, Any]]
+    items: list[dict[str, Any]]
     provider_id: str
     item_count: int
     quality_score: float = 0.0
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "items": list(self.items),
             "provider_id": self.provider_id,
@@ -63,7 +63,7 @@ class ProviderResult:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> ProviderResult:
+    def from_dict(cls, data: dict[str, Any]) -> ProviderResult:
         return cls(
             items=data.get("items", []),
             provider_id=data["provider_id"],
@@ -76,12 +76,12 @@ class ProviderResult:
 class DiversityResult:
     """Merged result from multiple providers."""
 
-    all_items: List[Dict[str, Any]]
-    per_provider: List[ProviderResult]
+    all_items: list[dict[str, Any]]
+    per_provider: list[ProviderResult]
     total_items: int
     providers_used: int
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "all_items": list(self.all_items),
             "per_provider": [r.as_dict() for r in self.per_provider],
@@ -90,7 +90,7 @@ class DiversityResult:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> DiversityResult:
+    def from_dict(cls, data: dict[str, Any]) -> DiversityResult:
         return cls(
             all_items=data.get("all_items", []),
             per_provider=[
@@ -109,7 +109,7 @@ class DiversityResult:
 class ProviderPool:
     """Weighted round-robin pool of LLM providers."""
 
-    def __init__(self, providers: List[ProviderConfig]) -> None:
+    def __init__(self, providers: list[ProviderConfig]) -> None:
         self._providers = list(providers)
         self._index = 0
 
@@ -125,7 +125,7 @@ class ProviderPool:
             raise ValueError("No enabled providers in pool")
 
         # Build weighted list
-        weighted: List[ProviderConfig] = []
+        weighted: list[ProviderConfig] = []
         for p in enabled:
             count = max(1, round(p.weight))
             weighted.extend([p] * count)
@@ -134,18 +134,18 @@ class ProviderPool:
         self._index += 1
         return weighted[idx]
 
-    def get_provider(self, provider_id: str) -> Optional[ProviderConfig]:
+    def get_provider(self, provider_id: str) -> ProviderConfig | None:
         """Look up a provider by ID. Returns None if not found."""
         for p in self._providers:
             if p.provider_id == provider_id:
                 return p
         return None
 
-    def list_enabled(self) -> List[ProviderConfig]:
+    def list_enabled(self) -> list[ProviderConfig]:
         """Return all enabled providers."""
         return [p for p in self._providers if p.enabled]
 
-    def allocate_items(self, total: int) -> Dict[str, int]:
+    def allocate_items(self, total: int) -> dict[str, int]:
         """Allocate items to enabled providers proportional to weight.
 
         Returns a dict mapping provider_id to number of items.
@@ -166,7 +166,7 @@ class ProviderPool:
             return allocation
 
         # Proportional allocation with floor
-        allocation: Dict[str, int] = {}
+        allocation: dict[str, int] = {}
         assigned = 0
         for p in enabled:
             share = (p.weight / total_weight) * total
@@ -194,12 +194,12 @@ class ProviderPool:
 # ---------------------------------------------------------------------------
 
 
-def merge_provider_results(results: List[ProviderResult]) -> DiversityResult:
+def merge_provider_results(results: list[ProviderResult]) -> DiversityResult:
     """Merge results from multiple providers into a single DiversityResult.
 
     Each item gets a '_provider_id' metadata tag indicating its source.
     """
-    all_items: List[Dict[str, Any]] = []
+    all_items: list[dict[str, Any]] = []
     for r in results:
         for item in r.items:
             tagged = dict(item)
@@ -217,14 +217,14 @@ def merge_provider_results(results: List[ProviderResult]) -> DiversityResult:
     )
 
 
-def compare_provider_quality(results: List[ProviderResult]) -> Dict[str, float]:
+def compare_provider_quality(results: list[ProviderResult]) -> dict[str, float]:
     """Build a provider_id to quality_score mapping from results."""
     return {r.provider_id: r.quality_score for r in results}
 
 
 def format_provider_report(result: DiversityResult) -> str:
     """Format a human-readable per-provider breakdown report."""
-    lines: List[str] = []
+    lines: list[str] = []
     lines.append("Provider Diversity Report")
     lines.append("=" * 40)
     lines.append(f"Total items: {result.total_items}")

@@ -2,7 +2,8 @@ from __future__ import annotations
 
 import inspect
 import json
-from typing import Any, Callable, Iterable, List, Optional
+from typing import Any, List, Optional
+from collections.abc import Callable, Iterable
 
 from ..models import FunctionCall, MetricRegistry, MetricSpec
 from ..parsing import extract_json_list
@@ -16,9 +17,9 @@ class MetricSuggester:
     def suggest(
         self,
         target_fn: Callable,
-        traces: Optional[Iterable[FunctionCall]] = None,
-        desired_count: Optional[int] = None,
-    ) -> List[Suggestion]:
+        traces: Iterable[FunctionCall] | None = None,
+        desired_count: int | None = None,
+    ) -> list[Suggestion]:
         raise NotImplementedError
 
 
@@ -41,10 +42,10 @@ class HeuristicSuggester(MetricSuggester):
     def suggest(
         self,
         target_fn: Callable,
-        traces: Optional[Iterable[FunctionCall]] = None,
-        desired_count: Optional[int] = None,
-    ) -> List[Suggestion]:
-        suggestions: List[MetricSpec] = []
+        traces: Iterable[FunctionCall] | None = None,
+        desired_count: int | None = None,
+    ) -> list[Suggestion]:
+        suggestions: list[MetricSpec] = []
         name = getattr(target_fn, "__name__", "agent")
 
         suggestions.append(
@@ -129,20 +130,20 @@ class LLMSuggester(MetricSuggester):
     The callable receives a prompt string and returns structured MetricSpec-like dicts.
     """
 
-    def __init__(self, caller: Callable[[str], List[dict]]):
+    def __init__(self, caller: Callable[[str], list[dict]]):
         self.caller = caller
 
     @staticmethod
-    def _parse_json_array(text: str) -> List[dict]:
+    def _parse_json_array(text: str) -> list[dict]:
         return extract_json_list(text)
 
     def suggest(
         self,
         target_fn: Callable,
-        traces: Optional[Iterable[FunctionCall]] = None,
-        desired_count: Optional[int] = None,
-        scope: Optional[str] = None,
-    ) -> List[Suggestion]:
+        traces: Iterable[FunctionCall] | None = None,
+        desired_count: int | None = None,
+        scope: str | None = None,
+    ) -> list[Suggestion]:
         signature = inspect.signature(target_fn)
         prompt = render_suggestion_prompt(
             target_fn.__name__,
@@ -165,7 +166,7 @@ class LLMSuggester(MetricSuggester):
             print("LLM returned no metrics. Raw response:", preview)
             return []
 
-        specs: List[MetricSpec] = []
+        specs: list[MetricSpec] = []
         for item in raw:
             try:
                 name = item.get("name") or item.get("id")
@@ -190,8 +191,8 @@ def render_selection_prompt_with_templates(
     target_fn: Callable,
     traces: Iterable[FunctionCall],
     templates: Iterable[dict],
-    code_meta: Optional[dict] = None,
-    desired_count: Optional[int] = None,
+    code_meta: dict | None = None,
+    desired_count: int | None = None,
     has_reference: bool = False,
 ) -> str:
     """
@@ -292,10 +293,10 @@ class TemplateSelector:
     def select(
         self,
         target_fn: Callable,
-        traces: Optional[Iterable[FunctionCall]] = None,
-        code_meta: Optional[dict] = None,
-        desired_count: Optional[int] = None,
-    ) -> List[MetricSpec]:
+        traces: Iterable[FunctionCall] | None = None,
+        code_meta: dict | None = None,
+        desired_count: int | None = None,
+    ) -> list[MetricSpec]:
         prompt = render_selection_prompt_with_templates(
             target_fn,
             traces or [],
@@ -310,7 +311,7 @@ class TemplateSelector:
             parsed = extract_json_list(raw)
         else:
             parsed = raw
-        specs: List[MetricSpec] = []
+        specs: list[MetricSpec] = []
         for entry in parsed or []:
             tpl_id = entry.get("id") if isinstance(entry, dict) else None
             if tpl_id and tpl_id in self._tpl_by_id:
@@ -338,22 +339,22 @@ class LLMRegistrySelector:
     The callable should accept a prompt string and return either a list of metric ids or objects with an `id` field.
     """
 
-    def __init__(self, caller: Callable[[str], List[dict] | List[str]]):
+    def __init__(self, caller: Callable[[str], list[dict] | list[str]]):
         self.caller = caller
 
     def select(
         self,
         target_fn: Callable,
         registry: MetricRegistry,
-        traces: Optional[Iterable[FunctionCall]] = None,
-        code_meta: Optional[dict] = None,
-    ) -> List[MetricSpec]:
+        traces: Iterable[FunctionCall] | None = None,
+        code_meta: dict | None = None,
+    ) -> list[MetricSpec]:
         specs = registry.list()
         if not specs:
             return []
         prompt = render_selection_prompt(target_fn, specs, traces or [], code_meta)
         raw = self.caller(prompt)
-        ids: List[str] = []
+        ids: list[str] = []
         if all(isinstance(item, str) for item in raw):
             ids = [str(item) for item in raw]  # type: ignore[list-item]
         else:
@@ -385,8 +386,8 @@ def render_suggestion_prompt(
     fn_name: str,
     signature,
     traces: Iterable[FunctionCall],
-    desired_count: Optional[int] = None,
-    scope: Optional[str] = None,
+    desired_count: int | None = None,
+    scope: str | None = None,
 ) -> str:
     sig_str = f"{fn_name}{signature}"
     example_lines = []
@@ -444,7 +445,7 @@ def render_selection_prompt(
     target_fn: Callable,
     metrics: Iterable[MetricSpec | object],
     traces: Iterable[FunctionCall],
-    code_meta: Optional[dict] = None,
+    code_meta: dict | None = None,
 ) -> str:
     name = getattr(target_fn, "__name__", "function")
     sig = None

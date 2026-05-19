@@ -25,7 +25,7 @@ DEFAULT_CONFIG_PATHS = [".evalynrc", "evalyn.yaml", "evalyn.yml", ".evalyn.yaml"
 #
 # =============================================================================
 
-BUNDLES: Dict[str, List[str]] = {
+BUNDLES: dict[str, list[str]] = {
     # -------------------------------------------------------------------------
     # CONVERSATIONAL AI
     # -------------------------------------------------------------------------
@@ -311,7 +311,7 @@ BUNDLES: Dict[str, List[str]] = {
 }
 
 # Bundle descriptions for CLI help
-BUNDLE_DESCRIPTIONS: Dict[str, str] = {
+BUNDLE_DESCRIPTIONS: dict[str, str] = {
     "chatbot": "Conversational AI - safety, helpfulness, multi-turn memory",
     "customer-support": "Support tickets - empathy, patience, escalation handling",
     "content-writer": "Marketing/blogs - style, engagement, readability",

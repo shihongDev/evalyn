@@ -106,7 +106,7 @@ def _render_failed_items(analysis: RunAnalysis, item_details: dict) -> str:
 
 
 def generate_html_report(
-    analysis: RunAnalysis, verbose: bool = False, item_details: Optional[dict] = None
+    analysis: RunAnalysis, verbose: bool = False, item_details: dict | None = None
 ) -> str:
     """Generate a warm-themed evaluation dashboard.
 
@@ -257,14 +257,14 @@ def generate_html_report(
 
 def _generate_html_content(
     analysis: RunAnalysis,
-    metrics_by_pass_rate: List,
+    metrics_by_pass_rate: list,
     metric_labels: str,
     pass_rates: str,
     pass_rate_colors: str,
-    score_dist_data: List[Dict],
+    score_dist_data: list[dict],
     passed_counts: str,
     failed_counts: str,
-    correlation_data: Optional[Dict],
+    correlation_data: dict | None,
     all_passed_count: int,
     item_details: dict,
 ) -> str:
@@ -831,7 +831,7 @@ def _render_header(analysis: RunAnalysis) -> str:
 
 
 def _render_kpi_bar(
-    analysis: RunAnalysis, metrics_by_pass_rate: List, all_passed_count: int
+    analysis: RunAnalysis, metrics_by_pass_rate: list, all_passed_count: int
 ) -> str:
     """Render the KPI bar section."""
     pass_class = (
@@ -906,7 +906,7 @@ def _render_charts_section(
     metric_labels: str,
     pass_rates: str,
     pass_rate_colors: str,
-    score_dist_data: List[Dict],
+    score_dist_data: list[dict],
 ) -> str:
     """Render the charts grid section."""
     return """<!-- Charts Grid -->
@@ -926,7 +926,7 @@ def _render_charts_section(
         </div>"""
 
 
-def _render_metrics_table(analysis: RunAnalysis, metrics_by_pass_rate: List) -> str:
+def _render_metrics_table(analysis: RunAnalysis, metrics_by_pass_rate: list) -> str:
     """Render the metrics details table."""
     # Calculate averages
     pass_rate_metrics = [m for m in metrics_by_pass_rate if m.pass_rate is not None]
@@ -1074,10 +1074,10 @@ def _get_javascript(
     metric_labels: str,
     pass_rates: str,
     pass_rate_colors: str,
-    score_dist_data: List[Dict],
+    score_dist_data: list[dict],
     passed_counts: str,
     failed_counts: str,
-    correlation_data: Optional[Dict],
+    correlation_data: dict | None,
 ) -> str:
     """Return the JavaScript for the HTML report."""
     correlation_js = ""
@@ -1315,11 +1315,11 @@ def _render_cluster_scatter(clustering_result: Any, metric_id: str) -> str:
     fp_colors = ["#ef4444", "#f87171", "#fca5a5", "#fecaca", "#fee2e2"]
     fn_colors = ["#3b82f6", "#60a5fa", "#93c5fd", "#bfdbfe", "#dbeafe"]
 
-    color_map: Dict[str, str] = {}
+    color_map: dict[str, str] = {}
     fp_idx, fn_idx = 0, 0
     for label in unique_labels:
-        for i, l in enumerate(case_labels):
-            if l == label:
+        for i, case_label in enumerate(case_labels):
+            if case_label == label:
                 if case_types[i] == "false_positive":
                     color_map[label] = fp_colors[fp_idx % len(fp_colors)]
                     fp_idx += 1
@@ -1328,7 +1328,7 @@ def _render_cluster_scatter(clustering_result: Any, metric_id: str) -> str:
                     fn_idx += 1
                 break
 
-    colors = [color_map.get(l, "#888888") for l in case_labels]
+    colors = [color_map.get(cl, "#888888") for cl in case_labels]
 
     # Build hover text
     hover_texts = []

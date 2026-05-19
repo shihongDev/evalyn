@@ -17,12 +17,12 @@ class DeprecationEntry:
     """A deprecated metric with migration information."""
 
     metric_id: str
-    replacement: Optional[str] = None   # replacement metric ID
+    replacement: str | None = None   # replacement metric ID
     deprecated_since: str = ""          # version string
-    sunset_date: Optional[str] = None   # date when metric will be removed
+    sunset_date: str | None = None   # date when metric will be removed
     reason: str = ""
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "metric_id": self.metric_id,
             "replacement": self.replacement,
@@ -54,15 +54,15 @@ class DeprecationRegistry:
     """
 
     def __init__(self):
-        self._entries: Dict[str, DeprecationEntry] = {}
+        self._entries: dict[str, DeprecationEntry] = {}
         self._warned: set = set()  # track which warnings have been issued
 
     def deprecate(
         self,
         metric_id: str,
-        replacement: Optional[str] = None,
+        replacement: str | None = None,
         since: str = "",
-        sunset_date: Optional[str] = None,
+        sunset_date: str | None = None,
         reason: str = "",
     ) -> None:
         """Register a metric as deprecated.
@@ -86,11 +86,11 @@ class DeprecationRegistry:
         """Check if a metric is deprecated."""
         return metric_id in self._entries
 
-    def get_entry(self, metric_id: str) -> Optional[DeprecationEntry]:
+    def get_entry(self, metric_id: str) -> DeprecationEntry | None:
         """Get deprecation info for a metric."""
         return self._entries.get(metric_id)
 
-    def check_metrics(self, metric_ids: List[str]) -> List[str]:
+    def check_metrics(self, metric_ids: list[str]) -> list[str]:
         """Check a list of metric IDs for deprecations.
 
         Returns list of warning messages for any deprecated metrics found.
@@ -105,7 +105,7 @@ class DeprecationRegistry:
                 logger.warning(entry.format_warning())
         return warnings
 
-    def list_deprecated(self) -> List[DeprecationEntry]:
+    def list_deprecated(self) -> list[DeprecationEntry]:
         """List all deprecated metrics."""
         return sorted(self._entries.values(), key=lambda e: e.metric_id)
 

@@ -19,11 +19,11 @@ class ABPair:
     """A matched pair of items from the two groups."""
 
     pair_id: str
-    item_a: Dict[str, Any] = field(default_factory=dict)
-    item_b: Dict[str, Any] = field(default_factory=dict)
+    item_a: dict[str, Any] = field(default_factory=dict)
+    item_b: dict[str, Any] = field(default_factory=dict)
     similarity: float = 0.0
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "pair_id": self.pair_id,
             "item_a": self.item_a,
@@ -39,9 +39,9 @@ class ABSplitConfig:
     split_ratio: float = 0.5
     stratify_by: str = ""
     match_by_length: bool = True
-    seed: Optional[int] = None
+    seed: int | None = None
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "split_ratio": self.split_ratio,
             "stratify_by": self.stratify_by,
@@ -50,7 +50,7 @@ class ABSplitConfig:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> ABSplitConfig:
+    def from_dict(cls, data: dict[str, Any]) -> ABSplitConfig:
         return cls(
             split_ratio=data.get("split_ratio", 0.5),
             stratify_by=data.get("stratify_by", ""),
@@ -63,12 +63,12 @@ class ABSplitConfig:
 class ABSplitResult:
     """Result of an A/B split operation."""
 
-    group_a: List[Dict[str, Any]] = field(default_factory=list)
-    group_b: List[Dict[str, Any]] = field(default_factory=list)
-    pairs: List[ABPair] = field(default_factory=list)
+    group_a: list[dict[str, Any]] = field(default_factory=list)
+    group_b: list[dict[str, Any]] = field(default_factory=list)
+    pairs: list[ABPair] = field(default_factory=list)
     balance_score: float = 0.0
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "group_a": list(self.group_a),
             "group_b": list(self.group_b),
@@ -77,7 +77,7 @@ class ABSplitResult:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> ABSplitResult:
+    def from_dict(cls, data: dict[str, Any]) -> ABSplitResult:
         pairs = [ABPair(**p) for p in data.get("pairs", [])]
         return cls(
             group_a=data.get("group_a", []),
@@ -87,7 +87,7 @@ class ABSplitResult:
         )
 
     def format_text(self) -> str:
-        lines: List[str] = []
+        lines: list[str] = []
         lines.append("A/B Split Result")
         lines.append("-" * 40)
         lines.append(f"  Group A: {len(self.group_a)} items")
@@ -103,7 +103,7 @@ class ABSplitResult:
 
 
 def split_ab(
-    items: List[Dict[str, Any]],
+    items: list[dict[str, Any]],
     config: ABSplitConfig,
 ) -> ABSplitResult:
     """Split items into two balanced groups.
@@ -126,7 +126,7 @@ def split_ab(
 
     balance = compute_balance_score(group_a, group_b)
 
-    pairs: List[ABPair] = []
+    pairs: list[ABPair] = []
     if config.match_by_length:
         pairs = create_matched_pairs(items)
 
@@ -139,19 +139,19 @@ def split_ab(
 
 
 def _stratified_split(
-    items: List[Dict[str, Any]],
+    items: list[dict[str, Any]],
     stratify_field: str,
     ratio: float,
     rng: random.Random,
-) -> Tuple[List[Dict[str, Any]], List[Dict[str, Any]]]:
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
     """Split maintaining category proportions."""
-    buckets: Dict[str, List[Dict[str, Any]]] = {}
+    buckets: dict[str, list[dict[str, Any]]] = {}
     for item in items:
         key = str(item.get(stratify_field, "__none__"))
         buckets.setdefault(key, []).append(item)
 
-    group_a: List[Dict[str, Any]] = []
-    group_b: List[Dict[str, Any]] = []
+    group_a: list[dict[str, Any]] = []
+    group_b: list[dict[str, Any]] = []
 
     for _key, bucket in sorted(buckets.items()):
         rng.shuffle(bucket)
@@ -170,8 +170,8 @@ def _stratified_split(
 
 
 def compute_balance_score(
-    group_a: List[Dict[str, Any]],
-    group_b: List[Dict[str, Any]],
+    group_a: list[dict[str, Any]],
+    group_b: list[dict[str, Any]],
     input_field: str = "input",
 ) -> float:
     """Score 0-1 how balanced the groups are.
@@ -184,7 +184,6 @@ def compute_balance_score(
         return 0.0
 
     # Size balance: 1.0 when equal, lower when imbalanced
-    total = len(group_a) + len(group_b)
     size_ratio = min(len(group_a), len(group_b)) / max(len(group_a), len(group_b))
 
     # Length distribution balance
@@ -218,9 +217,9 @@ def compute_balance_score(
 
 
 def create_matched_pairs(
-    items: List[Dict[str, Any]],
+    items: list[dict[str, Any]],
     input_field: str = "input",
-) -> List[ABPair]:
+) -> list[ABPair]:
     """Create pairs of similar items using length-based matching."""
     if len(items) < 2:
         return []
@@ -228,7 +227,7 @@ def create_matched_pairs(
     # Sort by input length
     sorted_items = sorted(items, key=lambda x: len(str(x.get(input_field, ""))))
 
-    pairs: List[ABPair] = []
+    pairs: list[ABPair] = []
     used: set[int] = set()
 
     for i in range(0, len(sorted_items) - 1, 2):
@@ -257,9 +256,9 @@ def create_matched_pairs(
 def validate_ab_split(
     result: ABSplitResult,
     min_balance: float = 0.7,
-) -> Tuple[bool, List[str]]:
+) -> tuple[bool, list[str]]:
     """Validate split quality. Returns (is_valid, list_of_issues)."""
-    issues: List[str] = []
+    issues: list[str] = []
 
     if not result.group_a:
         issues.append("Group A is empty")
@@ -285,7 +284,7 @@ def validate_ab_split(
 
 def render_split_summary(result: ABSplitResult) -> str:
     """ASCII summary of split statistics."""
-    lines: List[str] = []
+    lines: list[str] = []
     lines.append("A/B Split Summary")
     lines.append("=" * 40)
 

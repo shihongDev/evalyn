@@ -1,13 +1,14 @@
 from __future__ import annotations
 
 import os
-from typing import Any, Callable, Optional
+from typing import Any, Optional
+from collections.abc import Callable
 
 from .trace.tracer import EvalTracer
 
 ALLOWED_METRIC_MODES = {"llm-registry", "llm-brainstorm", "bundle"}
 
-_default_tracer: Optional[EvalTracer] = None
+_default_tracer: EvalTracer | None = None
 
 
 def get_default_tracer() -> EvalTracer:
@@ -39,15 +40,15 @@ def configure_tracer(tracer: EvalTracer) -> None:
 
 
 def eval(
-    func: Optional[Callable[..., Any]] = None,
+    func: Callable[..., Any] | None = None,
     *,
-    tracer: Optional[EvalTracer] = None,
-    name: Optional[str] = None,
-    project: Optional[str] = None,
-    version: Optional[str] = None,
+    tracer: EvalTracer | None = None,
+    name: str | None = None,
+    project: str | None = None,
+    version: str | None = None,
     is_simulation: bool = False,
-    metric_mode: Optional[str] = None,
-    metric_bundle: Optional[str] = None,
+    metric_mode: str | None = None,
+    metric_bundle: str | None = None,
 ):
     """
     Decorator to trace sync/async functions. Example:

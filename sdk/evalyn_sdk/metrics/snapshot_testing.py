@@ -21,11 +21,11 @@ class MetricSnapshot:
     """A saved snapshot of expected metric scores for a set of test inputs."""
 
     metric_id: str
-    test_inputs: List[Dict[str, str]] = field(default_factory=list)
-    expected_scores: List[float] = field(default_factory=list)
+    test_inputs: list[dict[str, str]] = field(default_factory=list)
+    expected_scores: list[float] = field(default_factory=list)
     snapshot_hash: str = ""
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "metric_id": self.metric_id,
             "test_inputs": list(self.test_inputs),
@@ -34,7 +34,7 @@ class MetricSnapshot:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> MetricSnapshot:
+    def from_dict(cls, data: dict[str, Any]) -> MetricSnapshot:
         return cls(
             metric_id=data["metric_id"],
             test_inputs=data.get("test_inputs", []),
@@ -49,10 +49,10 @@ class SnapshotTestResult:
 
     metric_id: str
     passed: bool
-    mismatches: List[Dict[str, Any]] = field(default_factory=list)
+    mismatches: list[dict[str, Any]] = field(default_factory=list)
     total_tests: int = 0
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "metric_id": self.metric_id,
             "passed": self.passed,
@@ -74,15 +74,15 @@ class SnapshotTestResult:
 class SnapshotSuite:
     """Collection of metric snapshots."""
 
-    snapshots: List[MetricSnapshot] = field(default_factory=list)
+    snapshots: list[MetricSnapshot] = field(default_factory=list)
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "snapshots": [s.as_dict() for s in self.snapshots],
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> SnapshotSuite:
+    def from_dict(cls, data: dict[str, Any]) -> SnapshotSuite:
         return cls(
             snapshots=[MetricSnapshot.from_dict(s) for s in data.get("snapshots", [])],
         )
@@ -100,7 +100,7 @@ class SnapshotSuite:
 # ---------------------------------------------------------------------------
 
 
-def _compute_snapshot_hash(inputs: List[Dict[str, str]], scores: List[float]) -> str:
+def _compute_snapshot_hash(inputs: list[dict[str, str]], scores: list[float]) -> str:
     """Deterministic hash of inputs + expected scores."""
     payload = json.dumps({"inputs": inputs, "scores": scores}, sort_keys=True)
     return hashlib.sha256(payload.encode("utf-8")).hexdigest()[:16]
@@ -108,7 +108,7 @@ def _compute_snapshot_hash(inputs: List[Dict[str, str]], scores: List[float]) ->
 
 def create_snapshot(
     metric_id: str,
-    test_cases: List[Tuple[Dict[str, str], float]],
+    test_cases: list[tuple[dict[str, str], float]],
 ) -> MetricSnapshot:
     """Build a MetricSnapshot from (input, expected_score) pairs."""
     inputs = [tc[0] for tc in test_cases]
@@ -123,11 +123,11 @@ def create_snapshot(
 
 def verify_snapshot(
     snapshot: MetricSnapshot,
-    actual_scores: List[float],
+    actual_scores: list[float],
     tolerance: float = 0.01,
 ) -> SnapshotTestResult:
     """Compare *actual_scores* against the snapshot's expected scores."""
-    mismatches: List[Dict[str, Any]] = []
+    mismatches: list[dict[str, Any]] = []
     total = len(snapshot.expected_scores)
     for i, (expected, actual) in enumerate(zip(snapshot.expected_scores, actual_scores)):
         delta = abs(expected - actual)
@@ -145,7 +145,7 @@ def verify_snapshot(
 
 def update_snapshot(
     snapshot: MetricSnapshot,
-    new_scores: List[float],
+    new_scores: list[float],
 ) -> MetricSnapshot:
     """Return a new snapshot with *new_scores* replacing the expected scores."""
     return MetricSnapshot(
@@ -157,8 +157,8 @@ def update_snapshot(
 
 
 def detect_behavior_change(
-    old_scores: List[float],
-    new_scores: List[float],
+    old_scores: list[float],
+    new_scores: list[float],
     threshold: float = 0.05,
 ) -> bool:
     """Return True if any score changed by more than *threshold*."""
@@ -168,7 +168,7 @@ def detect_behavior_change(
     return False
 
 
-def build_snapshot_report(results: List[SnapshotTestResult]) -> Dict[str, Any]:
+def build_snapshot_report(results: list[SnapshotTestResult]) -> dict[str, Any]:
     """Aggregate pass/fail counts from a list of snapshot test results."""
     passed = sum(1 for r in results if r.passed)
     failed = sum(1 for r in results if not r.passed)

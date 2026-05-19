@@ -9,7 +9,8 @@ from __future__ import annotations
 import random as _random
 import time
 from dataclasses import dataclass, field
-from typing import Any, Callable, Dict, List, Tuple
+from typing import Any, Dict, List, Tuple
+from collections.abc import Callable
 
 
 @dataclass
@@ -22,7 +23,7 @@ class PipelineStage:
     output_count: int = 0
     duration_seconds: float = 0.0
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "stage_name": self.stage_name,
             "strategy": self.strategy,
@@ -32,7 +33,7 @@ class PipelineStage:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> PipelineStage:
+    def from_dict(cls, data: dict[str, Any]) -> PipelineStage:
         return cls(
             stage_name=data["stage_name"],
             strategy=data.get("strategy", ""),
@@ -46,13 +47,13 @@ class PipelineStage:
 class PipelineConfig:
     """Declarative pipeline configuration: ordered stage names."""
 
-    stages: List[str] = field(default_factory=list)
+    stages: list[str] = field(default_factory=list)
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {"stages": list(self.stages)}
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> PipelineConfig:
+    def from_dict(cls, data: dict[str, Any]) -> PipelineConfig:
         return cls(stages=list(data.get("stages", [])))
 
 
@@ -60,12 +61,12 @@ class PipelineConfig:
 class PipelineResult:
     """Outcome of running a full sampling pipeline."""
 
-    final_ids: List[str] = field(default_factory=list)
-    stage_results: List[PipelineStage] = field(default_factory=list)
+    final_ids: list[str] = field(default_factory=list)
+    stage_results: list[PipelineStage] = field(default_factory=list)
     total_input: int = 0
     total_output: int = 0
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "final_ids": list(self.final_ids),
             "stage_results": [s.as_dict() for s in self.stage_results],
@@ -74,7 +75,7 @@ class PipelineResult:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> PipelineResult:
+    def from_dict(cls, data: dict[str, Any]) -> PipelineResult:
         return cls(
             final_ids=list(data.get("final_ids", [])),
             stage_results=[
@@ -91,8 +92,8 @@ class PipelineResult:
 
 
 def run_pipeline(
-    item_ids: List[str],
-    stage_fns: List[Tuple[str, Callable[[List[str]], List[str]]]],
+    item_ids: list[str],
+    stage_fns: list[tuple[str, Callable[[list[str]], list[str]]]],
 ) -> PipelineResult:
     """Run each stage function in sequence, feeding output to the next stage.
 
@@ -101,7 +102,7 @@ def run_pipeline(
     """
     current = list(item_ids)
     total_input = len(current)
-    stage_results: List[PipelineStage] = []
+    stage_results: list[PipelineStage] = []
 
     for name, fn in stage_fns:
         in_count = len(current)
@@ -131,10 +132,10 @@ def run_pipeline(
 # ---------------------------------------------------------------------------
 
 
-def deduplicate_stage(ids: List[str]) -> List[str]:
+def deduplicate_stage(ids: list[str]) -> list[str]:
     """Remove exact duplicates, preserving first-occurrence order."""
     seen: set[str] = set()
-    result: List[str] = []
+    result: list[str] = []
     for item in ids:
         if item not in seen:
             seen.add(item)
@@ -142,14 +143,14 @@ def deduplicate_stage(ids: List[str]) -> List[str]:
     return result
 
 
-def shuffle_stage(ids: List[str], seed: int = 42) -> List[str]:
+def shuffle_stage(ids: list[str], seed: int = 42) -> list[str]:
     """Deterministic shuffle using the given seed."""
     result = list(ids)
     _random.Random(seed).shuffle(result)
     return result
 
 
-def limit_stage(ids: List[str], max_count: int = 100) -> List[str]:
+def limit_stage(ids: list[str], max_count: int = 100) -> list[str]:
     """Truncate to at most max_count items."""
     return ids[:max_count]
 
@@ -160,8 +161,8 @@ def limit_stage(ids: List[str], max_count: int = 100) -> List[str]:
 
 
 def create_stage_fn(
-    name: str, fn: Callable[[List[str]], List[str]]
-) -> Tuple[str, Callable[[List[str]], List[str]]]:
+    name: str, fn: Callable[[list[str]], list[str]]
+) -> tuple[str, Callable[[list[str]], list[str]]]:
     """Convenience wrapper: pair a stage name with its function."""
     return (name, fn)
 

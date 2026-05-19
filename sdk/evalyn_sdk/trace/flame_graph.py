@@ -27,9 +27,9 @@ class FlameNode:
     start_ms: float
     duration_ms: float
     depth: int
-    children: List[FlameNode] = field(default_factory=list)
+    children: list[FlameNode] = field(default_factory=list)
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "span_id": self.span_id,
             "span_name": self.span_name,
@@ -41,7 +41,7 @@ class FlameNode:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> FlameNode:
+    def from_dict(cls, data: dict[str, Any]) -> FlameNode:
         return cls(
             span_id=data["span_id"],
             span_name=data["span_name"],
@@ -57,24 +57,24 @@ class FlameNode:
 class FlameGraph:
     """A flame graph built from spans."""
 
-    root_nodes: List[FlameNode] = field(default_factory=list)
+    root_nodes: list[FlameNode] = field(default_factory=list)
     total_duration_ms: float = 0.0
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "root_nodes": [n.as_dict() for n in self.root_nodes],
             "total_duration_ms": self.total_duration_ms,
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> FlameGraph:
+    def from_dict(cls, data: dict[str, Any]) -> FlameGraph:
         return cls(
             root_nodes=[FlameNode.from_dict(n) for n in data.get("root_nodes", [])],
             total_duration_ms=data.get("total_duration_ms", 0.0),
         )
 
 
-def build_flame_graph(spans: List[Span]) -> FlameGraph:
+def build_flame_graph(spans: list[Span]) -> FlameGraph:
     """Build a flame graph from a list of spans.
 
     Computes relative start times from the earliest span and builds a tree
@@ -88,7 +88,7 @@ def build_flame_graph(spans: List[Span]) -> FlameGraph:
     earliest = min(s.start_time for s in spans)
 
     # Build span info keyed by id
-    span_info: Dict[str, Dict[str, Any]] = {}
+    span_info: dict[str, dict[str, Any]] = {}
     for s in spans:
         start_ms = (s.start_time - earliest).total_seconds() * 1000
         duration_ms = s.duration_ms if s.duration_ms is not None else 0.0
@@ -99,8 +99,8 @@ def build_flame_graph(spans: List[Span]) -> FlameGraph:
         }
 
     # Build tree - compute depth and collect children
-    children_map: Dict[str, List[str]] = {s.id: [] for s in spans}
-    root_ids: List[str] = []
+    children_map: dict[str, list[str]] = {s.id: [] for s in spans}
+    root_ids: list[str] = []
 
     for s in spans:
         if s.parent_id and s.parent_id in span_info:
@@ -149,7 +149,7 @@ def render_ascii(graph: FlameGraph, width: int = 80) -> str:
     if total <= 0:
         total = 1.0  # avoid division by zero
 
-    lines: List[str] = []
+    lines: list[str] = []
 
     def _render_node(node: FlameNode) -> None:
         indent = "  " * node.depth
@@ -193,7 +193,7 @@ def render_svg(
     if total <= 0:
         total = 1.0
 
-    rects: List[str] = []
+    rects: list[str] = []
     max_depth = 0
 
     def _render_node(node: FlameNode) -> None:

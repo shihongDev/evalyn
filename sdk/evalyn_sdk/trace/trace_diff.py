@@ -15,13 +15,13 @@ class SpanDiff:
     span_name: str
     span_type: str
     status: str  # "added", "removed", "changed", "unchanged"
-    left_id: Optional[str] = None
-    right_id: Optional[str] = None
-    duration_delta_ms: Optional[float] = None
+    left_id: str | None = None
+    right_id: str | None = None
+    duration_delta_ms: float | None = None
     output_diff: str = ""
-    cost_delta: Optional[float] = None
+    cost_delta: float | None = None
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "span_name": self.span_name,
             "span_type": self.span_type,
@@ -34,7 +34,7 @@ class SpanDiff:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> SpanDiff:
+    def from_dict(cls, data: dict[str, Any]) -> SpanDiff:
         return cls(
             span_name=data["span_name"],
             span_type=data["span_type"],
@@ -51,13 +51,13 @@ class SpanDiff:
 class TraceDiff:
     """Full comparison of two traces."""
 
-    diffs: List[SpanDiff] = field(default_factory=list)
+    diffs: list[SpanDiff] = field(default_factory=list)
     added_count: int = 0
     removed_count: int = 0
     changed_count: int = 0
     unchanged_count: int = 0
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "diffs": [d.as_dict() for d in self.diffs],
             "added_count": self.added_count,
@@ -67,7 +67,7 @@ class TraceDiff:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> TraceDiff:
+    def from_dict(cls, data: dict[str, Any]) -> TraceDiff:
         return cls(
             diffs=[SpanDiff.from_dict(d) for d in data.get("diffs", [])],
             added_count=data.get("added_count", 0),
@@ -78,7 +78,7 @@ class TraceDiff:
 
     def format_text(self) -> str:
         """Plain text summary of the diff."""
-        lines: List[str] = []
+        lines: list[str] = []
         lines.append(
             f"Trace diff: {self.added_count} added, {self.removed_count} removed, "
             f"{self.changed_count} changed, {self.unchanged_count} unchanged"
@@ -96,7 +96,7 @@ class TraceDiff:
         return "\n".join(lines)
 
 
-def _span_key(span: Span) -> Tuple[str, str]:
+def _span_key(span: Span) -> tuple[str, str]:
     return (span.name, span.span_type)
 
 
@@ -111,22 +111,22 @@ def _compute_output_diff(left_output: str, right_output: str) -> str:
     return "".join(diff_lines)
 
 
-def diff_traces(left: List[Span], right: List[Span]) -> TraceDiff:
+def diff_traces(left: list[Span], right: list[Span]) -> TraceDiff:
     """Align spans by (name, span_type) pairs and compute diffs."""
-    left_by_key: Dict[Tuple[str, str], Span] = {}
+    left_by_key: dict[tuple[str, str], Span] = {}
     for span in left:
         key = _span_key(span)
         # First occurrence wins
         if key not in left_by_key:
             left_by_key[key] = span
 
-    right_by_key: Dict[Tuple[str, str], Span] = {}
+    right_by_key: dict[tuple[str, str], Span] = {}
     for span in right:
         key = _span_key(span)
         if key not in right_by_key:
             right_by_key[key] = span
 
-    all_keys: List[Tuple[str, str]] = []
+    all_keys: list[tuple[str, str]] = []
     seen: set = set()
     for span in left:
         key = _span_key(span)
@@ -139,7 +139,7 @@ def diff_traces(left: List[Span], right: List[Span]) -> TraceDiff:
             all_keys.append(key)
             seen.add(key)
 
-    diffs: List[SpanDiff] = []
+    diffs: list[SpanDiff] = []
     added = 0
     removed = 0
     changed = 0
@@ -177,7 +177,7 @@ def diff_traces(left: List[Span], right: List[Span]) -> TraceDiff:
 
             l_dur = l_span.duration_ms
             r_dur = r_span.duration_ms
-            duration_delta: Optional[float] = None
+            duration_delta: float | None = None
             if l_dur is not None and r_dur is not None:
                 duration_delta = r_dur - l_dur
 
@@ -187,7 +187,7 @@ def diff_traces(left: List[Span], right: List[Span]) -> TraceDiff:
 
             l_cost = l_span.attributes.get("cost", 0) or 0
             r_cost = r_span.attributes.get("cost", 0) or 0
-            cost_delta: Optional[float] = None
+            cost_delta: float | None = None
             if l_cost or r_cost:
                 cost_delta = float(r_cost) - float(l_cost)
 
@@ -225,7 +225,7 @@ def diff_traces(left: List[Span], right: List[Span]) -> TraceDiff:
 
 def format_diff_ascii(diff: TraceDiff) -> str:
     """ASCII table format showing +/- for added/removed spans."""
-    lines: List[str] = []
+    lines: list[str] = []
 
     # Header
     header = f"{'Status':<10} {'Span Name':<30} {'Type':<15} {'Duration Delta':<18} {'Cost Delta':<12}"
@@ -260,7 +260,7 @@ def format_diff_ascii(diff: TraceDiff) -> str:
 
 def format_diff_html(diff: TraceDiff) -> str:
     """Simple HTML table with green/red highlighting."""
-    rows: List[str] = []
+    rows: list[str] = []
     rows.append("<table border='1' cellpadding='4' cellspacing='0'>")
     rows.append(
         "<tr><th>Status</th><th>Span Name</th><th>Type</th>"

@@ -11,7 +11,8 @@ import json
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Callable, Dict, Iterable, List, Optional
+from typing import Any, Dict, List, Optional
+from collections.abc import Callable, Iterable
 from uuid import uuid4
 
 from ..models import DatasetItem, FunctionCall, now_utc
@@ -23,7 +24,7 @@ from ..utils.api_client import GeminiClient
 # =============================================================================
 
 
-def synthetic_dataset(prompts: Iterable[str]) -> List[DatasetItem]:
+def synthetic_dataset(prompts: Iterable[str]) -> list[DatasetItem]:
     """Create a toy dataset from a list of prompts."""
     return [
         DatasetItem(
@@ -40,10 +41,10 @@ def simulate_agent(
     tracer: EvalTracer,
     handler: Callable[[str], str],
     prompts: Iterable[str],
-) -> List[FunctionCall]:
+) -> list[FunctionCall]:
     """Run a handler over prompts to produce traced FunctionCalls."""
     wrapped = tracer.instrument(handler)
-    calls: List[FunctionCall] = []
+    calls: list[FunctionCall] = []
     for prompt in prompts:
         wrapped(prompt)
         if tracer.last_call:
@@ -75,7 +76,7 @@ class GeneratedQuery:
     query: str
     mode: str  # "similar" or "outlier"
     seed_id: str  # ID of the seed item this was generated from
-    seed_input: Dict[str, Any]
+    seed_input: dict[str, Any]
     generation_reason: str  # Why this was generated
 
 
@@ -91,11 +92,11 @@ class UserSimulator:
     def __init__(
         self,
         model: str = "gemini-2.5-flash-lite",
-        api_key: Optional[str] = None,
+        api_key: str | None = None,
     ):
         self.model = model
         self._api_key = api_key
-        self._client: Optional[GeminiClient] = None
+        self._client: GeminiClient | None = None
 
     @property
     def client(self) -> GeminiClient:
@@ -109,9 +110,9 @@ class UserSimulator:
 
     def generate_similar(
         self,
-        seed_items: List[DatasetItem],
+        seed_items: list[DatasetItem],
         num_per_seed: int = 3,
-    ) -> List[GeneratedQuery]:
+    ) -> list[GeneratedQuery]:
         """Generate queries similar to seed inputs."""
 
         # Build prompt with seed examples
@@ -175,9 +176,9 @@ Generate exactly {num_per_seed * len(seed_items)} queries."""
 
     def generate_outliers(
         self,
-        seed_items: List[DatasetItem],
+        seed_items: list[DatasetItem],
         num_per_seed: int = 1,
-    ) -> List[GeneratedQuery]:
+    ) -> list[GeneratedQuery]:
         """Generate edge case / outlier queries."""
 
         # Build prompt with seed examples
@@ -243,7 +244,7 @@ Generate exactly {num_per_seed * len(seed_items)} queries."""
 
         return results
 
-    def _parse_query_response(self, response: str) -> List[Dict[str, Any]]:
+    def _parse_query_response(self, response: str) -> list[dict[str, Any]]:
         """Parse LLM response into list of query dicts."""
         text = response.strip()
 
@@ -294,7 +295,7 @@ class AgentSimulator:
     def __init__(
         self,
         target_fn: Callable,
-        config: Optional[SimulationConfig] = None,
+        config: SimulationConfig | None = None,
         model: str = "gemini-2.5-flash-lite",
     ):
         self.target_fn = target_fn
@@ -303,10 +304,10 @@ class AgentSimulator:
 
     def run(
         self,
-        seed_dataset: List[DatasetItem],
+        seed_dataset: list[DatasetItem],
         output_dir: Path,
-        modes: Optional[List[str]] = None,
-    ) -> Dict[str, Path]:
+        modes: list[str] | None = None,
+    ) -> dict[str, Path]:
         """
         Run simulation and save results.
 
@@ -379,8 +380,8 @@ class AgentSimulator:
 
     def _run_agent_on_queries(
         self,
-        queries: List[GeneratedQuery],
-    ) -> List[DatasetItem]:
+        queries: list[GeneratedQuery],
+    ) -> list[DatasetItem]:
         """Run the target agent on generated queries."""
         results = []
 

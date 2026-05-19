@@ -17,17 +17,17 @@ from typing import Any, Dict, List, Optional, Tuple
 class OutputSchema:
     """Schema describing expected JSON output fields and types."""
 
-    fields: Dict[str, str] = field(default_factory=dict)
-    required_fields: List[str] = field(default_factory=list)
+    fields: dict[str, str] = field(default_factory=dict)
+    required_fields: list[str] = field(default_factory=list)
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "fields": dict(self.fields),
             "required_fields": list(self.required_fields),
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> OutputSchema:
+    def from_dict(cls, data: dict[str, Any]) -> OutputSchema:
         return cls(
             fields=data.get("fields", {}),
             required_fields=data.get("required_fields", []),
@@ -39,11 +39,11 @@ class ParseResult:
     """Result of attempting to parse structured output."""
 
     success: bool
-    parsed_data: Dict[str, Any] = field(default_factory=dict)
+    parsed_data: dict[str, Any] = field(default_factory=dict)
     raw_text: str = ""
     error: str = ""
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "success": self.success,
             "parsed_data": dict(self.parsed_data),
@@ -57,10 +57,10 @@ class StructuredConfig:
     """Configuration for structured output enforcement."""
 
     enforce_json: bool = True
-    schema: Optional[OutputSchema] = None
+    schema: OutputSchema | None = None
     fallback_regex: bool = True
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "enforce_json": self.enforce_json,
             "schema": self.schema.as_dict() if self.schema else None,
@@ -68,7 +68,7 @@ class StructuredConfig:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> StructuredConfig:
+    def from_dict(cls, data: dict[str, Any]) -> StructuredConfig:
         schema_data = data.get("schema")
         return cls(
             enforce_json=data.get("enforce_json", True),
@@ -162,13 +162,13 @@ def parse_json_response(text: str) -> ParseResult:
 
 
 def validate_against_schema(
-    data: Dict[str, Any], schema: OutputSchema
-) -> Tuple[bool, List[str]]:
+    data: dict[str, Any], schema: OutputSchema
+) -> tuple[bool, list[str]]:
     """Check required fields are present and types match.
 
     Returns (valid, error_messages).
     """
-    errors: List[str] = []
+    errors: list[str] = []
 
     for field_name in schema.required_fields:
         if field_name not in data:
@@ -185,7 +185,7 @@ def validate_against_schema(
     return (len(errors) == 0, errors)
 
 
-def extract_score_from_text(text: str) -> Optional[float]:
+def extract_score_from_text(text: str) -> float | None:
     """Regex fallback: extract the first float-like number from text.
 
     E.g. "Score: 0.85" -> 0.85, "rating is 7" -> 7.0
@@ -200,7 +200,7 @@ def extract_score_from_text(text: str) -> Optional[float]:
 
 
 def enforce_structured_output(
-    text: str, schema: Optional[OutputSchema] = None
+    text: str, schema: OutputSchema | None = None
 ) -> ParseResult:
     """Full pipeline: try JSON parse, validate schema, fallback to regex.
 

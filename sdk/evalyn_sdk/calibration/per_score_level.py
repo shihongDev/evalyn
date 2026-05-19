@@ -18,12 +18,12 @@ class ScoreLevelStats:
     """Statistics for a single score level."""
 
     level: str  # "low" / "medium" / "high"
-    score_range: Tuple[float, float]
+    score_range: tuple[float, float]
     item_count: int
     accuracy: float
     bias: float  # mean(predicted - actual)
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "level": self.level,
             "score_range": list(self.score_range),
@@ -37,12 +37,12 @@ class ScoreLevelStats:
 class PerLevelCalibration:
     """Per-level calibration results."""
 
-    levels: List[ScoreLevelStats] = field(default_factory=list)
+    levels: list[ScoreLevelStats] = field(default_factory=list)
     overall_accuracy: float = 0.0
     overall_bias: float = 0.0
     worst_level: str = ""
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "levels": [lv.as_dict() for lv in self.levels],
             "overall_accuracy": self.overall_accuracy,
@@ -51,7 +51,7 @@ class PerLevelCalibration:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> PerLevelCalibration:
+    def from_dict(cls, data: dict[str, Any]) -> PerLevelCalibration:
         levels = []
         for lv in data.get("levels", []):
             levels.append(
@@ -105,9 +105,9 @@ def classify_score_level(score: float) -> str:
 
 
 def compute_per_level_stats(
-    predictions: List[Tuple[float, bool]],
+    predictions: list[tuple[float, bool]],
     level: str,
-    score_range: Tuple[float, float],
+    score_range: tuple[float, float],
 ) -> ScoreLevelStats:
     """Compute stats for items in a single level.
 
@@ -144,7 +144,7 @@ def compute_per_level_stats(
 
 
 def analyze_per_level(
-    predictions: List[Tuple[float, bool]],
+    predictions: list[tuple[float, bool]],
 ) -> PerLevelCalibration:
     """Split predictions into levels and compute stats per level.
 
@@ -159,14 +159,14 @@ def analyze_per_level(
         ("high", (0.7, 1.0)),
     ]
 
-    buckets: Dict[str, List[Tuple[float, bool]]] = {
+    buckets: dict[str, list[tuple[float, bool]]] = {
         name: [] for name, _ in level_defs
     }
     for score, truth in predictions:
         lv = classify_score_level(score)
         buckets[lv].append((score, truth))
 
-    level_stats: List[ScoreLevelStats] = []
+    level_stats: list[ScoreLevelStats] = []
     for name, score_range in level_defs:
         stats = compute_per_level_stats(buckets[name], name, score_range)
         level_stats.append(stats)
@@ -197,7 +197,7 @@ def analyze_per_level(
 
 def correct_bias(
     score: float,
-    level_stats: Dict[str, ScoreLevelStats],
+    level_stats: dict[str, ScoreLevelStats],
 ) -> float:
     """Subtract the level's bias from the score. Clamp to [0, 1]."""
     level = classify_score_level(score)

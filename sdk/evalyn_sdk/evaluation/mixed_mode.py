@@ -19,7 +19,7 @@ class ModeDecision:
     item_count: int = 0
     estimated_cost_usd: float = 0.0
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "mode": self.mode,
             "reason": self.reason,
@@ -36,7 +36,7 @@ class MixedModeConfig:
     cost_threshold_usd: float = 1.0
     prefer_batch: bool = True
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "batch_threshold": self.batch_threshold,
             "cost_threshold_usd": self.cost_threshold_usd,
@@ -44,7 +44,7 @@ class MixedModeConfig:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> MixedModeConfig:
+    def from_dict(cls, data: dict[str, Any]) -> MixedModeConfig:
         return cls(
             batch_threshold=data.get("batch_threshold", 50),
             cost_threshold_usd=data.get("cost_threshold_usd", 1.0),
@@ -62,7 +62,7 @@ class MixedModeReport:
     total_items: int = 0
     estimated_savings_pct: float = 0.0
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "mode_used": self.mode_used,
             "items_batch": self.items_batch,
@@ -72,7 +72,7 @@ class MixedModeReport:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> MixedModeReport:
+    def from_dict(cls, data: dict[str, Any]) -> MixedModeReport:
         return cls(
             mode_used=data["mode_used"],
             items_batch=data.get("items_batch", 0),
@@ -127,8 +127,8 @@ def decide_mode(item_count: int, config: MixedModeConfig) -> ModeDecision:
 
 
 def split_for_mixed_mode(
-    items: List[Any], config: MixedModeConfig
-) -> Tuple[List[Any], List[Any]]:
+    items: list[Any], config: MixedModeConfig
+) -> tuple[list[Any], list[Any]]:
     """Split items into (batch_items, realtime_items).
 
     If the total count exceeds the threshold, all items go to batch.

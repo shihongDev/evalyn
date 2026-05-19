@@ -20,7 +20,7 @@ class SafetyRating:
     probability: str  # NEGLIGIBLE, LOW, MEDIUM, HIGH
     blocked: bool = False
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "category": self.category,
             "probability": self.probability,
@@ -28,7 +28,7 @@ class SafetyRating:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> SafetyRating:
+    def from_dict(cls, data: dict[str, Any]) -> SafetyRating:
         return cls(
             category=data.get("category", ""),
             probability=data.get("probability", "NEGLIGIBLE"),
@@ -40,12 +40,12 @@ class SafetyRating:
 class SafetyReport:
     """Aggregated safety analysis from a set of ratings."""
 
-    ratings: List[SafetyRating] = field(default_factory=list)
+    ratings: list[SafetyRating] = field(default_factory=list)
     has_block: bool = False
     overall_safe: bool = True
-    blocked_categories: List[str] = field(default_factory=list)
+    blocked_categories: list[str] = field(default_factory=list)
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "ratings": [r.as_dict() for r in self.ratings],
             "has_block": self.has_block,
@@ -54,7 +54,7 @@ class SafetyReport:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> SafetyReport:
+    def from_dict(cls, data: dict[str, Any]) -> SafetyReport:
         return cls(
             ratings=[SafetyRating.from_dict(r) for r in data.get("ratings", [])],
             has_block=data.get("has_block", False),
@@ -78,7 +78,7 @@ class SafetyReport:
         return "\n".join(lines)
 
 
-def extract_safety_ratings(response_data: Dict[str, Any]) -> List[SafetyRating]:
+def extract_safety_ratings(response_data: dict[str, Any]) -> list[SafetyRating]:
     """Extract safetyRatings from a Gemini response dict."""
     candidates = response_data.get("candidates", [{}])
     if not candidates:
@@ -94,7 +94,7 @@ def extract_safety_ratings(response_data: Dict[str, Any]) -> List[SafetyRating]:
     return ratings
 
 
-def analyze_safety(ratings: List[SafetyRating]) -> SafetyReport:
+def analyze_safety(ratings: list[SafetyRating]) -> SafetyReport:
     """Build a SafetyReport from a list of ratings."""
     has_block = any(r.blocked for r in ratings)
     blocked_categories = [r.category for r in ratings if r.blocked]
@@ -107,14 +107,14 @@ def analyze_safety(ratings: List[SafetyRating]) -> SafetyReport:
     )
 
 
-def inject_safety_into_span(span: Span, ratings: List[SafetyRating]) -> Span:
+def inject_safety_into_span(span: Span, ratings: list[SafetyRating]) -> Span:
     """Add safety ratings to span attributes under 'gemini.safety_ratings'. Returns a new span."""
     new_span = copy.deepcopy(span)
     new_span.attributes["gemini.safety_ratings"] = [r.as_dict() for r in ratings]
     return new_span
 
 
-def extract_safety_from_span(span: Span) -> Optional[SafetyReport]:
+def extract_safety_from_span(span: Span) -> SafetyReport | None:
     """Extract and analyze safety ratings from span attributes."""
     raw = span.attributes.get("gemini.safety_ratings")
     if raw is None:
@@ -123,7 +123,7 @@ def extract_safety_from_span(span: Span) -> Optional[SafetyReport]:
     return analyze_safety(ratings)
 
 
-def is_safe_response(ratings: List[SafetyRating], max_probability: str = "MEDIUM") -> bool:
+def is_safe_response(ratings: list[SafetyRating], max_probability: str = "MEDIUM") -> bool:
     """True if no rating exceeds max_probability level and none are blocked."""
     max_index = PROBABILITY_LEVELS.index(max_probability)
     for r in ratings:

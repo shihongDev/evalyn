@@ -19,10 +19,10 @@ class SessionSummary:
     total_cost_usd: float
     total_duration_ms: float
     total_tokens: int
-    pass_rate: Optional[float]
+    pass_rate: float | None
     error_count: int
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "session_id": self.session_id,
             "span_count": self.span_count,
@@ -34,7 +34,7 @@ class SessionSummary:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> SessionSummary:
+    def from_dict(cls, data: dict[str, Any]) -> SessionSummary:
         return cls(
             session_id=data["session_id"],
             span_count=data["span_count"],
@@ -54,9 +54,9 @@ class SessionComparisonResult:
     session_b_id: str
     cost_delta: float
     duration_delta: float
-    pass_rate_delta: Optional[float]
+    pass_rate_delta: float | None
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "session_a_id": self.session_a_id,
             "session_b_id": self.session_b_id,
@@ -80,17 +80,17 @@ class SessionComparisonResult:
 class SessionReport:
     """Report across multiple sessions."""
 
-    sessions: List[SessionSummary]
+    sessions: list[SessionSummary]
     total_sessions: int
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "sessions": [s.as_dict() for s in self.sessions],
             "total_sessions": self.total_sessions,
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> SessionReport:
+    def from_dict(cls, data: dict[str, Any]) -> SessionReport:
         return cls(
             sessions=[SessionSummary.from_dict(s) for s in data.get("sessions", [])],
             total_sessions=data["total_sessions"],
@@ -108,13 +108,13 @@ class SessionReport:
         return "\n".join(lines)
 
 
-def analyze_session(session_id: str, spans: List[Span]) -> SessionSummary:
+def analyze_session(session_id: str, spans: list[Span]) -> SessionSummary:
     """Aggregate metrics for one session."""
     total_cost = 0.0
     total_tokens = 0
     total_duration = 0.0
     error_count = 0
-    passed_values: List[bool] = []
+    passed_values: list[bool] = []
 
     for span in spans:
         total_cost += span.attributes.get("cost", 0)
@@ -128,7 +128,7 @@ def analyze_session(session_id: str, spans: List[Span]) -> SessionSummary:
         if p is not None:
             passed_values.append(bool(p))
 
-    pass_rate: Optional[float] = None
+    pass_rate: float | None = None
     if passed_values:
         pass_rate = sum(1 for v in passed_values if v) / len(passed_values)
 
@@ -143,9 +143,9 @@ def analyze_session(session_id: str, spans: List[Span]) -> SessionSummary:
     )
 
 
-def analyze_sessions(spans: List[Span]) -> SessionReport:
+def analyze_sessions(spans: list[Span]) -> SessionReport:
     """Group spans by session attribute and analyze each."""
-    groups: Dict[str, List[Span]] = defaultdict(list)
+    groups: dict[str, list[Span]] = defaultdict(list)
     for span in spans:
         sid = span.attributes.get("session_id", "unknown")
         groups[sid].append(span)
@@ -158,7 +158,7 @@ def compare_sessions(
     a: SessionSummary, b: SessionSummary
 ) -> SessionComparisonResult:
     """Compute deltas between two session summaries (b - a)."""
-    pass_rate_delta: Optional[float] = None
+    pass_rate_delta: float | None = None
     if a.pass_rate is not None and b.pass_rate is not None:
         pass_rate_delta = b.pass_rate - a.pass_rate
 

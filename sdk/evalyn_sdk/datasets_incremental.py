@@ -27,7 +27,7 @@ class IncrementalBuildResult:
     total_items: int
     last_build_timestamp: str
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "new_items_added": self.new_items_added,
             "duplicates_skipped": self.duplicates_skipped,
@@ -36,7 +36,7 @@ class IncrementalBuildResult:
         }
 
 
-def load_build_state(dataset_dir: Path) -> Optional[str]:
+def load_build_state(dataset_dir: Path) -> str | None:
     """Load the last build timestamp from the dataset's meta.json.
 
     Returns:
@@ -74,8 +74,8 @@ def save_build_state(dataset_dir: Path, timestamp: str) -> None:
 
 
 def incremental_build(
-    existing_items: List,
-    new_items: List,
+    existing_items: list,
+    new_items: list,
     dataset_path: Path,
 ) -> IncrementalBuildResult:
     """Append new items to an existing dataset, deduplicating by input hash.
@@ -89,7 +89,7 @@ def incremental_build(
         IncrementalBuildResult with counts and timestamp.
     """
     # Build hash set of existing items for dedup
-    existing_hashes: Set[str] = set()
+    existing_hashes: set[str] = set()
     for item in existing_items:
         h = hash_inputs(item.input) if isinstance(item.input, dict) else hash_inputs({"_raw": item.input})
         existing_hashes.add(h)

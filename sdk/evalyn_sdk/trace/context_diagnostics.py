@@ -23,7 +23,7 @@ class PropagationTest:
     details: str = ""
     context_type: str = "sync"
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "name": self.name,
             "passed": self.passed,
@@ -36,14 +36,14 @@ class PropagationTest:
 class DiagnosticsReport:
     """Aggregated diagnostics report."""
 
-    tests: List[PropagationTest] = field(default_factory=list)
+    tests: list[PropagationTest] = field(default_factory=list)
     all_passed: bool = True
     sync_ok: bool = True
     thread_ok: bool = True
     async_ok: bool = True
-    recommendations: List[str] = field(default_factory=list)
+    recommendations: list[str] = field(default_factory=list)
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "tests": [t.as_dict() for t in self.tests],
             "all_passed": self.all_passed,
@@ -54,7 +54,7 @@ class DiagnosticsReport:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> DiagnosticsReport:
+    def from_dict(cls, data: dict[str, Any]) -> DiagnosticsReport:
         tests = [
             PropagationTest(
                 name=t["name"],
@@ -74,7 +74,7 @@ class DiagnosticsReport:
         )
 
     def format_text(self) -> str:
-        lines: List[str] = []
+        lines: list[str] = []
         lines.append("Context Propagation Diagnostics")
         lines.append("-" * 40)
         for t in self.tests:
@@ -256,7 +256,7 @@ def run_diagnostics() -> DiagnosticsReport:
     async_ok = all(t.passed for t in async_tests) if async_tests else True
     all_passed = all(t.passed for t in tests)
 
-    recommendations: List[str] = []
+    recommendations: list[str] = []
     if not thread_ok:
         recommendations.append(
             "Consider using copy_context() before spawning threads"

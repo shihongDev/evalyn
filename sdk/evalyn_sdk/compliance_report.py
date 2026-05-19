@@ -24,11 +24,11 @@ class EvalMethodology:
 
     method_name: str
     description: str
-    metrics_used: List[str]
+    metrics_used: list[str]
     dataset_description: str
     limitations: str = ""
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "method_name": self.method_name,
             "description": self.description,
@@ -38,7 +38,7 @@ class EvalMethodology:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> EvalMethodology:
+    def from_dict(cls, data: dict[str, Any]) -> EvalMethodology:
         return cls(
             method_name=data["method_name"],
             description=data["description"],
@@ -58,7 +58,7 @@ class BenchmarkResult:
     passed: bool
     notes: str = ""
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "benchmark_name": self.benchmark_name,
             "score": self.score,
@@ -68,7 +68,7 @@ class BenchmarkResult:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> BenchmarkResult:
+    def from_dict(cls, data: dict[str, Any]) -> BenchmarkResult:
         return cls(
             benchmark_name=data["benchmark_name"],
             score=data["score"],
@@ -85,10 +85,10 @@ class ComplianceSection:
     section_id: str
     title: str
     content: str
-    references: List[str]
+    references: list[str]
     framework: str  # "eu_ai_act", "nist_rmf", "iso_42001"
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "section_id": self.section_id,
             "title": self.title,
@@ -98,7 +98,7 @@ class ComplianceSection:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> ComplianceSection:
+    def from_dict(cls, data: dict[str, Any]) -> ComplianceSection:
         return cls(
             section_id=data["section_id"],
             title=data["title"],
@@ -116,13 +116,13 @@ class ComplianceReport:
     title: str
     system_name: str
     system_version: str
-    sections: List[ComplianceSection]
+    sections: list[ComplianceSection]
     methodology: EvalMethodology
-    benchmarks: List[BenchmarkResult]
+    benchmarks: list[BenchmarkResult]
     generated_at: str
     author: str
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "report_id": self.report_id,
             "title": self.title,
@@ -136,7 +136,7 @@ class ComplianceReport:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> ComplianceReport:
+    def from_dict(cls, data: dict[str, Any]) -> ComplianceReport:
         return cls(
             report_id=data["report_id"],
             title=data["title"],
@@ -155,7 +155,7 @@ class ComplianceReport:
 # ---------------------------------------------------------------------------
 
 
-def _benchmark_summary(benchmarks: List[BenchmarkResult]) -> str:
+def _benchmark_summary(benchmarks: list[BenchmarkResult]) -> str:
     """Format benchmark results into a readable summary."""
     if not benchmarks:
         return "No benchmark results available."
@@ -181,8 +181,8 @@ def _metrics_summary(methodology: EvalMethodology) -> str:
 def build_eu_ai_act_sections(
     system_name: str,
     methodology: EvalMethodology,
-    benchmarks: List[BenchmarkResult],
-) -> List[ComplianceSection]:
+    benchmarks: list[BenchmarkResult],
+) -> list[ComplianceSection]:
     """Generate standard EU AI Act compliance sections.
 
     Produces sections covering: System Description, Risk Classification,
@@ -294,8 +294,8 @@ def build_eu_ai_act_sections(
 def build_nist_rmf_sections(
     system_name: str,
     methodology: EvalMethodology,
-    benchmarks: List[BenchmarkResult],
-) -> List[ComplianceSection]:
+    benchmarks: list[BenchmarkResult],
+) -> list[ComplianceSection]:
     """Generate NIST AI RMF compliance sections.
 
     Produces sections covering: Map, Measure, Manage, and Govern.
@@ -373,8 +373,8 @@ def create_compliance_report(
     system_name: str,
     system_version: str,
     methodology: EvalMethodology,
-    benchmarks: List[BenchmarkResult],
-    frameworks: List[str],
+    benchmarks: list[BenchmarkResult],
+    frameworks: list[str],
     author: str = "",
 ) -> ComplianceReport:
     """Build a full compliance report with UUID and timestamp.
@@ -390,7 +390,7 @@ def create_compliance_report(
     Returns:
         A ComplianceReport with sections for all requested frameworks.
     """
-    sections: List[ComplianceSection] = []
+    sections: list[ComplianceSection] = []
     builders = {
         "eu_ai_act": build_eu_ai_act_sections,
         "nist_rmf": build_nist_rmf_sections,
@@ -428,7 +428,7 @@ def create_compliance_report(
 
 def format_report_markdown(report: ComplianceReport) -> str:
     """Format a compliance report as Markdown."""
-    lines: List[str] = []
+    lines: list[str] = []
     lines.append(f"# {report.title}")
     lines.append("")
     lines.append(f"**Report ID:** {report.report_id}")
@@ -508,7 +508,7 @@ def format_report_html(report: ComplianceReport) -> str:
         "border-left: 3px solid #2c5282; }"
     )
 
-    parts: List[str] = []
+    parts: list[str] = []
     parts.append("<!DOCTYPE html>")
     parts.append("<html lang=\"en\">")
     parts.append("<head>")
@@ -602,13 +602,13 @@ _REQUIRED_NIST_SECTION_IDS = {
 }
 
 
-def validate_report(report: ComplianceReport) -> List[str]:
+def validate_report(report: ComplianceReport) -> list[str]:
     """Validate a compliance report for completeness.
 
     Returns a list of validation errors. An empty list means the report
     is valid.
     """
-    errors: List[str] = []
+    errors: list[str] = []
 
     if not report.report_id:
         errors.append("Missing report_id.")

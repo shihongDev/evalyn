@@ -16,11 +16,11 @@ class CheckpointData:
     best_score: float = 0.0
     best_prompt: str = ""
     current_prompt: str = ""
-    scores_history: List[float] = field(default_factory=list)
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    scores_history: list[float] = field(default_factory=list)
+    metadata: dict[str, Any] = field(default_factory=dict)
     timestamp: str = ""
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "metric_id": self.metric_id,
             "optimizer": self.optimizer,
@@ -34,7 +34,7 @@ class CheckpointData:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> CheckpointData:
+    def from_dict(cls, data: dict[str, Any]) -> CheckpointData:
         return cls(
             metric_id=data["metric_id"],
             optimizer=data["optimizer"],
@@ -56,7 +56,7 @@ class CheckpointConfig:
     save_every_n_steps: int = 5
     keep_last_n: int = 3
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "enabled": self.enabled,
             "save_every_n_steps": self.save_every_n_steps,
@@ -64,7 +64,7 @@ class CheckpointConfig:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> CheckpointConfig:
+    def from_dict(cls, data: dict[str, Any]) -> CheckpointConfig:
         return cls(
             enabled=data.get("enabled", True),
             save_every_n_steps=data.get("save_every_n_steps", 5),
@@ -77,7 +77,7 @@ class CheckpointManager:
 
     def __init__(self, config: CheckpointConfig) -> None:
         self.config = config
-        self._checkpoints: Dict[str, List[CheckpointData]] = {}
+        self._checkpoints: dict[str, list[CheckpointData]] = {}
 
     def save(self, data: CheckpointData) -> None:
         """Save a checkpoint. Trims to keep_last_n per metric."""
@@ -89,21 +89,21 @@ class CheckpointManager:
         if len(lst) > self.config.keep_last_n:
             self._checkpoints[data.metric_id] = lst[-self.config.keep_last_n :]
 
-    def load_latest(self, metric_id: str) -> Optional[CheckpointData]:
+    def load_latest(self, metric_id: str) -> CheckpointData | None:
         """Return the most recently saved checkpoint for a metric."""
         lst = self._checkpoints.get(metric_id, [])
         if not lst:
             return None
         return lst[-1]
 
-    def load_best(self, metric_id: str) -> Optional[CheckpointData]:
+    def load_best(self, metric_id: str) -> CheckpointData | None:
         """Return the checkpoint with the highest best_score for a metric."""
         lst = self._checkpoints.get(metric_id, [])
         if not lst:
             return None
         return max(lst, key=lambda c: c.best_score)
 
-    def list_checkpoints(self, metric_id: str) -> List[CheckpointData]:
+    def list_checkpoints(self, metric_id: str) -> list[CheckpointData]:
         """Return all checkpoints for a metric."""
         return list(self._checkpoints.get(metric_id, []))
 
@@ -119,7 +119,7 @@ class CheckpointManager:
         """Remove all checkpoints."""
         self._checkpoints.clear()
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "config": self.config.as_dict(),
             "checkpoints": {
@@ -129,7 +129,7 @@ class CheckpointManager:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> CheckpointManager:
+    def from_dict(cls, data: dict[str, Any]) -> CheckpointManager:
         config = CheckpointConfig.from_dict(data.get("config", {}))
         mgr = cls(config)
         for mid, clist in data.get("checkpoints", {}).items():

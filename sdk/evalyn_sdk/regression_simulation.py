@@ -19,7 +19,7 @@ from typing import Any, Dict, List, Tuple
 # Built-in synonym map for variant generation
 # ---------------------------------------------------------------------------
 
-_SYNONYM_MAP: Dict[str, List[str]] = {
+_SYNONYM_MAP: dict[str, list[str]] = {
     "good": ["great", "fine", "decent"],
     "bad": ["poor", "terrible", "awful"],
     "help": ["assist", "support", "aid"],
@@ -49,11 +49,11 @@ class FailurePattern:
 
     pattern_id: str
     description: str
-    example_inputs: List[str]
+    example_inputs: list[str]
     category: str
     frequency: int = 1
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "pattern_id": self.pattern_id,
             "description": self.description,
@@ -63,7 +63,7 @@ class FailurePattern:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> FailurePattern:
+    def from_dict(cls, data: dict[str, Any]) -> FailurePattern:
         return cls(
             pattern_id=data["pattern_id"],
             description=data["description"],
@@ -80,9 +80,9 @@ class RegressionInput:
     input_text: str
     source_pattern_id: str
     variant_index: int
-    tags: List[str] = field(default_factory=list)
+    tags: list[str] = field(default_factory=list)
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "input_text": self.input_text,
             "source_pattern_id": self.source_pattern_id,
@@ -91,7 +91,7 @@ class RegressionInput:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> RegressionInput:
+    def from_dict(cls, data: dict[str, Any]) -> RegressionInput:
         return cls(
             input_text=data["input_text"],
             source_pattern_id=data["source_pattern_id"],
@@ -110,7 +110,7 @@ class RegressionResult:
     failed_count: int
     fix_rate: float
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "pattern_id": self.pattern_id,
             "total_variants": self.total_variants,
@@ -120,7 +120,7 @@ class RegressionResult:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> RegressionResult:
+    def from_dict(cls, data: dict[str, Any]) -> RegressionResult:
         return cls(
             pattern_id=data["pattern_id"],
             total_variants=data.get("total_variants", 0),
@@ -134,13 +134,13 @@ class RegressionResult:
 class RegressionReport:
     """Aggregate regression report across all patterns."""
 
-    results: List[RegressionResult]
+    results: list[RegressionResult]
     overall_fix_rate: float
     fully_fixed_patterns: int
     still_failing_patterns: int
     total_patterns: int
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "results": [r.as_dict() for r in self.results],
             "overall_fix_rate": self.overall_fix_rate,
@@ -150,7 +150,7 @@ class RegressionReport:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> RegressionReport:
+    def from_dict(cls, data: dict[str, Any]) -> RegressionReport:
         return cls(
             results=[RegressionResult.from_dict(r) for r in data.get("results", [])],
             overall_fix_rate=data.get("overall_fix_rate", 0.0),
@@ -231,23 +231,23 @@ _TRANSFORMS = [
 
 
 def extract_failure_patterns(
-    failures: List[Dict[str, Any]],
+    failures: list[dict[str, Any]],
     text_field: str = "input",
     reason_field: str = "failure_reason",
-) -> List[FailurePattern]:
+) -> list[FailurePattern]:
     """Group failures by reason and extract patterns with example inputs.
 
     Each unique reason becomes a FailurePattern. The pattern_id is derived
     from the reason text (slugified). Example inputs are collected from the
     text_field of matching failure records.
     """
-    groups: Dict[str, List[str]] = defaultdict(list)
+    groups: dict[str, list[str]] = defaultdict(list)
     for failure in failures:
         reason = failure.get(reason_field, "unknown")
         text = failure.get(text_field, "")
         groups[reason].append(text)
 
-    patterns: List[FailurePattern] = []
+    patterns: list[FailurePattern] = []
     for reason, inputs in sorted(groups.items()):
         slug = re.sub(r"[^a-z0-9]+", "_", reason.lower()).strip("_")
         if not slug:
@@ -281,7 +281,7 @@ def generate_regression_variants(
     pattern: FailurePattern,
     n_variants: int = 3,
     rng: random.Random | None = None,
-) -> List[RegressionInput]:
+) -> list[RegressionInput]:
     """Generate n_variants variants for each example input in a pattern.
 
     Applies deterministic text transforms: word shuffling, case changes,
@@ -290,7 +290,7 @@ def generate_regression_variants(
     if rng is None:
         rng = random.Random(42)
 
-    variants: List[RegressionInput] = []
+    variants: list[RegressionInput] = []
     variant_idx = 0
 
     for example in pattern.example_inputs:
@@ -321,30 +321,30 @@ def generate_regression_variants(
 
 
 def generate_regression_suite(
-    patterns: List[FailurePattern],
+    patterns: list[FailurePattern],
     n_variants: int = 3,
-) -> List[RegressionInput]:
+) -> list[RegressionInput]:
     """Generate regression variants for all patterns.
 
     Uses a shared RNG seeded at 42 for reproducibility.
     """
     rng = random.Random(42)
-    suite: List[RegressionInput] = []
+    suite: list[RegressionInput] = []
     for pattern in patterns:
         suite.extend(generate_regression_variants(pattern, n_variants, rng))
     return suite
 
 
 def compute_regression_results(
-    inputs: List[RegressionInput],
-    scores: Dict[str, float],
-) -> List[RegressionResult]:
+    inputs: list[RegressionInput],
+    scores: dict[str, float],
+) -> list[RegressionResult]:
     """Compute per-pattern fix rates from input scores.
 
     The scores dict maps input_text to a float score. A score >= 0.5
     counts as passed.
     """
-    pattern_counts: Dict[str, Tuple[int, int]] = {}  # pattern_id -> (passed, total)
+    pattern_counts: dict[str, tuple[int, int]] = {}  # pattern_id -> (passed, total)
 
     for inp in inputs:
         pid = inp.source_pattern_id
@@ -353,7 +353,7 @@ def compute_regression_results(
         prev_passed, prev_total = pattern_counts.get(pid, (0, 0))
         pattern_counts[pid] = (prev_passed + passed, prev_total + 1)
 
-    results: List[RegressionResult] = []
+    results: list[RegressionResult] = []
     for pid in sorted(pattern_counts):
         passed, total = pattern_counts[pid]
         failed = total - passed
@@ -371,7 +371,7 @@ def compute_regression_results(
 
 
 def build_regression_report(
-    results: List[RegressionResult],
+    results: list[RegressionResult],
 ) -> RegressionReport:
     """Aggregate per-pattern results into a report."""
     total_patterns = len(results)
@@ -393,7 +393,7 @@ def build_regression_report(
 
 def format_regression_report(report: RegressionReport) -> str:
     """Format a regression report as human-readable text."""
-    lines: List[str] = []
+    lines: list[str] = []
     lines.append("REGRESSION REPORT")
     lines.append("=" * 50)
     lines.append(f"Total patterns: {report.total_patterns}")
@@ -418,6 +418,6 @@ def format_regression_report(report: RegressionReport) -> str:
 def identify_recurring_failures(
     report: RegressionReport,
     threshold: float = 0.5,
-) -> List[str]:
+) -> list[str]:
     """Return pattern_ids still below the given fix rate threshold."""
     return [r.pattern_id for r in report.results if r.fix_rate < threshold]

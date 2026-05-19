@@ -17,7 +17,7 @@ class CleanupResult:
 
     deleted_count: int
     kept_count: int
-    deleted_ids: List[str]
+    deleted_ids: list[str]
     skipped_pinned: int
 
     @property
@@ -26,9 +26,9 @@ class CleanupResult:
 
 
 def filter_runs_by_tag(
-    runs: List,
+    runs: list,
     tag: str,
-) -> List:
+) -> list:
     """Filter runs that have a specific tag.
 
     Args:
@@ -42,9 +42,9 @@ def filter_runs_by_tag(
 
 
 def filter_runs_by_age(
-    runs: List,
+    runs: list,
     max_age_days: int,
-) -> List:
+) -> list:
     """Find runs older than max_age_days.
 
     Args:
@@ -65,9 +65,9 @@ def filter_runs_by_age(
 
 
 def filter_runs_below_pass_rate(
-    runs: List,
+    runs: list,
     min_pass_rate: float,
-) -> List:
+) -> list:
     """Find runs with overall pass rate below threshold.
 
     Uses the summary dict's per-metric pass rates to compute overall pass rate.
@@ -97,10 +97,10 @@ def filter_runs_below_pass_rate(
 
 
 def select_runs_for_cleanup(
-    runs: List,
+    runs: list,
     *,
-    older_than_days: Optional[int] = None,
-    below_pass_rate: Optional[float] = None,
+    older_than_days: int | None = None,
+    below_pass_rate: float | None = None,
     keep_pinned: bool = True,
 ) -> CleanupResult:
     """Select runs for cleanup based on criteria.

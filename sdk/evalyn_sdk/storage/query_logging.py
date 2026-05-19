@@ -27,7 +27,7 @@ class QueryLog:
     table: str = ""
     operation: str = ""
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "query": self.query,
             "duration_ms": self.duration_ms,
@@ -45,10 +45,10 @@ class QueryStats:
     avg_duration_ms: float = 0.0
     slowest_query: str = ""
     slowest_duration_ms: float = 0.0
-    by_operation: Dict[str, int] = field(default_factory=dict)
-    by_table: Dict[str, int] = field(default_factory=dict)
+    by_operation: dict[str, int] = field(default_factory=dict)
+    by_table: dict[str, int] = field(default_factory=dict)
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "total_queries": self.total_queries,
             "avg_duration_ms": self.avg_duration_ms,
@@ -59,7 +59,7 @@ class QueryStats:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> QueryStats:
+    def from_dict(cls, data: dict[str, Any]) -> QueryStats:
         return cls(
             total_queries=data.get("total_queries", 0),
             avg_duration_ms=data.get("avg_duration_ms", 0.0),
@@ -70,7 +70,7 @@ class QueryStats:
         )
 
     def format_text(self) -> str:
-        lines: List[str] = []
+        lines: list[str] = []
         lines.append("Query Stats")
         lines.append("=" * 40)
         lines.append(f"Total queries: {self.total_queries}")
@@ -100,7 +100,7 @@ class QueryLogger:
     """Accumulates query logs with a configurable size limit."""
 
     def __init__(self, max_logs: int = 1000) -> None:
-        self._logs: List[QueryLog] = []
+        self._logs: list[QueryLog] = []
         self._max_logs = max_logs
 
     def log(self, query: str, duration_ms: float = 0.0) -> None:
@@ -119,11 +119,11 @@ class QueryLogger:
         if len(self._logs) > self._max_logs:
             self._logs = self._logs[-self._max_logs :]
 
-    def get_logs(self) -> List[QueryLog]:
+    def get_logs(self) -> list[QueryLog]:
         """Return all recorded logs."""
         return list(self._logs)
 
-    def get_slow_queries(self, threshold_ms: float = 100.0) -> List[QueryLog]:
+    def get_slow_queries(self, threshold_ms: float = 100.0) -> list[QueryLog]:
         """Return queries slower than threshold."""
         return [log for log in self._logs if log.duration_ms > threshold_ms]
 
@@ -136,10 +136,10 @@ class QueryLogger:
         total_duration = sum(log.duration_ms for log in self._logs)
         avg = total_duration / total
 
-        slowest = max(self._logs, key=lambda l: l.duration_ms)
+        slowest = max(self._logs, key=lambda log: log.duration_ms)
 
-        by_operation: Dict[str, int] = defaultdict(int)
-        by_table: Dict[str, int] = defaultdict(int)
+        by_operation: dict[str, int] = defaultdict(int)
+        by_table: dict[str, int] = defaultdict(int)
         for log in self._logs:
             if log.operation:
                 by_operation[log.operation] += 1
@@ -199,7 +199,7 @@ def detect_table(query: str) -> str:
     return ""
 
 
-def analyze_query_patterns(logs: List[QueryLog]) -> Dict[str, Any]:
+def analyze_query_patterns(logs: list[QueryLog]) -> dict[str, Any]:
     """Find repeated queries, most accessed tables, and operation distribution."""
     if not logs:
         return {
@@ -208,9 +208,9 @@ def analyze_query_patterns(logs: List[QueryLog]) -> Dict[str, Any]:
             "operation_distribution": {},
         }
 
-    query_counts: Dict[str, int] = defaultdict(int)
-    table_counts: Dict[str, int] = defaultdict(int)
-    operation_counts: Dict[str, int] = defaultdict(int)
+    query_counts: dict[str, int] = defaultdict(int)
+    table_counts: dict[str, int] = defaultdict(int)
+    operation_counts: dict[str, int] = defaultdict(int)
 
     for log in logs:
         query_counts[log.query] += 1
@@ -228,9 +228,9 @@ def analyze_query_patterns(logs: List[QueryLog]) -> Dict[str, Any]:
     }
 
 
-def suggest_optimizations(stats: QueryStats) -> List[str]:
+def suggest_optimizations(stats: QueryStats) -> list[str]:
     """Generate optimization suggestions based on query statistics."""
-    suggestions: List[str] = []
+    suggestions: list[str] = []
 
     if stats.slowest_duration_ms > 1000:
         suggestions.append(

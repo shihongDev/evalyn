@@ -25,7 +25,7 @@ class VolatilityMetric:
     run_count: int = 0
     max_swing: float = 0.0  # largest single-run change
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "metric_id": self.metric_id,
             "volatility_index": self.volatility_index,
@@ -35,7 +35,7 @@ class VolatilityMetric:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> VolatilityMetric:
+    def from_dict(cls, data: dict[str, Any]) -> VolatilityMetric:
         return cls(
             metric_id=data["metric_id"],
             volatility_index=data["volatility_index"],
@@ -49,12 +49,12 @@ class VolatilityMetric:
 class VolatilityReport:
     """Aggregated volatility report across all metrics."""
 
-    metrics: List[VolatilityMetric] = field(default_factory=list)
+    metrics: list[VolatilityMetric] = field(default_factory=list)
     most_volatile: str = ""
     least_volatile: str = ""
     avg_volatility: float = 0.0
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "metrics": [m.as_dict() for m in self.metrics],
             "most_volatile": self.most_volatile,
@@ -63,7 +63,7 @@ class VolatilityReport:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> VolatilityReport:
+    def from_dict(cls, data: dict[str, Any]) -> VolatilityReport:
         metrics = [VolatilityMetric.from_dict(m) for m in data.get("metrics", [])]
         return cls(
             metrics=metrics,
@@ -74,7 +74,7 @@ class VolatilityReport:
 
     def format_text(self) -> str:
         """Format the report as human-readable text."""
-        lines: List[str] = []
+        lines: list[str] = []
         lines.append("METRIC VOLATILITY REPORT")
         lines.append("-" * 40)
         if not self.metrics:
@@ -99,7 +99,7 @@ class VolatilityReport:
 # ---------------------------------------------------------------------------
 
 
-def compute_volatility_index(scores: List[float]) -> float:
+def compute_volatility_index(scores: list[float]) -> float:
     """Mean of absolute differences between consecutive scores, normalized by range.
 
     Returns 0.0 for constant or insufficient data, up to 1.0 for maximally volatile.
@@ -114,7 +114,7 @@ def compute_volatility_index(scores: List[float]) -> float:
     return min(mean_diff / score_range, 1.0)
 
 
-def detect_volatility_trend(scores: List[float]) -> str:
+def detect_volatility_trend(scores: list[float]) -> str:
     """Detect whether volatility is increasing, decreasing, or stable.
 
     Compares volatility in the first half vs second half of the score sequence.
@@ -133,14 +133,14 @@ def detect_volatility_trend(scores: List[float]) -> str:
     return "stable"
 
 
-def compute_max_swing(scores: List[float]) -> float:
+def compute_max_swing(scores: list[float]) -> float:
     """Largest absolute change between consecutive scores."""
     if len(scores) < 2:
         return 0.0
     return max(abs(scores[i + 1] - scores[i]) for i in range(len(scores) - 1))
 
 
-def analyze_metric_volatility(metric_id: str, scores: List[float]) -> VolatilityMetric:
+def analyze_metric_volatility(metric_id: str, scores: list[float]) -> VolatilityMetric:
     """Full volatility analysis for a single metric."""
     return VolatilityMetric(
         metric_id=metric_id,
@@ -151,7 +151,7 @@ def analyze_metric_volatility(metric_id: str, scores: List[float]) -> Volatility
     )
 
 
-def analyze_all_volatility(metric_scores: Dict[str, List[float]]) -> VolatilityReport:
+def analyze_all_volatility(metric_scores: dict[str, list[float]]) -> VolatilityReport:
     """Analyze volatility for all metrics and build a report."""
     if not metric_scores:
         return VolatilityReport()
@@ -178,7 +178,7 @@ def render_volatility_chart(report: VolatilityReport, width: int = 60) -> str:
     if not report.metrics:
         return "No metrics to chart."
 
-    lines: List[str] = []
+    lines: list[str] = []
     lines.append("Volatility Chart")
     lines.append("=" * width)
 

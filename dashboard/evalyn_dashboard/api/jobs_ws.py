@@ -41,8 +41,8 @@ def register_ws_routes(app: FastAPI) -> None:
         # Parse ``since`` from query string. Invalid values (non-int) are
         # treated as "no since" rather than rejected so a buggy client
         # always gets at least the live tail.
-        since_raw: Optional[str] = websocket.query_params.get("since")
-        since: Optional[int] = None
+        since_raw: str | None = websocket.query_params.get("since")
+        since: int | None = None
         if since_raw is not None:
             try:
                 since = int(since_raw)

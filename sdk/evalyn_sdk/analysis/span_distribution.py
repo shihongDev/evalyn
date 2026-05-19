@@ -21,7 +21,7 @@ class TypeCount:
     count: int
     percentage: float
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "span_type": self.span_type,
             "count": self.count,
@@ -33,11 +33,11 @@ class TypeCount:
 class DistributionReport:
     """Full distribution of span types."""
 
-    counts: List[TypeCount] = field(default_factory=list)
+    counts: list[TypeCount] = field(default_factory=list)
     total_spans: int = 0
     unique_types: int = 0
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "counts": [c.as_dict() for c in self.counts],
             "total_spans": self.total_spans,
@@ -45,7 +45,7 @@ class DistributionReport:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> DistributionReport:
+    def from_dict(cls, data: dict[str, Any]) -> DistributionReport:
         counts = [
             TypeCount(
                 span_type=c["span_type"],
@@ -68,7 +68,7 @@ class DistributionReport:
         return "\n".join(lines)
 
 
-def compute_distribution(spans: List[Span]) -> DistributionReport:
+def compute_distribution(spans: list[Span]) -> DistributionReport:
     """Count each span_type, compute percentages, sort by count descending."""
     if not spans:
         return DistributionReport()
@@ -91,8 +91,8 @@ def compute_distribution(spans: List[Span]) -> DistributionReport:
 
 
 def compute_distribution_trend(
-    span_groups: List[Tuple[str, List[Span]]],
-) -> Dict[str, List[Tuple[str, float]]]:
+    span_groups: list[tuple[str, list[Span]]],
+) -> dict[str, list[tuple[str, float]]]:
     """Compute per-type percentage over time.
 
     Args:
@@ -101,7 +101,7 @@ def compute_distribution_trend(
     Returns:
         Dict mapping span_type to list of (period_label, percentage) tuples.
     """
-    result: Dict[str, List[Tuple[str, float]]] = {}
+    result: dict[str, list[tuple[str, float]]] = {}
 
     for label, spans in span_groups:
         report = compute_distribution(spans)
@@ -118,10 +118,10 @@ def compute_distribution_trend(
 
 
 def detect_distribution_shift(
-    before: List[Span],
-    after: List[Span],
+    before: list[Span],
+    after: list[Span],
     threshold: float = 0.1,
-) -> List[Dict[str, Any]]:
+) -> list[dict[str, Any]]:
     """Compare two distributions and return shifts exceeding threshold.
 
     Each shift: {"span_type", "before_pct", "after_pct", "delta"}.
@@ -129,8 +129,8 @@ def detect_distribution_shift(
     before_report = compute_distribution(before)
     after_report = compute_distribution(after)
 
-    before_pcts: Dict[str, float] = {tc.span_type: tc.percentage for tc in before_report.counts}
-    after_pcts: Dict[str, float] = {tc.span_type: tc.percentage for tc in after_report.counts}
+    before_pcts: dict[str, float] = {tc.span_type: tc.percentage for tc in before_report.counts}
+    after_pcts: dict[str, float] = {tc.span_type: tc.percentage for tc in after_report.counts}
 
     all_types = set(before_pcts) | set(after_pcts)
     shifts = []

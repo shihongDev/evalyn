@@ -18,17 +18,17 @@ from typing import Any, Dict, List, Optional, Tuple
 class ParquetSchema:
     """Schema describing columns for a parquet dataset."""
 
-    columns: List[Tuple[str, str]]  # (name, type) pairs
+    columns: list[tuple[str, str]]  # (name, type) pairs
     description: str = ""
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "columns": [list(c) for c in self.columns],
             "description": self.description,
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> ParquetSchema:
+    def from_dict(cls, data: dict[str, Any]) -> ParquetSchema:
         columns = [tuple(c) for c in data["columns"]]
         return cls(
             columns=columns,
@@ -40,13 +40,13 @@ class ParquetSchema:
 class ParquetRow:
     """A single row of column values."""
 
-    values: Dict[str, Any]
+    values: dict[str, Any]
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {"values": dict(self.values)}
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> ParquetRow:
+    def from_dict(cls, data: dict[str, Any]) -> ParquetRow:
         return cls(values=data["values"])
 
 
@@ -55,10 +55,10 @@ class ParquetDataset:
     """A dataset consisting of a schema and rows."""
 
     schema: ParquetSchema
-    rows: List[ParquetRow]
+    rows: list[ParquetRow]
     row_count: int
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "schema": self.schema.as_dict(),
             "rows": [r.as_dict() for r in self.rows],
@@ -66,7 +66,7 @@ class ParquetDataset:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> ParquetDataset:
+    def from_dict(cls, data: dict[str, Any]) -> ParquetDataset:
         schema = ParquetSchema.from_dict(data["schema"])
         rows = [ParquetRow.from_dict(r) for r in data["rows"]]
         return cls(
@@ -101,26 +101,26 @@ EVAL_RESULT_SCHEMA = ParquetSchema(
 
 
 def convert_results_to_rows(
-    results: List[Dict[str, Any]],
-    items: Optional[List[Dict[str, Any]]] = None,
-) -> List[ParquetRow]:
+    results: list[dict[str, Any]],
+    items: list[dict[str, Any]] | None = None,
+) -> list[ParquetRow]:
     """Convert evalyn result dicts to ParquetRow objects.
 
     Joins with items by item_id when items are provided, pulling
     input_text and output_text from matching items.
     """
-    items_lookup: Dict[str, Dict[str, Any]] = {}
+    items_lookup: dict[str, dict[str, Any]] = {}
     if items:
         for item in items:
             iid = item.get("item_id", "")
             if iid:
                 items_lookup[iid] = item
 
-    rows: List[ParquetRow] = []
+    rows: list[ParquetRow] = []
     for r in results:
         item_id = r.get("item_id", "")
         item_data = items_lookup.get(item_id, {})
-        values: Dict[str, Any] = {
+        values: dict[str, Any] = {
             "item_id": item_id,
             "metric_id": r.get("metric_id", ""),
             "score": r.get("score", 0.0),
@@ -135,9 +135,9 @@ def convert_results_to_rows(
 
 
 def build_parquet_dataset(
-    results: List[Dict[str, Any]],
-    items: Optional[List[Dict[str, Any]]] = None,
-    schema: Optional[ParquetSchema] = None,
+    results: list[dict[str, Any]],
+    items: list[dict[str, Any]] | None = None,
+    schema: ParquetSchema | None = None,
 ) -> ParquetDataset:
     """Build a ParquetDataset from result dicts and optional items."""
     if schema is None:
@@ -179,7 +179,7 @@ def check_pyarrow_available() -> bool:
 
 def format_schema_info(schema: ParquetSchema) -> str:
     """Format a human-readable description of the schema."""
-    lines: List[str] = []
+    lines: list[str] = []
     if schema.description:
         lines.append(schema.description)
     lines.append("Columns:")

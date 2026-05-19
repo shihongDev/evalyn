@@ -31,7 +31,8 @@ import threading
 import time
 import webbrowser
 from pathlib import Path
-from typing import Callable, Optional
+from typing import Optional
+from collections.abc import Callable
 
 logger = logging.getLogger(__name__)
 
@@ -468,10 +469,10 @@ def _register_v2_routers(app: FastAPI) -> None:
 
 
 def build_app(
-    token: Optional[str] = None,
+    token: str | None = None,
     *,
-    credential_store: Optional[object] = None,
-    agent_runtime: Optional[object] = None,
+    credential_store: object | None = None,
+    agent_runtime: object | None = None,
 ) -> FastAPI:
     """Construct the FastAPI app.
 

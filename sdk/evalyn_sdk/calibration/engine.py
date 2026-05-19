@@ -45,18 +45,18 @@ class CalibrationConfig:
 
     judge_name: str
     current_threshold: float = 0.5
-    current_rubric: List[str] = field(default_factory=list)
+    current_rubric: list[str] = field(default_factory=list)
     current_preamble: str = ""  # Base prompt before rubric
     optimize_prompts: bool = True
     optimizer_model: str = DEFAULT_EVAL_MODEL
     optimizer_type: str = "basic"
-    optimizer_config: Optional[Any] = None  # Generic optimizer config (any Config dataclass)
-    optimizer_api_key: Optional[str] = None
+    optimizer_config: Any | None = None  # Generic optimizer config (any Config dataclass)
+    optimizer_api_key: str | None = None
     # Backward compat (deprecated - use optimizer_config):
-    gepa_config: Optional[GEPAConfig] = None
-    gepa_native_config: Optional[Any] = None
-    opro_config: Optional[Any] = None
-    ape_config: Optional[Any] = None
+    gepa_config: GEPAConfig | None = None
+    gepa_native_config: Any | None = None
+    opro_config: Any | None = None
+    ape_config: Any | None = None
 
 
 class CalibrationEngine:
@@ -73,22 +73,22 @@ class CalibrationEngine:
 
     def __init__(
         self,
-        judge_name: Optional[str] = None,
+        judge_name: str | None = None,
         current_threshold: float = 0.5,
-        current_rubric: Optional[List[str]] = None,
+        current_rubric: list[str] | None = None,
         current_preamble: str = "",
         optimize_prompts: bool = True,
         optimizer_model: str = DEFAULT_EVAL_MODEL,
         optimizer_type: str = "basic",
-        optimizer_config: Optional[Any] = None,
-        optimizer_api_key: Optional[str] = None,
+        optimizer_config: Any | None = None,
+        optimizer_api_key: str | None = None,
         # Backward compat (deprecated - use optimizer_config):
-        gepa_config: Optional[GEPAConfig] = None,
-        gepa_native_config: Optional[Any] = None,
-        opro_config: Optional[Any] = None,
-        ape_config: Optional[Any] = None,
+        gepa_config: GEPAConfig | None = None,
+        gepa_native_config: Any | None = None,
+        opro_config: Any | None = None,
+        ape_config: Any | None = None,
         *,
-        config: Optional[CalibrationConfig] = None,
+        config: CalibrationConfig | None = None,
     ):
         # Support both config object and individual params (backwards compat)
         if config is not None:
@@ -151,11 +151,11 @@ class CalibrationEngine:
 
     def compute_alignment(
         self,
-        metric_results: List[MetricResult],
-        annotations: List[Annotation],
+        metric_results: list[MetricResult],
+        annotations: list[Annotation],
     ) -> AlignmentMetrics:
         """Compute alignment metrics between judge and human annotations."""
-        ann_by_call: Dict[str, Annotation] = {ann.target_id: ann for ann in annotations}
+        ann_by_call: dict[str, Annotation] = {ann.target_id: ann for ann in annotations}
 
         metrics = AlignmentMetrics()
 
@@ -180,13 +180,13 @@ class CalibrationEngine:
 
     def analyze_disagreements(
         self,
-        metric_results: List[MetricResult],
-        annotations: List[Annotation],
-        dataset_items: Optional[List[DatasetItem]] = None,
+        metric_results: list[MetricResult],
+        annotations: list[Annotation],
+        dataset_items: list[DatasetItem] | None = None,
     ) -> DisagreementAnalysis:
         """Analyze patterns in disagreements between judge and human."""
-        ann_by_call: Dict[str, Annotation] = {ann.target_id: ann for ann in annotations}
-        items_by_call: Dict[str, DatasetItem] = {}
+        ann_by_call: dict[str, Annotation] = {ann.target_id: ann for ann in annotations}
+        items_by_call: dict[str, DatasetItem] = {}
         if dataset_items:
             for item in dataset_items:
                 call_id = item.metadata.get("call_id", item.id)
@@ -241,11 +241,11 @@ class CalibrationEngine:
 
     def _build_validation_split(
         self,
-        annotations: List[Annotation],
-        dataset_items: Optional[List[DatasetItem]],
+        annotations: list[Annotation],
+        dataset_items: list[DatasetItem] | None,
         *,
         val_split: float,
-    ) -> Optional[tuple[List[Annotation], List[DatasetItem]]]:
+    ) -> tuple[list[Annotation], list[DatasetItem]] | None:
         """Create validation annotation/data split for prompt comparison."""
         if not dataset_items or len(annotations) < 10:
             return None
@@ -335,7 +335,7 @@ class CalibrationEngine:
         *,
         human_pass: bool,
         metrics: AlignmentMetrics,
-        accumulator: Optional[TokenAccumulator],
+        accumulator: TokenAccumulator | None,
     ) -> None:
         """Score one item with one judge and update metrics/token counts."""
         try:
@@ -399,12 +399,12 @@ class CalibrationEngine:
         original_prompt: str,
         optimized_prompt: str,
         metric_id: str,
-        metric_results: List[MetricResult],
-        annotations: List[Annotation],
-        dataset_items: Optional[List[DatasetItem]] = None,
+        metric_results: list[MetricResult],
+        annotations: list[Annotation],
+        dataset_items: list[DatasetItem] | None = None,
         val_split: float = 0.3,
-        accumulator: Optional[TokenAccumulator] = None,
-    ) -> Optional[ValidationResult]:
+        accumulator: TokenAccumulator | None = None,
+    ) -> ValidationResult | None:
         """
         Validate optimized prompt against validation set.
 
@@ -479,9 +479,9 @@ class CalibrationEngine:
 
     def calibrate(
         self,
-        metric_results: List[MetricResult],
-        annotations: List[Annotation],
-        dataset_items: Optional[List[DatasetItem]] = None,
+        metric_results: list[MetricResult],
+        annotations: list[Annotation],
+        dataset_items: list[DatasetItem] | None = None,
     ) -> CalibrationRecord:
         """
         Full calibration pipeline:
@@ -490,7 +490,7 @@ class CalibrationEngine:
         3. Optionally optimize prompts via LLM
         4. Return calibration record with all results
         """
-        ann_by_call: Dict[str, Annotation] = {ann.target_id: ann for ann in annotations}
+        ann_by_call: dict[str, Annotation] = {ann.target_id: ann for ann in annotations}
 
         # Token accumulator for tracking LLM usage across optimization
         accumulator = TokenAccumulator()
@@ -598,10 +598,10 @@ class CalibrationEngine:
         )
 
     def _suggest_threshold(
-        self, metric_results: List[MetricResult], annotations: List[Annotation]
+        self, metric_results: list[MetricResult], annotations: list[Annotation]
     ) -> float:
         """Simple heuristic: align judge pass-rate with human positive rate."""
-        ann_by_call: Dict[str, Annotation] = {ann.target_id: ann for ann in annotations}
+        ann_by_call: dict[str, Annotation] = {ann.target_id: ann for ann in annotations}
         human_labels = [bool(ann.label) for ann in annotations]
         judge_passes = [
             bool(res.passed)

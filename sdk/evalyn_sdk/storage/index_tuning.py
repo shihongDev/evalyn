@@ -21,12 +21,12 @@ class IndexSuggestion:
     """A suggested index for a table based on query pattern analysis."""
 
     table: str
-    columns: List[str]
+    columns: list[str]
     index_name: str = ""
     reason: str = ""
     estimated_speedup: str = ""
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "table": self.table,
             "columns": self.columns,
@@ -42,10 +42,10 @@ class ExistingIndex:
 
     name: str
     table: str
-    columns: List[str]
+    columns: list[str]
     unique: bool = False
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "name": self.name,
             "table": self.table,
@@ -54,7 +54,7 @@ class ExistingIndex:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> ExistingIndex:
+    def from_dict(cls, data: dict[str, Any]) -> ExistingIndex:
         return cls(
             name=data.get("name", ""),
             table=data.get("table", ""),
@@ -67,12 +67,12 @@ class ExistingIndex:
 class IndexTuningReport:
     """Full index tuning report with suggestions and redundancy info."""
 
-    suggestions: List[IndexSuggestion] = field(default_factory=list)
-    existing: List[ExistingIndex] = field(default_factory=list)
-    redundant: List[str] = field(default_factory=list)
+    suggestions: list[IndexSuggestion] = field(default_factory=list)
+    existing: list[ExistingIndex] = field(default_factory=list)
+    redundant: list[str] = field(default_factory=list)
     total_suggested: int = 0
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "suggestions": [s.as_dict() for s in self.suggestions],
             "existing": [e.as_dict() for e in self.existing],
@@ -81,7 +81,7 @@ class IndexTuningReport:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> IndexTuningReport:
+    def from_dict(cls, data: dict[str, Any]) -> IndexTuningReport:
         suggestions = [
             IndexSuggestion(
                 table=s.get("table", ""),
@@ -103,7 +103,7 @@ class IndexTuningReport:
         )
 
     def format_text(self) -> str:
-        lines: List[str] = []
+        lines: list[str] = []
         lines.append("Index Tuning Report")
         lines.append("=" * 40)
         lines.append(f"Existing indexes: {len(self.existing)}")
@@ -136,7 +136,7 @@ class IndexTuningReport:
 # ---------------------------------------------------------------------------
 
 
-def parse_query_columns(query: str) -> List[str]:
+def parse_query_columns(query: str) -> list[str]:
     """Extract column names from a WHERE clause string (simple regex).
 
     Looks for patterns like: column = value, column > value, column IN (...),
@@ -161,7 +161,7 @@ def parse_query_columns(query: str) -> List[str]:
     }
 
     seen: set[str] = set()
-    result: List[str] = []
+    result: list[str] = []
     for col in matches:
         lower = col.lower()
         if lower not in sql_keywords and lower not in seen:
@@ -173,9 +173,9 @@ def parse_query_columns(query: str) -> List[str]:
 
 def suggest_indexes(
     table_name: str,
-    query_patterns: List[str],
-    existing_indexes: List[ExistingIndex] | None = None,
-) -> List[IndexSuggestion]:
+    query_patterns: list[str],
+    existing_indexes: list[ExistingIndex] | None = None,
+) -> list[IndexSuggestion]:
     """Analyze query patterns and suggest indexes.
 
     Examines WHERE clauses and JOIN conditions to find frequently filtered
@@ -188,7 +188,7 @@ def suggest_indexes(
         return []
 
     # Collect column frequencies across all query patterns
-    column_counts: Dict[str, int] = {}
+    column_counts: dict[str, int] = {}
     for pattern in query_patterns:
         cols = parse_query_columns(pattern)
         for col in cols:
@@ -205,7 +205,7 @@ def suggest_indexes(
                 indexed_columns.add(col.lower())
 
     # Generate suggestions for unindexed columns, sorted by frequency
-    suggestions: List[IndexSuggestion] = []
+    suggestions: list[IndexSuggestion] = []
     sorted_cols = sorted(column_counts.items(), key=lambda x: x[1], reverse=True)
 
     for col, count in sorted_cols:
@@ -229,7 +229,7 @@ def suggest_indexes(
     return suggestions
 
 
-def detect_redundant_indexes(indexes: List[ExistingIndex]) -> List[str]:
+def detect_redundant_indexes(indexes: list[ExistingIndex]) -> list[str]:
     """Find indexes that are prefix-subsets of other indexes.
 
     An index on (a) is redundant if another index on (a, b) exists for the
@@ -238,7 +238,7 @@ def detect_redundant_indexes(indexes: List[ExistingIndex]) -> List[str]:
     if not indexes:
         return []
 
-    redundant: List[str] = []
+    redundant: list[str] = []
 
     for i, idx_a in enumerate(indexes):
         cols_a = [c.lower() for c in idx_a.columns]
@@ -272,8 +272,8 @@ def generate_create_index_sql(suggestion: IndexSuggestion) -> str:
 
 
 def build_tuning_report(
-    suggestions: List[IndexSuggestion],
-    existing: List[ExistingIndex],
+    suggestions: list[IndexSuggestion],
+    existing: list[ExistingIndex],
 ) -> IndexTuningReport:
     """Build a full index tuning report."""
     redundant = detect_redundant_indexes(existing)

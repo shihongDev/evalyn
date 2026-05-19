@@ -25,7 +25,7 @@ class Annotator:
     name: str = ""
     role: str = "annotator"  # "annotator" / "reviewer" / "admin"
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "user_id": self.user_id,
             "name": self.name,
@@ -33,7 +33,7 @@ class Annotator:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> Annotator:
+    def from_dict(cls, data: dict[str, Any]) -> Annotator:
         return cls(
             user_id=data.get("user_id", ""),
             name=data.get("name", ""),
@@ -52,7 +52,7 @@ class Annotation:
     timestamp: str = ""
     notes: str = ""
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "item_id": self.item_id,
             "annotator_id": self.annotator_id,
@@ -63,7 +63,7 @@ class Annotation:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> Annotation:
+    def from_dict(cls, data: dict[str, Any]) -> Annotation:
         return cls(
             item_id=data.get("item_id", ""),
             annotator_id=data.get("annotator_id", ""),
@@ -79,12 +79,12 @@ class ConflictResolution:
     """Resolution of a labeling conflict for a single item."""
 
     item_id: str = ""
-    annotations: List[Annotation] = field(default_factory=list)
+    annotations: list[Annotation] = field(default_factory=list)
     resolved_label: str = ""
     resolution_method: str = ""  # "majority" / "reviewer" / "discussion"
     resolved_by: str = ""
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "item_id": self.item_id,
             "annotations": [a.as_dict() for a in self.annotations],
@@ -103,9 +103,9 @@ class CollaborationReport:
     conflicts: int = 0
     resolved: int = 0
     agreement_rate: float = 0.0
-    annotators: List[Annotator] = field(default_factory=list)
+    annotators: list[Annotator] = field(default_factory=list)
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "total_items": self.total_items,
             "annotated_items": self.annotated_items,
@@ -116,7 +116,7 @@ class CollaborationReport:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> CollaborationReport:
+    def from_dict(cls, data: dict[str, Any]) -> CollaborationReport:
         return cls(
             total_items=data.get("total_items", 0),
             annotated_items=data.get("annotated_items", 0),
@@ -147,10 +147,10 @@ class CollaborationReport:
 
 
 def assign_items(
-    items: List[str],
-    annotators: List[Annotator],
+    items: list[str],
+    annotators: list[Annotator],
     overlap: int = 2,
-) -> Dict[str, List[str]]:
+) -> dict[str, list[str]]:
     """Assign items to annotators with overlap using round-robin.
 
     Each item is assigned to ``overlap`` annotators. The assignment cycles
@@ -162,7 +162,7 @@ def assign_items(
     if not annotators:
         return {}
 
-    assignments: Dict[str, List[str]] = {a.user_id: [] for a in annotators}
+    assignments: dict[str, list[str]] = {a.user_id: [] for a in annotators}
     n = len(annotators)
 
     for idx, item_id in enumerate(items):
@@ -173,12 +173,12 @@ def assign_items(
     return assignments
 
 
-def detect_conflicts(annotations: List[Annotation]) -> List[str]:
+def detect_conflicts(annotations: list[Annotation]) -> list[str]:
     """Find item_ids where annotators disagree on the label.
 
     Returns a sorted list of item_ids with conflicting labels.
     """
-    items_labels: Dict[str, set] = {}
+    items_labels: dict[str, set] = {}
     for ann in annotations:
         items_labels.setdefault(ann.item_id, set()).add(ann.label)
 
@@ -186,7 +186,7 @@ def detect_conflicts(annotations: List[Annotation]) -> List[str]:
 
 
 def resolve_by_majority(
-    annotations: List[Annotation],
+    annotations: list[Annotation],
     item_id: str,
 ) -> ConflictResolution:
     """Resolve a conflict by majority vote.
@@ -210,7 +210,7 @@ def resolve_by_majority(
     )
 
 
-def compute_inter_annotator_agreement(annotations: List[Annotation]) -> float:
+def compute_inter_annotator_agreement(annotations: list[Annotation]) -> float:
     """Compute Cohen's kappa approximation for inter-annotator agreement.
 
     Formula: (agreement - expected) / (1 - expected)
@@ -219,7 +219,7 @@ def compute_inter_annotator_agreement(annotations: List[Annotation]) -> float:
     label. Expected agreement is the sum of squared label proportions.
     """
     # Group annotations by item
-    items_labels: Dict[str, List[str]] = {}
+    items_labels: dict[str, list[str]] = {}
     for ann in annotations:
         items_labels.setdefault(ann.item_id, []).append(ann.label)
 
@@ -236,7 +236,7 @@ def compute_inter_annotator_agreement(annotations: List[Annotation]) -> float:
     agreement = agree_count / len(multi)
 
     # Expected agreement: sum of squared proportions of each label
-    all_labels: List[str] = []
+    all_labels: list[str] = []
     for labels in multi.values():
         all_labels.extend(labels)
 
@@ -254,8 +254,8 @@ def compute_inter_annotator_agreement(annotations: List[Annotation]) -> float:
 
 
 def build_collaboration_report(
-    annotators: List[Annotator],
-    annotations: List[Annotation],
+    annotators: list[Annotator],
+    annotations: list[Annotation],
 ) -> CollaborationReport:
     """Build a full collaboration report from annotators and annotations."""
     item_ids = set(a.item_id for a in annotations)

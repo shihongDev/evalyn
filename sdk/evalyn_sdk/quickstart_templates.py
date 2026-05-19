@@ -23,11 +23,11 @@ class QuickstartTemplate:
     name: str
     framework: str
     description: str = ""
-    files: Dict[str, str] = field(default_factory=dict)
-    dependencies: List[str] = field(default_factory=list)
-    setup_commands: List[str] = field(default_factory=list)
+    files: dict[str, str] = field(default_factory=dict)
+    dependencies: list[str] = field(default_factory=list)
+    setup_commands: list[str] = field(default_factory=list)
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "name": self.name,
             "framework": self.framework,
@@ -38,7 +38,7 @@ class QuickstartTemplate:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> QuickstartTemplate:
+    def from_dict(cls, data: dict[str, Any]) -> QuickstartTemplate:
         return cls(
             name=data.get("name", ""),
             framework=data.get("framework", ""),
@@ -54,10 +54,10 @@ class QuickstartResult:
     """Result of planning a quickstart (dry run)."""
 
     template_name: str
-    files_created: List[str] = field(default_factory=list)
-    commands_to_run: List[str] = field(default_factory=list)
+    files_created: list[str] = field(default_factory=list)
+    commands_to_run: list[str] = field(default_factory=list)
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "template_name": self.template_name,
             "files_created": list(self.files_created),
@@ -81,7 +81,7 @@ class QuickstartResult:
 # Built-in Templates
 # ---------------------------------------------------------------------------
 
-TEMPLATES: Dict[str, QuickstartTemplate] = {
+TEMPLATES: dict[str, QuickstartTemplate] = {
     "langchain": QuickstartTemplate(
         "langchain",
         "langchain",
@@ -167,7 +167,7 @@ def get_quickstart(name: str) -> QuickstartTemplate:
     return TEMPLATES[name]
 
 
-def list_quickstarts() -> List[QuickstartTemplate]:
+def list_quickstarts() -> list[QuickstartTemplate]:
     """Return all available quickstart templates."""
     return list(TEMPLATES.values())
 
@@ -222,7 +222,7 @@ def render_quickstart_guide(template: QuickstartTemplate) -> str:
     return "\n".join(lines)
 
 
-def suggest_quickstart(framework: str) -> Optional[QuickstartTemplate]:
+def suggest_quickstart(framework: str) -> QuickstartTemplate | None:
     """Suggest the best template for a given framework name.
 
     Performs case-insensitive matching against template names and

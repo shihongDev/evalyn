@@ -26,7 +26,7 @@ class MetricTimeEstimate:
     total_time_ms: float = 0.0  # total for dataset
     source: str = "default"     # "default" or "historical"
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "metric_id": self.metric_id,
             "type": self.metric_type,
@@ -40,19 +40,19 @@ class MetricTimeEstimate:
 class RuntimeEstimateReport:
     """Runtime estimation report for an evaluation run."""
 
-    metrics: List[MetricTimeEstimate] = field(default_factory=list)
+    metrics: list[MetricTimeEstimate] = field(default_factory=list)
     total_sequential_ms: float = 0.0
     total_parallel_ms: float = 0.0  # with max_workers
     item_count: int = 0
     max_workers: int = 1
 
     @property
-    def slowest_metric(self) -> Optional[str]:
+    def slowest_metric(self) -> str | None:
         if not self.metrics:
             return None
         return max(self.metrics, key=lambda m: m.total_time_ms).metric_id
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "total_sequential_seconds": round(self.total_sequential_ms / 1000, 1),
             "total_parallel_seconds": round(self.total_parallel_ms / 1000, 1),
@@ -78,10 +78,10 @@ class RuntimeEstimateReport:
 
 
 def estimate_runtime(
-    metric_specs: List,
+    metric_specs: list,
     item_count: int,
     max_workers: int = 1,
-    historical_times: Optional[Dict[str, float]] = None,
+    historical_times: dict[str, float] | None = None,
 ) -> RuntimeEstimateReport:
     """Estimate evaluation runtime.
 

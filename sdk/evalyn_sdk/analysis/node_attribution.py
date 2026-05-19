@@ -22,7 +22,7 @@ class NodeScore:
     passed: bool
     contribution: float = 0.0  # how much this node contributed to overall failure
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "node_id": self.node_id,
             "node_name": self.node_name,
@@ -39,10 +39,10 @@ class AttributionResult:
 
     item_id: str
     overall_score: float
-    node_scores: List[NodeScore] = field(default_factory=list)
-    primary_failure_node: Optional[str] = None
+    node_scores: list[NodeScore] = field(default_factory=list)
+    primary_failure_node: str | None = None
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "item_id": self.item_id,
             "overall_score": self.overall_score,
@@ -51,7 +51,7 @@ class AttributionResult:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> AttributionResult:
+    def from_dict(cls, data: dict[str, Any]) -> AttributionResult:
         node_scores = [
             NodeScore(
                 node_id=ns["node_id"],
@@ -75,11 +75,11 @@ class AttributionResult:
 class AttributionReport:
     """Aggregated attribution report across items."""
 
-    results: List[AttributionResult] = field(default_factory=list)
-    failure_hotspots: Dict[str, int] = field(default_factory=dict)  # node_name -> failure count
+    results: list[AttributionResult] = field(default_factory=list)
+    failure_hotspots: dict[str, int] = field(default_factory=dict)  # node_name -> failure count
     total_items: int = 0
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "results": [r.as_dict() for r in self.results],
             "failure_hotspots": dict(self.failure_hotspots),
@@ -87,7 +87,7 @@ class AttributionReport:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> AttributionReport:
+    def from_dict(cls, data: dict[str, Any]) -> AttributionReport:
         results = [AttributionResult.from_dict(r) for r in data.get("results", [])]
         return cls(
             results=results,
@@ -96,7 +96,7 @@ class AttributionReport:
         )
 
     def format_text(self) -> str:
-        lines: List[str] = []
+        lines: list[str] = []
         lines.append("NODE ATTRIBUTION REPORT")
         lines.append(f"Total items: {self.total_items}")
         lines.append("")
@@ -132,7 +132,7 @@ class AttributionReport:
 def attribute_to_nodes(
     item_id: str,
     overall_score: float,
-    node_results: List[Dict[str, Any]],
+    node_results: list[dict[str, Any]],
 ) -> AttributionResult:
     """Attribute an item's overall score to individual graph nodes.
 
@@ -154,9 +154,9 @@ def attribute_to_nodes(
     deficits = [1.0 - nr["score"] for nr in node_results]
     total_deficit = sum(deficits)
 
-    node_scores: List[NodeScore] = []
+    node_scores: list[NodeScore] = []
     lowest_score = float("inf")
-    primary_failure: Optional[str] = None
+    primary_failure: str | None = None
 
     for nr, deficit in zip(node_results, deficits):
         contribution = deficit / total_deficit if total_deficit > 0 else 0.0
@@ -182,7 +182,7 @@ def attribute_to_nodes(
     )
 
 
-def build_attribution_report(results: List[AttributionResult]) -> AttributionReport:
+def build_attribution_report(results: list[AttributionResult]) -> AttributionReport:
     """Aggregate attribution results into a report with failure hotspots.
 
     Counts how many times each node appears as a failure (passed=False)
@@ -194,7 +194,7 @@ def build_attribution_report(results: List[AttributionResult]) -> AttributionRep
     Returns:
         AttributionReport with hotspot counts.
     """
-    hotspots: Dict[str, int] = {}
+    hotspots: dict[str, int] = {}
     for result in results:
         for ns in result.node_scores:
             if not ns.passed:
@@ -210,7 +210,7 @@ def build_attribution_report(results: List[AttributionResult]) -> AttributionRep
 def find_failure_hotspots(
     report: AttributionReport,
     min_failures: int = 2,
-) -> List[Tuple[str, int]]:
+) -> list[tuple[str, int]]:
     """Return nodes with >= min_failures occurrences, sorted descending.
 
     Args:
@@ -227,7 +227,7 @@ def find_failure_hotspots(
     )
 
 
-def suggest_fixes(report: AttributionReport) -> List[str]:
+def suggest_fixes(report: AttributionReport) -> list[str]:
     """Generate fix suggestions based on failure hotspots.
 
     Args:
@@ -239,7 +239,7 @@ def suggest_fixes(report: AttributionReport) -> List[str]:
     if not report.failure_hotspots:
         return []
 
-    suggestions: List[str] = []
+    suggestions: list[str] = []
     sorted_hotspots = sorted(
         report.failure_hotspots.items(), key=lambda x: x[1], reverse=True
     )

@@ -155,8 +155,8 @@ class SQLiteSpanExporter:
 def configure_otel(
     service_name: str = "evalyn",
     exporter: str = "console",
-    endpoint: Optional[str] = None,
-    sqlite_path: Optional[str] = None,
+    endpoint: str | None = None,
+    sqlite_path: str | None = None,
 ):
     """
     Configure an OpenTelemetry tracer provider and return a tracer for Evalyn to use.

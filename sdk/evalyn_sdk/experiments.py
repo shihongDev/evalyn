@@ -16,10 +16,10 @@ class ExperimentComparison:
 
     experiment_a: str
     experiment_b: str
-    metric_deltas: Dict[str, float] = field(default_factory=dict)
-    winner: Optional[str] = None  # experiment with higher overall pass rate
+    metric_deltas: dict[str, float] = field(default_factory=dict)
+    winner: str | None = None  # experiment with higher overall pass rate
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "experiment_a": self.experiment_a,
             "experiment_b": self.experiment_b,
@@ -39,7 +39,7 @@ class ExperimentComparison:
         return "\n".join(lines)
 
 
-def group_runs_by_experiment(runs: List) -> Dict[str, List]:
+def group_runs_by_experiment(runs: list) -> dict[str, list]:
     """Group evaluation runs by their experiment tag.
 
     Looks for experiment_id in run tags or metadata.
@@ -50,7 +50,7 @@ def group_runs_by_experiment(runs: List) -> Dict[str, List]:
     Returns:
         Dict of experiment_id -> list of runs.
     """
-    groups: Dict[str, List] = {}
+    groups: dict[str, list] = {}
     for run in runs:
         exp_id = _get_experiment_id(run)
         if exp_id:
@@ -59,8 +59,8 @@ def group_runs_by_experiment(runs: List) -> Dict[str, List]:
 
 
 def compare_experiments(
-    runs_a: List,
-    runs_b: List,
+    runs_a: list,
+    runs_b: list,
     experiment_a: str,
     experiment_b: str,
 ) -> ExperimentComparison:
@@ -103,7 +103,7 @@ def compare_experiments(
     )
 
 
-def _get_experiment_id(run) -> Optional[str]:
+def _get_experiment_id(run) -> str | None:
     """Extract experiment ID from a run."""
     # Check tags for experiment-* pattern
     for tag in getattr(run, "tags", []) or []:
@@ -118,7 +118,7 @@ def _get_experiment_id(run) -> Optional[str]:
     return None
 
 
-def _compute_pass_rates(runs: List) -> Dict[str, float]:
+def _compute_pass_rates(runs: list) -> dict[str, float]:
     """Compute per-metric pass rates from the most recent run."""
     if not runs:
         return {}
@@ -126,8 +126,8 @@ def _compute_pass_rates(runs: List) -> Dict[str, float]:
     sorted_runs = sorted(runs, key=lambda r: r.created_at, reverse=True)
     run = sorted_runs[0]
 
-    rates: Dict[str, float] = {}
-    metric_counts: Dict[str, Tuple[int, int]] = {}  # metric -> (passed, total)
+    rates: dict[str, float] = {}
+    metric_counts: dict[str, tuple[int, int]] = {}  # metric -> (passed, total)
 
     for mr in run.metric_results:
         mid = mr.metric_id

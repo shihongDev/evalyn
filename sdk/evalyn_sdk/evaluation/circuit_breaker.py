@@ -19,7 +19,7 @@ class CircuitBreakerConfig:
     reset_timeout_seconds: float = 60.0
     half_open_max_calls: int = 1
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "failure_threshold": self.failure_threshold,
             "reset_timeout_seconds": self.reset_timeout_seconds,
@@ -27,7 +27,7 @@ class CircuitBreakerConfig:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> CircuitBreakerConfig:
+    def from_dict(cls, data: dict[str, Any]) -> CircuitBreakerConfig:
         return cls(
             failure_threshold=data.get("failure_threshold", 5),
             reset_timeout_seconds=data.get("reset_timeout_seconds", 60.0),
@@ -43,10 +43,10 @@ class CircuitBreakerStatus:
     consecutive_failures: int = 0
     total_failures: int = 0
     total_successes: int = 0
-    last_failure_time: Optional[float] = None
-    opened_at: Optional[float] = None
+    last_failure_time: float | None = None
+    opened_at: float | None = None
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "state": self.state,
             "consecutive_failures": self.consecutive_failures,
@@ -94,8 +94,8 @@ class CircuitBreaker:
         self._consecutive_failures: int = 0
         self._total_failures: int = 0
         self._total_successes: int = 0
-        self._last_failure_time: Optional[float] = None
-        self._opened_at: Optional[float] = None
+        self._last_failure_time: float | None = None
+        self._opened_at: float | None = None
         self._half_open_calls: int = 0
 
     def record_success(self) -> None:
@@ -181,7 +181,7 @@ def create_circuit_breaker(
     return CircuitBreaker(provider, config)
 
 
-def should_skip_provider(breaker: CircuitBreaker) -> Tuple[bool, str]:
+def should_skip_provider(breaker: CircuitBreaker) -> tuple[bool, str]:
     """Check whether a provider should be skipped.
 
     Returns:

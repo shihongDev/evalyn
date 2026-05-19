@@ -32,7 +32,7 @@ _JSON_SCHEMA_TYPE_MAP = {
     "list": "array",
 }
 
-_EXAMPLE_VALUES: Dict[str, Any] = {
+_EXAMPLE_VALUES: dict[str, Any] = {
     "str": "example",
     "int": 0,
     "float": 0.5,
@@ -56,7 +56,7 @@ class SchemaField:
     required: bool = True
     description: str = ""
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "name": self.name,
             "field_type": self.field_type,
@@ -70,10 +70,10 @@ class ResultSchema:
     """Schema definition for evaluation results."""
 
     version: str = "1.0"
-    fields: List[SchemaField] = field(default_factory=list)
+    fields: list[SchemaField] = field(default_factory=list)
     name: str = "evalyn_result"
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "version": self.version,
             "name": self.name,
@@ -81,7 +81,7 @@ class ResultSchema:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> ResultSchema:
+    def from_dict(cls, data: dict[str, Any]) -> ResultSchema:
         return cls(
             version=data.get("version", "1.0"),
             name=data.get("name", "evalyn_result"),
@@ -102,10 +102,10 @@ class ValidationResult:
     """Result of validating one or more results against a schema."""
 
     valid: bool
-    errors: List[str] = field(default_factory=list)
-    warnings: List[str] = field(default_factory=list)
+    errors: list[str] = field(default_factory=list)
+    warnings: list[str] = field(default_factory=list)
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "valid": self.valid,
             "errors": list(self.errors),
@@ -113,7 +113,7 @@ class ValidationResult:
         }
 
     def format_text(self) -> str:
-        lines: List[str] = []
+        lines: list[str] = []
         status = "VALID" if self.valid else "INVALID"
         lines.append(f"Validation: {status}")
         for err in self.errors:
@@ -143,7 +143,7 @@ EVALYN_RESULT_SCHEMA = ResultSchema(
 )
 
 # Registry for versioned schemas
-_SCHEMA_REGISTRY: Dict[str, ResultSchema] = {
+_SCHEMA_REGISTRY: dict[str, ResultSchema] = {
     "1.0": EVALYN_RESULT_SCHEMA,
 }
 
@@ -171,8 +171,8 @@ def get_schema(version: str = "1.0") -> ResultSchema:
 
 
 def validate_result(
-    result: Dict[str, Any],
-    schema: Optional[ResultSchema] = None,
+    result: dict[str, Any],
+    schema: ResultSchema | None = None,
 ) -> ValidationResult:
     """Validate a single result dict against a schema.
 
@@ -184,8 +184,8 @@ def validate_result(
         ValidationResult with errors and warnings.
     """
     schema = schema or EVALYN_RESULT_SCHEMA
-    errors: List[str] = []
-    warnings: List[str] = []
+    errors: list[str] = []
+    warnings: list[str] = []
 
     schema_field_names = {f.name for f in schema.fields}
 
@@ -216,8 +216,8 @@ def validate_result(
 
 
 def validate_results_batch(
-    results: List[Dict[str, Any]],
-    schema: Optional[ResultSchema] = None,
+    results: list[dict[str, Any]],
+    schema: ResultSchema | None = None,
 ) -> ValidationResult:
     """Validate a batch of results against a schema.
 
@@ -229,8 +229,8 @@ def validate_results_batch(
         Combined ValidationResult across all results.
     """
     schema = schema or EVALYN_RESULT_SCHEMA
-    all_errors: List[str] = []
-    all_warnings: List[str] = []
+    all_errors: list[str] = []
+    all_warnings: list[str] = []
 
     for i, result in enumerate(results):
         vr = validate_result(result, schema)
@@ -246,7 +246,7 @@ def validate_results_batch(
     )
 
 
-def generate_json_schema(schema: ResultSchema) -> Dict[str, Any]:
+def generate_json_schema(schema: ResultSchema) -> dict[str, Any]:
     """Generate a JSON Schema (draft-07 compatible) from a ResultSchema.
 
     Args:
@@ -255,11 +255,11 @@ def generate_json_schema(schema: ResultSchema) -> Dict[str, Any]:
     Returns:
         Dict representing a JSON Schema document.
     """
-    properties: Dict[str, Any] = {}
-    required: List[str] = []
+    properties: dict[str, Any] = {}
+    required: list[str] = []
 
     for sf in schema.fields:
-        prop: Dict[str, Any] = {}
+        prop: dict[str, Any] = {}
         json_type = _JSON_SCHEMA_TYPE_MAP.get(sf.field_type, "string")
         prop["type"] = json_type
         if sf.description:
@@ -278,7 +278,7 @@ def generate_json_schema(schema: ResultSchema) -> Dict[str, Any]:
     }
 
 
-def generate_example_result(schema: ResultSchema) -> Dict[str, Any]:
+def generate_example_result(schema: ResultSchema) -> dict[str, Any]:
     """Generate an example result matching the schema.
 
     Args:
@@ -287,7 +287,7 @@ def generate_example_result(schema: ResultSchema) -> Dict[str, Any]:
     Returns:
         Dict with example values for all fields.
     """
-    example: Dict[str, Any] = {}
+    example: dict[str, Any] = {}
     for sf in schema.fields:
         if sf.field_type == "str" and sf.name == "timestamp":
             example[sf.name] = datetime.now(timezone.utc).isoformat()
@@ -305,7 +305,7 @@ def generate_example_result(schema: ResultSchema) -> Dict[str, Any]:
 def check_backwards_compatibility(
     old_schema: ResultSchema,
     new_schema: ResultSchema,
-) -> Tuple[bool, List[str]]:
+) -> tuple[bool, list[str]]:
     """Check if new schema is backwards-compatible with old schema.
 
     Backwards compatibility is broken if:
@@ -319,7 +319,7 @@ def check_backwards_compatibility(
     Returns:
         Tuple of (is_compatible, list of issues).
     """
-    issues: List[str] = []
+    issues: list[str] = []
 
     old_fields = {f.name: f for f in old_schema.fields}
     new_fields = {f.name: f for f in new_schema.fields}

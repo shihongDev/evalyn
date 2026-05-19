@@ -21,7 +21,7 @@ class DependencyEdge:
     target_id: str
     overlap_ratio: float  # 0-1: how much of source output appears in target input
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "source_id": self.source_id,
             "target_id": self.target_id,
@@ -36,11 +36,11 @@ class SpanNode:
     span_id: str
     span_name: str
     span_type: str
-    upstream: List[str] = field(default_factory=list)  # span IDs this depends on
-    downstream: List[str] = field(default_factory=list)  # span IDs that depend on this
+    upstream: list[str] = field(default_factory=list)  # span IDs this depends on
+    downstream: list[str] = field(default_factory=list)  # span IDs that depend on this
     is_bottleneck: bool = False
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "span_id": self.span_id,
             "span_name": self.span_name,
@@ -55,24 +55,24 @@ class SpanNode:
 class DependencyGraph:
     """Directed dependency graph of spans within a trace."""
 
-    nodes: Dict[str, SpanNode] = field(default_factory=dict)
-    edges: List[DependencyEdge] = field(default_factory=list)
+    nodes: dict[str, SpanNode] = field(default_factory=dict)
+    edges: list[DependencyEdge] = field(default_factory=list)
 
     @property
-    def bottlenecks(self) -> List[str]:
+    def bottlenecks(self) -> list[str]:
         return [nid for nid, n in self.nodes.items() if n.is_bottleneck]
 
     @property
-    def roots(self) -> List[str]:
+    def roots(self) -> list[str]:
         """Spans with no upstream dependencies."""
         return [nid for nid, n in self.nodes.items() if not n.upstream]
 
     @property
-    def leaves(self) -> List[str]:
+    def leaves(self) -> list[str]:
         """Spans with no downstream dependents."""
         return [nid for nid, n in self.nodes.items() if not n.downstream]
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "num_nodes": len(self.nodes),
             "num_edges": len(self.edges),
@@ -84,7 +84,7 @@ class DependencyGraph:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> DependencyGraph:
+    def from_dict(cls, data: dict[str, Any]) -> DependencyGraph:
         edges = [
             DependencyEdge(
                 source_id=e["source_id"],
@@ -138,7 +138,7 @@ class DependencyGraph:
 
 
 def build_dependency_graph(
-    spans: List[Span],
+    spans: list[Span],
     min_overlap: float = 0.1,
     bottleneck_threshold: int = 2,
 ) -> DependencyGraph:
@@ -166,8 +166,8 @@ def build_dependency_graph(
         )
 
     # Extract output/input text from attributes
-    outputs: Dict[str, str] = {}
-    inputs: Dict[str, str] = {}
+    outputs: dict[str, str] = {}
+    inputs: dict[str, str] = {}
     for s in spans:
         out_text = _extract_text(s.attributes, "output")
         if out_text:
@@ -194,7 +194,7 @@ def build_dependency_graph(
                 graph.nodes[tgt_id].upstream.append(src_id)
 
     # Also add parent-child structural edges (weaker signal)
-    existing_pairs: Set[Tuple[str, str]] = {
+    existing_pairs: set[tuple[str, str]] = {
         (e.source_id, e.target_id) for e in graph.edges
     }
     for s in spans:
@@ -217,7 +217,7 @@ def build_dependency_graph(
     return graph
 
 
-def _extract_text(attributes: Dict[str, Any], key: str) -> str:
+def _extract_text(attributes: dict[str, Any], key: str) -> str:
     """Extract text from span attributes, handling various formats."""
     val = attributes.get(key)
     if val is None:

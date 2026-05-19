@@ -9,7 +9,8 @@ from __future__ import annotations
 
 import os
 import re
-from typing import List, Optional, Sequence, Tuple
+from typing import List, Optional, Tuple
+from collections.abc import Sequence
 
 from .colors import _colors_enabled, blue, dim, green, red, yellow
 
@@ -109,9 +110,9 @@ def section(title: str, width: int = 55) -> str:
 
 
 def table(
-    headers: List[str],
-    rows: List[List[str]],
-    align: Optional[List[str]] = None,
+    headers: list[str],
+    rows: list[list[str]],
+    align: list[str] | None = None,
     max_col_width: int = 50,
 ) -> str:
     """Box-drawing table with auto column widths.
@@ -159,7 +160,7 @@ def table(
         segments = [h * (w + 2) for w in col_widths]
         return left + mid.join(segments) + right
 
-    def data_line(cells: List[str]) -> str:
+    def data_line(cells: list[str]) -> str:
         parts = []
         for i in range(ncols):
             cell = cells[i] if i < len(cells) else ""
@@ -183,7 +184,7 @@ def table(
 # ---------------------------------------------------------------------------
 
 
-def kv(pairs: Sequence[Tuple[str, str]], indent: int = 2) -> str:
+def kv(pairs: Sequence[tuple[str, str]], indent: int = 2) -> str:
     """Key-value block with aligned colons.
 
     Keys are dimmed when colors are enabled.
@@ -207,7 +208,7 @@ def kv(pairs: Sequence[Tuple[str, str]], indent: int = 2) -> str:
 
 
 def footer(
-    commands: Sequence[Tuple[str, str]],
+    commands: Sequence[tuple[str, str]],
     quiet: bool = False,
     format: str = "table",
 ) -> str:

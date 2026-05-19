@@ -21,7 +21,7 @@ class PluginInfo:
     version: str = ""
     enabled: bool = True
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "name": self.name,
             "module_path": self.module_path,
@@ -31,7 +31,7 @@ class PluginInfo:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> PluginInfo:
+    def from_dict(cls, data: dict[str, Any]) -> PluginInfo:
         return cls(
             name=data.get("name", ""),
             module_path=data.get("module_path", ""),
@@ -45,7 +45,7 @@ class PluginRegistry:
     """Registry for CLI command plugins."""
 
     def __init__(self) -> None:
-        self._plugins: Dict[str, PluginInfo] = {}
+        self._plugins: dict[str, PluginInfo] = {}
 
     def register(self, info: PluginInfo) -> None:
         """Register a plugin."""
@@ -58,15 +58,15 @@ class PluginRegistry:
             return True
         return False
 
-    def get(self, name: str) -> Optional[PluginInfo]:
+    def get(self, name: str) -> PluginInfo | None:
         """Look up a plugin by name."""
         return self._plugins.get(name)
 
-    def list_plugins(self) -> List[PluginInfo]:
+    def list_plugins(self) -> list[PluginInfo]:
         """Return all registered plugins."""
         return list(self._plugins.values())
 
-    def list_enabled(self) -> List[PluginInfo]:
+    def list_enabled(self) -> list[PluginInfo]:
         """Return only enabled plugins."""
         return [p for p in self._plugins.values() if p.enabled]
 
@@ -75,14 +75,14 @@ class PluginRegistry:
         return name in self._plugins
 
 
-def discover_entry_points(group: str = "evalyn.commands") -> List[PluginInfo]:
+def discover_entry_points(group: str = "evalyn.commands") -> list[PluginInfo]:
     """Discover installed plugins via importlib.metadata entry points.
 
     Scans the given entry point group for installed packages that
     provide CLI command plugins. Returns empty list if no entry
     points are found or on ImportError.
     """
-    plugins: List[PluginInfo] = []
+    plugins: list[PluginInfo] = []
     try:
         eps = importlib.metadata.entry_points()
         # Python 3.12+ returns a SelectableGroups; 3.9+ supports .select()
@@ -123,12 +123,12 @@ def create_default_registry() -> PluginRegistry:
     return registry
 
 
-def format_plugin_list(plugins: List[PluginInfo]) -> str:
+def format_plugin_list(plugins: list[PluginInfo]) -> str:
     """Format a human-readable table of plugins."""
     if not plugins:
         return "No plugins registered."
 
-    lines: List[str] = []
+    lines: list[str] = []
 
     # Compute column widths
     name_width = max(len(p.name) for p in plugins)

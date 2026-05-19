@@ -16,11 +16,11 @@ class ChangelogEntry:
 
     metric_id: str
     change_type: str  # "improved", "regressed", "added", "removed", "unchanged"
-    baseline_rate: Optional[float] = None
-    current_rate: Optional[float] = None
+    baseline_rate: float | None = None
+    current_rate: float | None = None
     delta: float = 0.0
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "metric_id": self.metric_id,
             "change_type": self.change_type,
@@ -36,22 +36,22 @@ class Changelog:
 
     baseline_run_id: str
     current_run_id: str
-    entries: List[ChangelogEntry] = field(default_factory=list)
+    entries: list[ChangelogEntry] = field(default_factory=list)
 
     @property
-    def regressions(self) -> List[ChangelogEntry]:
+    def regressions(self) -> list[ChangelogEntry]:
         return [e for e in self.entries if e.change_type == "regressed"]
 
     @property
-    def improvements(self) -> List[ChangelogEntry]:
+    def improvements(self) -> list[ChangelogEntry]:
         return [e for e in self.entries if e.change_type == "improved"]
 
     @property
-    def added(self) -> List[ChangelogEntry]:
+    def added(self) -> list[ChangelogEntry]:
         return [e for e in self.entries if e.change_type == "added"]
 
     @property
-    def removed(self) -> List[ChangelogEntry]:
+    def removed(self) -> list[ChangelogEntry]:
         return [e for e in self.entries if e.change_type == "removed"]
 
     @property
@@ -71,7 +71,7 @@ class Changelog:
             parts.append(f"{unchanged} unchanged")
         return ", ".join(parts) if parts else "no changes"
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "baseline_run_id": self.baseline_run_id,
             "current_run_id": self.current_run_id,
@@ -152,9 +152,9 @@ def generate_changelog(
     )
 
 
-def _compute_pass_rates(run) -> Dict[str, float]:
+def _compute_pass_rates(run) -> dict[str, float]:
     """Compute per-metric pass rates."""
-    counts: Dict[str, Tuple[int, int]] = {}
+    counts: dict[str, tuple[int, int]] = {}
     for mr in run.metric_results:
         mid = mr.metric_id
         if mid not in counts:

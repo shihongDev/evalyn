@@ -14,7 +14,7 @@ _RE_CODE_FENCE_PLAIN = re.compile(r"```\s*(.*?)\s*```", re.DOTALL)
 _CODE_FENCE_PATTERNS = (_RE_CODE_FENCE_JSON, _RE_CODE_FENCE_PLAIN)
 
 
-def _extract_json_object(text: str) -> Optional[Dict[str, Any]]:
+def _extract_json_object(text: str) -> dict[str, Any] | None:
     """Extract a JSON object from text, handling markdown code blocks.
 
     Tries in order: markdown code fence extraction, direct parse,
@@ -69,7 +69,7 @@ def _extract_json_object(text: str) -> Optional[Dict[str, Any]]:
     return None
 
 
-def extract_json_list(text: str) -> List[dict]:
+def extract_json_list(text: str) -> list[dict]:
     """Extract a JSON list from LLM text that may contain markdown or extra prose.
 
     Tries, in order: direct parse, markdown code block extraction, regex for
@@ -109,7 +109,7 @@ def extract_json_list(text: str) -> List[dict]:
     return []
 
 
-def _parse_passed(value: Any) -> Optional[bool]:
+def _parse_passed(value: Any) -> bool | None:
     """Parse various representations of pass/fail to boolean."""
     if isinstance(value, bool):
         return value

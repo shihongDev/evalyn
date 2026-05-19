@@ -14,10 +14,10 @@ class ConfigLayer:
     """A single configuration layer."""
 
     name: str
-    values: Dict[str, Any]
+    values: dict[str, Any]
     source: str = ""
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "name": self.name,
             "values": self.values,
@@ -25,7 +25,7 @@ class ConfigLayer:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> ConfigLayer:
+    def from_dict(cls, data: dict[str, Any]) -> ConfigLayer:
         return cls(
             name=data["name"],
             values=data.get("values", {}),
@@ -37,7 +37,7 @@ class ConfigLayer:
 class MergedConfig:
     """Merged configuration from multiple layers (first = lowest priority)."""
 
-    layers: List[ConfigLayer]
+    layers: list[ConfigLayer]
 
     def get(self, key: str, default: Any = None) -> Any:
         """Look up value from highest-priority layer first."""
@@ -58,26 +58,26 @@ class MergedConfig:
                 return default
         return current
 
-    def to_flat_dict(self) -> Dict[str, Any]:
+    def to_flat_dict(self) -> dict[str, Any]:
         """Deep-merged dict from all layers (lower priority first)."""
-        result: Dict[str, Any] = {}
+        result: dict[str, Any] = {}
         for layer in self.layers:
             result = deep_merge(result, layer.values)
         return result
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "layers": [layer.as_dict() for layer in self.layers],
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> MergedConfig:
+    def from_dict(cls, data: dict[str, Any]) -> MergedConfig:
         return cls(
-            layers=[ConfigLayer.from_dict(l) for l in data.get("layers", [])],
+            layers=[ConfigLayer.from_dict(layer) for layer in data.get("layers", [])],
         )
 
 
-def deep_merge(base: Dict[str, Any], override: Dict[str, Any]) -> Dict[str, Any]:
+def deep_merge(base: dict[str, Any], override: dict[str, Any]) -> dict[str, Any]:
     """Recursive dict merge. Override wins for scalars. Dicts merge recursively. Lists replaced."""
     result = dict(base)
     for key, value in override.items():
@@ -92,7 +92,7 @@ def deep_merge(base: Dict[str, Any], override: Dict[str, Any]) -> Dict[str, Any]
     return result
 
 
-def build_config(layers: List[ConfigLayer]) -> MergedConfig:
+def build_config(layers: list[ConfigLayer]) -> MergedConfig:
     """Build merged config from layers (first = lowest priority)."""
     return MergedConfig(layers=layers)
 

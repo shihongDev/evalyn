@@ -28,7 +28,7 @@ class TaskProgress:
     items_done: int = 0
     items_total: int = 0
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "task_id": self.task_id,
             "name": self.name,
@@ -40,7 +40,7 @@ class TaskProgress:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> TaskProgress:
+    def from_dict(cls, data: dict[str, Any]) -> TaskProgress:
         return cls(
             task_id=data["task_id"],
             name=data["name"],
@@ -60,7 +60,7 @@ class DashboardConfig:
     show_elapsed: bool = True
     show_rate: bool = True
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "width": self.width,
             "show_elapsed": self.show_elapsed,
@@ -68,7 +68,7 @@ class DashboardConfig:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> DashboardConfig:
+    def from_dict(cls, data: dict[str, Any]) -> DashboardConfig:
         return cls(
             width=data.get("width", 60),
             show_elapsed=data.get("show_elapsed", True),
@@ -80,11 +80,11 @@ class DashboardConfig:
 class DashboardState:
     """Snapshot of the full dashboard state."""
 
-    tasks: List[TaskProgress] = field(default_factory=list)
+    tasks: list[TaskProgress] = field(default_factory=list)
     start_time: float = 0.0
     elapsed_seconds: float = 0.0
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "tasks": [t.as_dict() for t in self.tasks],
             "start_time": self.start_time,
@@ -92,7 +92,7 @@ class DashboardState:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> DashboardState:
+    def from_dict(cls, data: dict[str, Any]) -> DashboardState:
         tasks = [TaskProgress.from_dict(t) for t in data.get("tasks", [])]
         return cls(
             tasks=tasks,
@@ -106,7 +106,7 @@ class DashboardState:
 # ---------------------------------------------------------------------------
 
 
-def create_dashboard(task_names: List[str]) -> DashboardState:
+def create_dashboard(task_names: list[str]) -> DashboardState:
     """Initialize a dashboard with pending tasks.
 
     Each task gets a task_id derived from its index ("task_0", "task_1", ...).
@@ -139,7 +139,7 @@ def update_task(
 
     Does not mutate the original state.
     """
-    new_tasks: List[TaskProgress] = []
+    new_tasks: list[TaskProgress] = []
     for task in state.tasks:
         if task.task_id == task_id:
             new_tasks.append(
@@ -219,7 +219,7 @@ def render_task_line(task: TaskProgress, width: int = 60) -> str:
 
 
 def render_dashboard(
-    state: DashboardState, config: Optional[DashboardConfig] = None
+    state: DashboardState, config: DashboardConfig | None = None
 ) -> str:
     """Render the full dashboard as a multi-line string.
 
@@ -228,7 +228,7 @@ def render_dashboard(
     if config is None:
         config = DashboardConfig()
 
-    lines: List[str] = []
+    lines: list[str] = []
     overall = get_overall_progress(state)
     overall_pct = int(overall * 100)
 
@@ -247,7 +247,7 @@ def render_dashboard(
         1 for t in state.tasks if t.status in ("complete", "failed")
     )
     total_count = len(state.tasks)
-    summary_parts: List[str] = [f"{done_count}/{total_count} tasks done"]
+    summary_parts: list[str] = [f"{done_count}/{total_count} tasks done"]
 
     if config.show_elapsed:
         elapsed = state.elapsed_seconds

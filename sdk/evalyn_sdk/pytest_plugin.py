@@ -31,7 +31,7 @@ from .models import DatasetItem, FunctionCall, MetricResult
 class EvalynAssertionError(AssertionError):
     """Raised when an evalyn metric assertion fails."""
 
-    def __init__(self, message: str, results: List[MetricResult]):
+    def __init__(self, message: str, results: list[MetricResult]):
         super().__init__(message)
         self.results = results
 
@@ -39,10 +39,10 @@ class EvalynAssertionError(AssertionError):
 def evalyn_assert(
     input: Any,
     output: Any,
-    metrics: List[str],
+    metrics: list[str],
     threshold: float = 0.5,
     item_id: str = "test-item",
-) -> List[MetricResult]:
+) -> list[MetricResult]:
     """Assert that output passes specified evalyn metrics.
 
     Args:
@@ -110,9 +110,9 @@ def evalyn_assert(
 def evalyn_check(
     input: Any,
     output: Any,
-    metrics: List[str],
+    metrics: list[str],
     threshold: float = 0.5,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Check output against metrics without raising (returns results dict).
 
     Args:

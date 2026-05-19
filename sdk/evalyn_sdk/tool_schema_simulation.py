@@ -26,7 +26,7 @@ class ToolParameter:
     required: bool = True
     description: str = ""
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "name": self.name,
             "param_type": self.param_type,
@@ -35,7 +35,7 @@ class ToolParameter:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> ToolParameter:
+    def from_dict(cls, data: dict[str, Any]) -> ToolParameter:
         return cls(
             name=data["name"],
             param_type=data["param_type"],
@@ -50,9 +50,9 @@ class ToolSchema:
 
     tool_name: str
     description: str
-    parameters: List[ToolParameter] = field(default_factory=list)
+    parameters: list[ToolParameter] = field(default_factory=list)
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "tool_name": self.tool_name,
             "description": self.description,
@@ -60,7 +60,7 @@ class ToolSchema:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> ToolSchema:
+    def from_dict(cls, data: dict[str, Any]) -> ToolSchema:
         return cls(
             tool_name=data["tool_name"],
             description=data["description"],
@@ -78,10 +78,10 @@ class ToolCoverageResult:
     total_tools: int
     exercised_tools: int
     coverage_rate: float
-    uncovered_tools: List[str] = field(default_factory=list)
-    per_tool_counts: Dict[str, int] = field(default_factory=dict)
+    uncovered_tools: list[str] = field(default_factory=list)
+    per_tool_counts: dict[str, int] = field(default_factory=dict)
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "total_tools": self.total_tools,
             "exercised_tools": self.exercised_tools,
@@ -91,7 +91,7 @@ class ToolCoverageResult:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> ToolCoverageResult:
+    def from_dict(cls, data: dict[str, Any]) -> ToolCoverageResult:
         return cls(
             total_tools=data["total_tools"],
             exercised_tools=data["exercised_tools"],
@@ -107,10 +107,10 @@ class SimulatedToolInput:
 
     input_text: str
     target_tool: str
-    expected_params: Dict[str, Any] = field(default_factory=dict)
-    tags: List[str] = field(default_factory=list)
+    expected_params: dict[str, Any] = field(default_factory=dict)
+    tags: list[str] = field(default_factory=list)
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "input_text": self.input_text,
             "target_tool": self.target_tool,
@@ -119,7 +119,7 @@ class SimulatedToolInput:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> SimulatedToolInput:
+    def from_dict(cls, data: dict[str, Any]) -> SimulatedToolInput:
         return cls(
             input_text=data["input_text"],
             target_tool=data["target_tool"],
@@ -178,7 +178,7 @@ def _sample_value(
 
 
 def generate_tool_query(
-    schema: ToolSchema, rng: Optional[random.Random] = None
+    schema: ToolSchema, rng: random.Random | None = None
 ) -> SimulatedToolInput:
     """Generate a natural-language query that would require this tool.
 
@@ -193,8 +193,8 @@ def generate_tool_query(
     )
 
     # Build expected params from required parameters
-    expected_params: Dict[str, Any] = {}
-    param_fragments: List[str] = []
+    expected_params: dict[str, Any] = {}
+    param_fragments: list[str] = []
     for p in schema.parameters:
         if p.required:
             val = _sample_value(p.param_type, rng)
@@ -215,10 +215,10 @@ def generate_tool_query(
 
 
 def generate_tool_suite(
-    schemas: List[ToolSchema], queries_per_tool: int = 3
-) -> List[SimulatedToolInput]:
+    schemas: list[ToolSchema], queries_per_tool: int = 3
+) -> list[SimulatedToolInput]:
     """Generate queries for all tools in the schema list."""
-    inputs: List[SimulatedToolInput] = []
+    inputs: list[SimulatedToolInput] = []
     for i, schema in enumerate(schemas):
         for j in range(queries_per_tool):
             rng = random.Random(i * 1000 + j)
@@ -227,11 +227,11 @@ def generate_tool_suite(
 
 
 def compute_tool_coverage(
-    inputs: List[SimulatedToolInput], schemas: List[ToolSchema]
+    inputs: list[SimulatedToolInput], schemas: list[ToolSchema]
 ) -> ToolCoverageResult:
     """Check which tools are exercised by the input suite."""
     all_tools = {s.tool_name for s in schemas}
-    per_tool_counts: Dict[str, int] = {name: 0 for name in all_tools}
+    per_tool_counts: dict[str, int] = {name: 0 for name in all_tools}
 
     for inp in inputs:
         # A target_tool may refer to a comma-separated list for multi-tool
@@ -256,9 +256,9 @@ def compute_tool_coverage(
 
 
 def generate_multi_tool_query(
-    schemas: List[ToolSchema],
+    schemas: list[ToolSchema],
     n_tools: int = 2,
-    rng: Optional[random.Random] = None,
+    rng: random.Random | None = None,
 ) -> SimulatedToolInput:
     """Generate a query requiring multiple tools."""
     if rng is None:
@@ -284,7 +284,7 @@ def generate_multi_tool_query(
         query = f"Use {selected[0].tool_name} to {selected[0].description}"
 
     # Merge expected params from all selected tools
-    expected_params: Dict[str, Any] = {}
+    expected_params: dict[str, Any] = {}
     for s in selected:
         for p in s.parameters:
             if p.required:
@@ -309,7 +309,7 @@ def generate_multi_tool_query(
 
 def format_coverage_report(result: ToolCoverageResult) -> str:
     """Human-readable coverage report."""
-    lines: List[str] = []
+    lines: list[str] = []
     lines.append("Tool Coverage Report")
     lines.append("=" * 40)
     lines.append(f"Total tools: {result.total_tools}")
@@ -331,11 +331,11 @@ def format_coverage_report(result: ToolCoverageResult) -> str:
 
 
 def suggest_missing_queries(
-    result: ToolCoverageResult, schemas: List[ToolSchema]
-) -> List[SimulatedToolInput]:
+    result: ToolCoverageResult, schemas: list[ToolSchema]
+) -> list[SimulatedToolInput]:
     """Generate queries for uncovered tools."""
     schema_map = {s.tool_name: s for s in schemas}
-    suggestions: List[SimulatedToolInput] = []
+    suggestions: list[SimulatedToolInput] = []
     for tool_name in result.uncovered_tools:
         schema = schema_map.get(tool_name)
         if schema is not None:
