@@ -21,9 +21,9 @@ import importlib.util
 from contextlib import contextmanager
 from typing import Any, Dict, Iterator, Optional
 
-from ..base import Instrumentor, InstrumentorType
 from ....models import Span
 from ... import context as span_context
+from ..base import Instrumentor, InstrumentorType
 
 
 class HaystackInstrumentor(Instrumentor):
@@ -65,7 +65,8 @@ class HaystackInstrumentor(Instrumentor):
             return True
 
         try:
-            from haystack.tracing import tracer as proxy_tracer, NullTracer
+            from haystack.tracing import NullTracer
+            from haystack.tracing import tracer as proxy_tracer
 
             proxy_tracer.actual_tracer = NullTracer()
             proxy_tracer.is_content_tracing_enabled = False
@@ -83,7 +84,7 @@ class EvalynHaystackSpan:
         self,
         operation_name: str,
         tags: Optional[Dict[str, Any]] = None,
-        parent: Optional["EvalynHaystackSpan"] = None,
+        parent: Optional[EvalynHaystackSpan] = None,
     ) -> None:
         self.operation_name = operation_name
         self.tags: Dict[str, Any] = tags or {}

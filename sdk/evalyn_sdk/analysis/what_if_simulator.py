@@ -9,7 +9,6 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional
 
-
 # ---------------------------------------------------------------------------
 # Data Models
 # ---------------------------------------------------------------------------
@@ -79,7 +78,7 @@ class WhatIfReport:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "WhatIfReport":
+    def from_dict(cls, data: Dict[str, Any]) -> WhatIfReport:
         results = []
         for r in data.get("results", []):
             scenario_data = r.get("scenario", {})
@@ -163,7 +162,7 @@ def simulate_improvement(
     metric_id: str,
     current_rates: Dict[str, float],
     improvement_pct: float,
-    weights: Dict[str, float] = {},
+    weights: Optional[Dict[str, float]] = None,
 ) -> WhatIfResult:
     """Project new overall pass rate if a metric improved by improvement_pct.
 
@@ -176,6 +175,8 @@ def simulate_improvement(
     Returns:
         WhatIfResult with projected rates and feasibility.
     """
+    if weights is None:
+        weights = {}
     original_overall = _compute_weighted_rate(current_rates, weights)
 
     projected_rates = dict(current_rates)
@@ -205,7 +206,7 @@ def simulate_improvement(
 def simulate_multi_improvement(
     scenarios: List[WhatIfScenario],
     current_rates: Dict[str, float],
-    weights: Dict[str, float] = {},
+    weights: Optional[Dict[str, float]] = None,
 ) -> WhatIfReport:
     """Simulate multiple improvements simultaneously.
 
@@ -217,6 +218,8 @@ def simulate_multi_improvement(
     Returns:
         WhatIfReport with all results and best scenario identified.
     """
+    if weights is None:
+        weights = {}
     results: List[WhatIfResult] = []
 
     for scenario in scenarios:
@@ -247,7 +250,7 @@ def find_minimum_improvement(
     metric_id: str,
     current_rates: Dict[str, float],
     target_pass_rate: float,
-    weights: Dict[str, float] = {},
+    weights: Optional[Dict[str, float]] = None,
 ) -> float:
     """Binary search for minimum improvement pct needed to reach target pass rate.
 
@@ -261,6 +264,8 @@ def find_minimum_improvement(
         Minimum improvement percentage needed. Returns 0.0 if already at target.
         Returns 100.0 if not achievable even with 100% improvement.
     """
+    if weights is None:
+        weights = {}
     original_overall = _compute_weighted_rate(current_rates, weights)
     if original_overall >= target_pass_rate:
         return 0.0
@@ -315,7 +320,7 @@ def render_what_if_chart(report: WhatIfReport, width: int = 60) -> str:
         label = f"{r.scenario.metric_id} +{r.scenario.improvement_pct:.0f}%"
         labels.append(label)
 
-    max_label_len = max(len(l) for l in labels)
+    max_label_len = max(len(lbl) for lbl in labels)
     bar_width = width - max_label_len - 12  # leave room for label + percentage
 
     for i, r in enumerate(report.results):
@@ -332,7 +337,7 @@ def render_what_if_chart(report: WhatIfReport, width: int = 60) -> str:
 
 def find_best_roi_metric(
     current_rates: Dict[str, float],
-    weights: Dict[str, float] = {},
+    weights: Optional[Dict[str, float]] = None,
 ) -> str:
     """Find which metric gives the most lift per percentage point of improvement.
 

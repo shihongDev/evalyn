@@ -127,10 +127,14 @@ def create_multimodal_span(
     span_id: str,
     text_input: str = "",
     text_output: str = "",
-    input_media: List[MediaAttachment] = [],
-    output_media: List[MediaAttachment] = [],
+    input_media: Optional[List[MediaAttachment]] = None,
+    output_media: Optional[List[MediaAttachment]] = None,
 ) -> Span:
     """Create a span with multimodal data stored in attributes."""
+    if input_media is None:
+        input_media = []
+    if output_media is None:
+        output_media = []
     data = MultimodalSpanData(
         input_media=list(input_media),
         output_media=list(output_media),

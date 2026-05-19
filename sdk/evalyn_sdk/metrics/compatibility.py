@@ -8,7 +8,7 @@ incompatible with the trace structure.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional, Set
+from typing import Any, Dict, List
 
 
 @dataclass

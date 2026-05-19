@@ -11,7 +11,6 @@ import math
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Tuple
 
-
 # ---------------------------------------------------------------------------
 # Data Models
 # ---------------------------------------------------------------------------
@@ -75,7 +74,7 @@ class MetricBudgetReport:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "MetricBudgetReport":
+    def from_dict(cls, data: Dict[str, Any]) -> MetricBudgetReport:
         profiles = [
             MetricCostProfile(
                 metric_id=p["metric_id"],

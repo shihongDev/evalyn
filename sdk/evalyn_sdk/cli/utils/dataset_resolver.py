@@ -9,7 +9,8 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-from .config import load_config, get_config_default, find_latest_dataset as _config_find_latest_dataset
+from .config import find_latest_dataset as _config_find_latest_dataset
+from .config import get_config_default, load_config
 from .errors import fatal_error
 
 

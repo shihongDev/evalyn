@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from collections import defaultdict
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Tuple
 
 
 def _safe_int(val: Any, default: int = 0) -> int:
@@ -178,7 +178,7 @@ def filter_records(
 
 def _group_key(record: dict, group_by: list[str]) -> tuple:
     """Build a hashable group key from a record."""
-    return tuple(record.get(f, None) for f in group_by)
+    return tuple(record.get(f) for f in group_by)
 
 
 def _aggregate_values(values: list[float], operation: str) -> float:

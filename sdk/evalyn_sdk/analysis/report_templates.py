@@ -8,8 +8,7 @@ from __future__ import annotations
 
 import html as _html
 from dataclasses import dataclass, field
-from typing import Any, Dict, List
-
+from typing import Any, Dict, List, Optional
 
 # ---------------------------------------------------------------------------
 # Data Models
@@ -143,7 +142,7 @@ def list_templates() -> List[ReportTemplate]:
     return list(_BUILTIN_TEMPLATES.values())
 
 
-def render_section(section: ReportSection, data: Dict[str, Any] = {}) -> str:
+def render_section(section: ReportSection, data: Optional[Dict[str, Any]] = None) -> str:
     """Render a single section to an HTML fragment.
 
     Content types:
@@ -152,6 +151,8 @@ def render_section(section: ReportSection, data: Dict[str, Any] = {}) -> str:
     - chart: wrapped in a <div class="chart">
     - metric: wrapped in a <div class="metric">
     """
+    if data is None:
+        data = {}
     safe_name = _html.escape(section.name)
     content = section.content or data.get("content", "")
     safe_content = _html.escape(str(content)) if content else ""
@@ -191,13 +192,15 @@ def render_section(section: ReportSection, data: Dict[str, Any] = {}) -> str:
 
 
 def render_report(
-    template: ReportTemplate, data: Dict[str, Any] = {}
+    template: ReportTemplate, data: Optional[Dict[str, Any]] = None
 ) -> RenderedReport:
     """Render a full report template to HTML.
 
     The data dict is keyed by section name. Each section receives the
     sub-dict matching its name, falling back to the top-level data.
     """
+    if data is None:
+        data = {}
     parts: List[str] = []
 
     if template.header:

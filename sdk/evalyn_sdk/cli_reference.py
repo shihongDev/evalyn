@@ -235,9 +235,9 @@ def format_markdown(commands: List[CommandDoc]) -> str:
             lines.append("**Examples:**")
             lines.append("")
             for ex in cmd.examples:
-                lines.append(f"```")
+                lines.append("```")
                 lines.append(ex)
-                lines.append(f"```")
+                lines.append("```")
             lines.append("")
 
     return "\n".join(lines)

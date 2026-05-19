@@ -7,7 +7,6 @@ from typing import Any, Dict, List
 
 from ..models import Span
 
-
 TRACKED_PACKAGES = [
     "google-generativeai",
     "openai",

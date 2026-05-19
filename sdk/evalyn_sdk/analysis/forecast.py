@@ -29,7 +29,7 @@ class ForecastPoint:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "ForecastPoint":
+    def from_dict(cls, data: Dict[str, Any]) -> ForecastPoint:
         return cls(
             step=data["step"],
             value=data["value"],
@@ -59,7 +59,7 @@ class MetricForecast:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "MetricForecast":
+    def from_dict(cls, data: Dict[str, Any]) -> MetricForecast:
         forecasted = [
             ForecastPoint.from_dict(f) for f in data.get("forecasted", [])
         ]
@@ -106,7 +106,7 @@ class ForecastReport:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "ForecastReport":
+    def from_dict(cls, data: Dict[str, Any]) -> ForecastReport:
         results = [MetricForecast.from_dict(r) for r in data.get("results", [])]
         return cls(results=results)
 

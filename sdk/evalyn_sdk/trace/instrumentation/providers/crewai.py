@@ -26,13 +26,12 @@ from __future__ import annotations
 
 import importlib.util
 import threading
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, Optional
 
-from ..base import Instrumentor, InstrumentorType
 from ....models import Span
 from ... import context as span_context
+from ..base import Instrumentor, InstrumentorType
 from ._shared import calculate_cost
-
 
 # ---------------------------------------------------------------------------
 # Resilient imports: prefer crewai.events (public API), fall back to
@@ -67,16 +66,16 @@ def _import_core_events() -> Optional[Dict[str, type]]:
     """Import core event classes. Returns dict of name->class or None."""
     try:
         from crewai.events import (
-            CrewKickoffStartedEvent,
-            CrewKickoffCompletedEvent,
-            AgentExecutionStartedEvent,
             AgentExecutionCompletedEvent,
-            TaskStartedEvent,
-            TaskCompletedEvent,
-            ToolUsageStartedEvent,
-            ToolUsageFinishedEvent,
-            LLMCallStartedEvent,
+            AgentExecutionStartedEvent,
+            CrewKickoffCompletedEvent,
+            CrewKickoffStartedEvent,
             LLMCallCompletedEvent,
+            LLMCallStartedEvent,
+            TaskCompletedEvent,
+            TaskStartedEvent,
+            ToolUsageFinishedEvent,
+            ToolUsageStartedEvent,
         )
         return {
             "CrewKickoffStartedEvent": CrewKickoffStartedEvent,
@@ -95,30 +94,30 @@ def _import_core_events() -> Optional[Dict[str, type]]:
 
     # Fallback to old internal import paths
     try:
-        from crewai.utilities.events.crew_events import (
-            CrewKickoffStartedEvent,
-            CrewKickoffCompletedEvent,
-            CrewKickoffFailedEvent,
-        )
         from crewai.utilities.events.agent_events import (
-            AgentExecutionStartedEvent,
             AgentExecutionCompletedEvent,
             AgentExecutionErrorEvent,
+            AgentExecutionStartedEvent,
         )
-        from crewai.utilities.events.task_events import (
-            TaskStartedEvent,
-            TaskCompletedEvent,
-            TaskFailedEvent,
+        from crewai.utilities.events.crew_events import (
+            CrewKickoffCompletedEvent,
+            CrewKickoffFailedEvent,
+            CrewKickoffStartedEvent,
         )
         from crewai.utilities.events.llm_events import (
-            LLMCallStartedEvent,
             LLMCallCompletedEvent,
             LLMCallFailedEvent,
+            LLMCallStartedEvent,
+        )
+        from crewai.utilities.events.task_events import (
+            TaskCompletedEvent,
+            TaskFailedEvent,
+            TaskStartedEvent,
         )
         from crewai.utilities.events.tool_events import (
-            ToolUsageStartedEvent,
-            ToolUsageFinishedEvent,
             ToolUsageErrorEvent,
+            ToolUsageFinishedEvent,
+            ToolUsageStartedEvent,
         )
         return {
             "CrewKickoffStartedEvent": CrewKickoffStartedEvent,
@@ -152,10 +151,10 @@ def _import_optional_events() -> Dict[str, type]:
     except ImportError:
         try:
             from crewai.utilities.events.memory_events import (
-                MemoryQueryStarted,
                 MemoryQueryCompleted,
-                MemorySaveStarted,
+                MemoryQueryStarted,
                 MemorySaveCompleted,
+                MemorySaveStarted,
             )
             events["MemoryQueryStarted"] = MemoryQueryStarted
             events["MemoryQueryCompleted"] = MemoryQueryCompleted
@@ -167,8 +166,8 @@ def _import_optional_events() -> Dict[str, type]:
     # Knowledge retrieval events
     try:
         from crewai.events import (
-            KnowledgeRetrievalStartedEvent,
             KnowledgeRetrievalCompletedEvent,
+            KnowledgeRetrievalStartedEvent,
         )
         events["KnowledgeRetrievalStartedEvent"] = KnowledgeRetrievalStartedEvent
         events["KnowledgeRetrievalCompletedEvent"] = KnowledgeRetrievalCompletedEvent
@@ -185,8 +184,8 @@ def _import_optional_events() -> Dict[str, type]:
     # Flow events
     try:
         from crewai.utilities.events.flow_events import (
-            FlowStartedEvent,
             FlowFinishedEvent,
+            FlowStartedEvent,
         )
         events["FlowStartedEvent"] = FlowStartedEvent
         events["FlowFinishedEvent"] = FlowFinishedEvent

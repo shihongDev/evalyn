@@ -12,7 +12,6 @@ import json
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Tuple
 
-
 # ---------------------------------------------------------------------------
 # Data Models
 # ---------------------------------------------------------------------------
@@ -138,7 +137,7 @@ def import_from_csv(file_path: str, config: ImportConfig) -> ImportResult:
     row_num = 0
 
     try:
-        with open(file_path, "r", encoding="utf-8", newline="") as f:
+        with open(file_path, encoding="utf-8", newline="") as f:
             reader = csv.DictReader(f, delimiter=config.delimiter)
             for row_num, row in enumerate(reader, start=1):
                 input_val = row.get(config.input_column, "")
@@ -184,7 +183,7 @@ def import_from_jsonl(file_path: str, config: ImportConfig) -> ImportResult:
     skipped = 0
 
     try:
-        with open(file_path, "r", encoding="utf-8") as f:
+        with open(file_path, encoding="utf-8") as f:
             for line_num, line in enumerate(f, start=1):
                 line = line.strip()
                 if not line:

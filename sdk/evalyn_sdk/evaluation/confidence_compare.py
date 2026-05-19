@@ -6,7 +6,6 @@ correctness. Produces calibration curves and method recommendations.
 
 from __future__ import annotations
 
-import math
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -53,7 +52,7 @@ class MethodCalibration:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "MethodCalibration":
+    def from_dict(cls, data: Dict[str, Any]) -> MethodCalibration:
         bins = [
             CalibrationBin(
                 bin_start=b["bin_start"], bin_end=b["bin_end"],
@@ -107,7 +106,7 @@ class ComparisonReport:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "ComparisonReport":
+    def from_dict(cls, data: Dict[str, Any]) -> ComparisonReport:
         calibrations = [
             MethodCalibration.from_dict(m) for m in data.get("methods", [])
         ]

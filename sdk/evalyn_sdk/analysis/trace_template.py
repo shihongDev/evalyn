@@ -7,7 +7,7 @@ fan-out). Supports built-in and custom pattern definitions.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional, Sequence
+from typing import Any, Dict, List, Optional
 
 from ..models import Span
 
@@ -30,7 +30,7 @@ class TracePattern:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "TracePattern":
+    def from_dict(cls, data: Dict[str, Any]) -> TracePattern:
         return cls(
             name=data["name"],
             description=data.get("description", ""),
@@ -81,7 +81,7 @@ class ClassificationReport:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "ClassificationReport":
+    def from_dict(cls, data: Dict[str, Any]) -> ClassificationReport:
         return cls(
             trace_count=data.get("trace_count", 0),
             classified=data.get("classified", 0),

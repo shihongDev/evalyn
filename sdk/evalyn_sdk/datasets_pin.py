@@ -13,7 +13,6 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-
 PIN_FILENAME = ".evalyn-pin"
 
 
@@ -35,7 +34,7 @@ class DatasetPin:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "DatasetPin":
+    def from_dict(cls, data: Dict[str, Any]) -> DatasetPin:
         return cls(
             dataset_hash=data["dataset_hash"],
             item_count=data["item_count"],

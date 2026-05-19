@@ -35,8 +35,6 @@ from pathlib import Path
 
 from ..utils.command_common import load_eval_run_for_command
 from ..utils.config import load_config, resolve_dataset_path
-from ..utils.dataset_resolver import get_dataset
-from ..utils.errors import fatal_error
 from ..utils.formatters import output_json
 from ..utils.hints import HintCollector
 
@@ -55,7 +53,7 @@ def load_dataset_items(dataset_path: Path) -> list[dict]:
     return items
 
 
-def load_previous_run(dataset_path: Path, current_run_path: Path) -> "EvalRun | None":
+def load_previous_run(dataset_path: Path, current_run_path: Path) -> EvalRun | None:
     """Load the second-most-recent run for regression detection."""
     from ...analysis.core import find_eval_runs
     from ...models import EvalRun
@@ -72,7 +70,7 @@ def load_previous_run(dataset_path: Path, current_run_path: Path) -> "EvalRun | 
 
 def _print_insights_table(report, run, previous_run_id=None, panel_discussion=None):
     """Print insights report in table format."""
-    from ..utils.rich import banner, section, kv, icon
+    from ..utils.rich import banner, icon, kv, section
 
     print()
     print(banner("EVALYN INSIGHTS"))
@@ -142,16 +140,16 @@ def _print_insights_table(report, run, previous_run_id=None, panel_discussion=No
                 print(f"    Concerns: {'; '.join(expert.concerns)}")
 
         if panel_discussion.synthesis:
-            print(f"\n  SYNTHESIS:")
+            print("\n  SYNTHESIS:")
             print(f"    {panel_discussion.synthesis}")
 
         if panel_discussion.action_plan:
-            print(f"\n  ACTION PLAN:")
+            print("\n  ACTION PLAN:")
             for i, step in enumerate(panel_discussion.action_plan, 1):
                 print(f"    {i}. {step}")
 
         if panel_discussion.dissenting_views:
-            print(f"\n  DISSENTING VIEWS:")
+            print("\n  DISSENTING VIEWS:")
             for d in panel_discussion.dissenting_views:
                 print(f"    - {d}")
 
@@ -173,12 +171,12 @@ def build_insights_report(run, dataset_path, run_file_path):
     """
     from ...analysis.core import analyze_run
     from ...analysis.insights import (
-        compute_metric_correlations,
-        detect_regressions,
+        InsightsReport,
         analyze_input_features,
         analyze_score_distributions,
+        compute_metric_correlations,
+        detect_regressions,
         generate_recommendations,
-        InsightsReport,
     )
 
     run_data = run.as_dict()

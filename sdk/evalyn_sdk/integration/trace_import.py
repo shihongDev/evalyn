@@ -8,11 +8,9 @@ functions for parsing, mapping, and validating imported traces.
 
 from __future__ import annotations
 
-import json
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Tuple
-
 
 # ---------------------------------------------------------------------------
 # Data Models

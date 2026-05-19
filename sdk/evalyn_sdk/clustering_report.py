@@ -7,13 +7,11 @@ Pure Python with no external dependencies.
 """
 from __future__ import annotations
 
-import math
 import random
 import re
 from collections import Counter
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional, Set, Tuple
-
+from typing import Any, Dict, List, Set
 
 # ---------------------------------------------------------------------------
 # Stopwords (minimal set for clustering)

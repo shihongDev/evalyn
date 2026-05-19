@@ -45,7 +45,7 @@ class ConfigProfile:
         }
 
     @classmethod
-    def from_dict(cls, name: str, data: Dict[str, Any]) -> "ConfigProfile":
+    def from_dict(cls, name: str, data: Dict[str, Any]) -> ConfigProfile:
         description = data.pop("description", "") if isinstance(data, dict) else ""
         return cls(name=name, overrides=data, description=description)
 

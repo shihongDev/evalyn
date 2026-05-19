@@ -11,7 +11,6 @@ from collections import Counter
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional
 
-
 # Common stop words to exclude from keyword extraction
 _STOP_WORDS = frozenset({
     "a", "an", "the", "is", "are", "was", "were", "be", "been", "being",

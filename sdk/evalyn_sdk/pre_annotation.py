@@ -11,7 +11,6 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional
 
-
 # ---------------------------------------------------------------------------
 # Data Models
 # ---------------------------------------------------------------------------
@@ -35,7 +34,7 @@ class PreAnnotationConfig:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "PreAnnotationConfig":
+    def from_dict(cls, data: Dict[str, Any]) -> PreAnnotationConfig:
         return cls(
             confidence_threshold=data.get("confidence_threshold", 0.8),
             auto_accept_above=data.get("auto_accept_above", 0.95),
@@ -64,7 +63,7 @@ class PreAnnotation:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "PreAnnotation":
+    def from_dict(cls, data: Dict[str, Any]) -> PreAnnotation:
         return cls(
             item_id=data.get("item_id", ""),
             predicted_label=data.get("predicted_label", 0.0),
@@ -96,7 +95,7 @@ class PreAnnotationReport:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "PreAnnotationReport":
+    def from_dict(cls, data: Dict[str, Any]) -> PreAnnotationReport:
         return cls(
             annotations=[
                 PreAnnotation.from_dict(a) for a in data.get("annotations", [])

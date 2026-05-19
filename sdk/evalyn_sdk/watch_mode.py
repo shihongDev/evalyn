@@ -12,7 +12,6 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import Any, Callable, Dict, List
 
-
 # ---------------------------------------------------------------------------
 # Data model
 # ---------------------------------------------------------------------------
@@ -34,7 +33,7 @@ class WatchConfig:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "WatchConfig":
+    def from_dict(cls, data: Dict[str, Any]) -> WatchConfig:
         return cls(
             paths=list(data.get("paths", [])),
             debounce_seconds=float(data.get("debounce_seconds", 2.0)),
@@ -60,7 +59,7 @@ class FileState:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "FileState":
+    def from_dict(cls, data: Dict[str, Any]) -> FileState:
         return cls(
             path=data["path"],
             mtime=float(data.get("mtime", 0.0)),
@@ -85,7 +84,7 @@ class WatchEvent:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "WatchEvent":
+    def from_dict(cls, data: Dict[str, Any]) -> WatchEvent:
         return cls(
             path=data["path"],
             event_type=data["event_type"],

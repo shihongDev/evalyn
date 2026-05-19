@@ -8,9 +8,9 @@ Pure Python - no external deps, no LLM calls.
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List
 
 
 def _now_iso() -> str:

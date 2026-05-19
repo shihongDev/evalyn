@@ -36,7 +36,7 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import AsyncIterator, Literal
 
-from .jobs_persistence import JobPersistence, MAX_PERSISTED_OUTPUT
+from .jobs_persistence import MAX_PERSISTED_OUTPUT, JobPersistence
 
 logger = logging.getLogger(__name__)
 
@@ -114,7 +114,7 @@ class _EventStream:
         self._live_buffer.clear()
         self._replaying = False
 
-    def __aiter__(self) -> "_EventStream":
+    def __aiter__(self) -> _EventStream:
         return self
 
     async def __anext__(self) -> dict:
@@ -156,7 +156,7 @@ class Job:
     # Set of _EventStream instances, one per active subscriber. Each stream
     # receives every new event after subscribe time. Replay of older events
     # is performed inside subscribe() before the stream joins fanout.
-    _subscribers: set["_EventStream"] = field(default_factory=set)
+    _subscribers: set[_EventStream] = field(default_factory=set)
     # Internal coordination.
     _process: asyncio.subprocess.Process | None = None
     _capture_tasks: list[asyncio.Task] = field(default_factory=list)
@@ -423,7 +423,7 @@ class JobManager:
     @asynccontextmanager
     async def subscribe(
         self, job_id: str, since: int | None = None
-    ) -> AsyncIterator["_EventStream"]:
+    ) -> AsyncIterator[_EventStream]:
         """Subscribe to a job's event stream.
 
         Yields an async-iterable stream that receives every event with

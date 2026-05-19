@@ -10,9 +10,9 @@ from __future__ import annotations
 import hashlib
 import json
 import logging
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, Optional
 
 logger = logging.getLogger(__name__)
 
@@ -69,7 +69,7 @@ class EvalCache:
 
         if self.enabled and self.path and self.path.exists():
             try:
-                with open(self.path, "r", encoding="utf-8") as f:
+                with open(self.path, encoding="utf-8") as f:
                     self._cache = json.load(f)
                 logger.debug("Loaded eval cache with %d entries", len(self._cache))
             except (json.JSONDecodeError, OSError) as e:

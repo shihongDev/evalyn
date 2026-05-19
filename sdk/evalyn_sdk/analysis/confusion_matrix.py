@@ -7,10 +7,8 @@ Computes precision, recall, F1, accuracy, and Cohen's kappa.
 
 from __future__ import annotations
 
-import math
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Tuple
-
 
 # ---------------------------------------------------------------------------
 # Data Models

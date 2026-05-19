@@ -11,7 +11,6 @@ from collections import defaultdict
 from dataclasses import dataclass, field
 from typing import Any, Dict, List
 
-
 # ---------------------------------------------------------------------------
 # Data Models
 # ---------------------------------------------------------------------------
@@ -37,7 +36,7 @@ class CostEntry:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "CostEntry":
+    def from_dict(cls, data: Dict[str, Any]) -> CostEntry:
         return cls(
             date=data["date"],
             model=data["model"],
@@ -89,7 +88,7 @@ class CostDashboard:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "CostDashboard":
+    def from_dict(cls, data: Dict[str, Any]) -> CostDashboard:
         return cls(
             daily_costs=[],  # daily_costs are derived, not round-tripped
             total_cost_usd=data.get("total_cost_usd", 0.0),

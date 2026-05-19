@@ -10,7 +10,6 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
-
 # ---------------------------------------------------------------------------
 # Configuration
 # ---------------------------------------------------------------------------
@@ -359,9 +358,7 @@ def parse_llm_summary_response(response: str, trace_id: str) -> TraceSummary:
 
     for line in lines:
         stripped = line.strip()
-        if stripped.startswith("- "):
-            key_findings.append(stripped[2:].strip())
-        elif stripped.startswith("* "):
+        if stripped.startswith("- ") or stripped.startswith("* "):
             key_findings.append(stripped[2:].strip())
         else:
             summary_lines.append(line)

@@ -6,12 +6,10 @@ Saves a frozen snapshot; warns when metrics change.
 
 from __future__ import annotations
 
-import hashlib
 import json
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Dict, List, Optional
-
 
 FREEZE_FILENAME = ".evalyn-metrics-freeze.json"
 
@@ -41,7 +39,7 @@ class FrozenMetricSet:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "FrozenMetricSet":
+    def from_dict(cls, data: Dict[str, Any]) -> FrozenMetricSet:
         return cls(
             metrics=data.get("metrics", {}),
             frozen_at=data.get("frozen_at", ""),

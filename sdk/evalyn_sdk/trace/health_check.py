@@ -40,7 +40,7 @@ class HealthCheckReport:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "HealthCheckReport":
+    def from_dict(cls, data: Dict[str, Any]) -> HealthCheckReport:
         checks = [
             HealthCheckItem(
                 name=c["name"],

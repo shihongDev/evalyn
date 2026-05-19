@@ -8,8 +8,8 @@ from __future__ import annotations
 import json
 import os
 import time
-import urllib.request
 import urllib.error
+import urllib.request
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Any, Dict, Optional
@@ -138,7 +138,7 @@ def should_check_updates(config_path: str, interval_hours: float = 24.0) -> bool
     interval_hours ago.
     """
     try:
-        with open(config_path, "r") as f:
+        with open(config_path) as f:
             data = json.load(f)
         last_check = data.get("last_check_timestamp")
         if last_check is None:
@@ -153,7 +153,7 @@ def save_check_timestamp(config_path: str) -> None:
     """Save the current time to the cache file at config_path."""
     data: Dict[str, Any] = {}
     try:
-        with open(config_path, "r") as f:
+        with open(config_path) as f:
             data = json.load(f)
     except (OSError, json.JSONDecodeError):
         pass

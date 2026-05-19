@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import math
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List
 
 
 @dataclass
@@ -34,7 +34,7 @@ class DecompositionResult:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "DecompositionResult":
+    def from_dict(cls, data: Dict[str, Any]) -> DecompositionResult:
         """Reconstruct from summary dict (trend/residual not restored)."""
         return cls(
             metric_id=data["metric_id"],
@@ -79,7 +79,7 @@ class TimeSeriesReport:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "TimeSeriesReport":
+    def from_dict(cls, data: Dict[str, Any]) -> TimeSeriesReport:
         results = [
             DecompositionResult.from_dict(r) for r in data.get("results", [])
         ]

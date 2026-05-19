@@ -25,7 +25,6 @@ from ..defaults import DEFAULT_EVAL_MODEL
 from ..models import Annotation, CalibrationRecord, DatasetItem, MetricResult, now_utc
 from .factory import call_optimizer, create_optimizer
 from .gepa import GEPAConfig
-from .utils import build_full_prompt
 from .models import (
     AlignmentMetrics,
     DisagreementAnalysis,
@@ -34,6 +33,7 @@ from .models import (
     TokenAccumulator,
     ValidationResult,
 )
+from .utils import build_full_prompt
 
 
 @dataclass

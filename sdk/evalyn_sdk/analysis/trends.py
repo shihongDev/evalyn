@@ -65,7 +65,7 @@ class TrendAnalysis:
         ]
 
 
-def analyze_trends(runs: List["EvalRun"]) -> TrendAnalysis:
+def analyze_trends(runs: List[EvalRun]) -> TrendAnalysis:
     """Analyze trends across multiple evaluation runs.
 
     Args:
@@ -128,7 +128,7 @@ def analyze_trends(runs: List["EvalRun"]) -> TrendAnalysis:
 
 def generate_trend_text_report(trend: TrendAnalysis) -> str:
     """Generate a text report showing evaluation trends over time."""
-    from ..cli.utils.rich import banner, section, kv
+    from ..cli.utils.rich import banner, kv, section
 
     if not trend.runs:
         return "  No runs found for analysis."

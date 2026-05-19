@@ -7,8 +7,7 @@ evaluation. Useful for cost planning and budget estimation.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, Dict, List, Optional
-
+from typing import Any, Dict, List
 
 # Average chars per token (rough estimate, varies by model/language)
 CHARS_PER_TOKEN = 4

@@ -8,13 +8,13 @@ import json
 import sys
 import time
 from pathlib import Path
-from typing import Any, Callable, List, Optional, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, Callable, List, Optional
 
 if TYPE_CHECKING:
     from ...trace.tracer import EvalTracer
 
 
-def _extract_code_meta(tracer: "EvalTracer", fn: Callable[..., Any]) -> Optional[dict]:
+def _extract_code_meta(tracer: EvalTracer, fn: Callable[..., Any]) -> Optional[dict]:
     """
     Try to reuse cached code metadata from the tracer; fall back to inspect if not present.
     """

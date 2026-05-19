@@ -7,9 +7,8 @@ future storage size, estimate days until a limit, and render ASCII charts.
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Any, Dict, List, Optional
-
 
 # ---------------------------------------------------------------------------
 # Data Models

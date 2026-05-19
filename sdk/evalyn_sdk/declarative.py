@@ -17,7 +17,7 @@ Usage:
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Callable, Dict, List, Optional, Union
+from typing import Any, Callable, Dict, List, Optional
 
 from .models import DatasetItem, MetricResult
 
@@ -115,8 +115,9 @@ class Eval:
 
     def run(self) -> EvalOutput:
         """Execute the evaluation and return results."""
-        from .metrics.factory import build_objective_metric
         from datetime import datetime, timezone
+
+        from .metrics.factory import build_objective_metric
         from .models import FunctionCall
 
         # Build items

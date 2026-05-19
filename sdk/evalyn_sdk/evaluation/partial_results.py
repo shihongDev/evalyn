@@ -94,7 +94,7 @@ def load_partial_results(checkpoint_path: Path) -> Optional[PartialResults]:
         return None
 
     try:
-        with open(checkpoint_path, "r", encoding="utf-8") as f:
+        with open(checkpoint_path, encoding="utf-8") as f:
             data = json.load(f)
     except (json.JSONDecodeError, OSError):
         return None

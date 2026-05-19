@@ -10,7 +10,6 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional
 
-
 # ---------------------------------------------------------------------------
 # Data Models
 # ---------------------------------------------------------------------------
@@ -60,7 +59,7 @@ class ReportDiff:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "ReportDiff":
+    def from_dict(cls, data: Dict[str, Any]) -> ReportDiff:
         changes = []
         for c in data.get("metric_changes", []):
             changes.append(MetricChange(

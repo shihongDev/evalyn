@@ -11,7 +11,6 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any, Callable, Dict, List, Tuple
 
-
 # ---------------------------------------------------------------------------
 # Data Models
 # ---------------------------------------------------------------------------
@@ -57,7 +56,7 @@ class BisectionResult:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "BisectionResult":
+    def from_dict(cls, data: Dict[str, Any]) -> BisectionResult:
         steps = [
             BisectionStep(
                 step_number=s["step_number"],

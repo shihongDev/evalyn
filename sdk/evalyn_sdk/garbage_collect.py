@@ -6,7 +6,6 @@ that are no longer referenced by active datasets or sessions.
 
 from __future__ import annotations
 
-import os
 import shutil
 import time
 from dataclasses import dataclass, field

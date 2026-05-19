@@ -9,10 +9,10 @@ import shutil
 import subprocess
 from typing import Callable, List, Optional
 
-from .config import get_config_default, load_config
-from .ui import Spinner
-from .loaders import _load_callable
 from ...parsing import extract_json_list
+from .config import get_config_default, load_config
+from .loaders import _load_callable
+from .ui import Spinner
 
 
 def _parse_json_array(text: str) -> List[dict]:

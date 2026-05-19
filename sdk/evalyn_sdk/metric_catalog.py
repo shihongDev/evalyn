@@ -97,7 +97,7 @@ def _infer_recommended_use(metric: Dict[str, Any]) -> str:
 def _count_rubric_levels(metric: Dict[str, Any]) -> int:
     """Count rubric levels from metric config."""
     config = metric.get("config", {})
-    rubric = config.get("rubric", metric.get("rubric", None))
+    rubric = config.get("rubric", metric.get("rubric"))
     if isinstance(rubric, dict):
         return len(rubric)
     if isinstance(rubric, list):

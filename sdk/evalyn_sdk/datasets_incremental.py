@@ -13,7 +13,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Set
 
-from .datasets import hash_inputs, load_dataset, save_dataset
+from .datasets import hash_inputs, save_dataset
 
 logger = logging.getLogger(__name__)
 
@@ -46,7 +46,7 @@ def load_build_state(dataset_dir: Path) -> Optional[str]:
     if not meta_path.exists():
         return None
     try:
-        with open(meta_path, "r", encoding="utf-8") as f:
+        with open(meta_path, encoding="utf-8") as f:
             meta = json.load(f)
         return meta.get("last_incremental_build")
     except (json.JSONDecodeError, OSError):
@@ -62,7 +62,7 @@ def save_build_state(dataset_dir: Path, timestamp: str) -> None:
     meta = {}
     if meta_path.exists():
         try:
-            with open(meta_path, "r", encoding="utf-8") as f:
+            with open(meta_path, encoding="utf-8") as f:
                 meta = json.load(f)
         except (json.JSONDecodeError, OSError):
             meta = {}

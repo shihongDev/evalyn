@@ -26,16 +26,16 @@ Low-level provider API:
     results = provider.get_results(job.id)
 """
 
+from .evaluator import BatchEvalProgress, BatchEvaluator
 from .providers import (
-    BatchProvider,
+    AnthropicBatchProvider,
     BatchJob,
+    BatchProvider,
     BatchResult,
     GeminiBatchProvider,
     OpenAIBatchProvider,
-    AnthropicBatchProvider,
     create_batch_provider,
 )
-from .evaluator import BatchEvaluator, BatchEvalProgress
 
 __all__ = [
     # High-level API

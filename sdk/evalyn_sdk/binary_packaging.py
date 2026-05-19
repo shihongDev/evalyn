@@ -9,7 +9,6 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any, Dict, List
 
-
 VALID_METHODS = ("pyinstaller", "nuitka", "shiv")
 
 
@@ -167,7 +166,7 @@ def generate_build_script(config: PackagingConfig) -> str:
                 "pip install shiv",
                 "",
                 "# Build the zipapp",
-                f"shiv -c evalyn \\",
+                "shiv -c evalyn \\",
                 f"    -o {config.output_name}.pyz \\",
                 "    .",
                 "",

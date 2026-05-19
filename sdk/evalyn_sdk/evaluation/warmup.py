@@ -6,8 +6,8 @@ alongside the remaining items for consistent scoring.
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional
+from dataclasses import dataclass
+from typing import Any, Dict, List
 
 
 @dataclass
@@ -47,7 +47,7 @@ class WarmupResult:
 
     def format_text(self) -> str:
         lines = [
-            f"Warm-Up Summary:",
+            "Warm-Up Summary:",
             f"  Items warmed up:     {self.warmup_items_count}",
             f"  Results discarded:   {self.warmup_results_discarded}",
             f"  Warmup pass rate:    {self.warmup_pass_rate:.1%}",

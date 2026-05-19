@@ -8,13 +8,11 @@ lightweight proxy for embedding-based analysis.
 
 from __future__ import annotations
 
-import math
 import random
 import re
 from collections import Counter
 from dataclasses import dataclass, field
 from typing import Any, Dict, List
-
 
 # ---------------------------------------------------------------------------
 # Stop words (shared lightweight set)

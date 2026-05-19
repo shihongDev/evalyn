@@ -10,8 +10,14 @@ from pathlib import Path
 from typing import Iterable, List, Optional
 
 from ..models import (
-    Annotation, EvalRun, FunctionCall, JudgeConfig, MetricSpec,
-    SpanMetricLink, _parse_datetime, now_utc,
+    Annotation,
+    EvalRun,
+    FunctionCall,
+    JudgeConfig,
+    MetricSpec,
+    SpanMetricLink,
+    _parse_datetime,
+    now_utc,
 )
 from .migrations import run_migrations
 
@@ -415,7 +421,6 @@ class SQLiteStorage:
 
     def load_metric_results(self, run_id: str) -> List:
         """Load metric results from relational table for a run."""
-        from ..models import MetricResult
 
         cur = self.get_connection().cursor()
         cur.execute(

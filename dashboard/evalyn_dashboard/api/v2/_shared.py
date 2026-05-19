@@ -29,7 +29,7 @@ import tempfile
 from collections import defaultdict
 from datetime import datetime, timedelta
 from pathlib import Path
-from typing import Any, Iterable
+from typing import Iterable
 
 logger = logging.getLogger(__name__)
 

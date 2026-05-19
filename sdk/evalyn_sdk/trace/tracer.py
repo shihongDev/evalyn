@@ -5,7 +5,6 @@ import functools
 import hashlib
 import inspect
 import uuid
-import json
 from contextlib import contextmanager
 from typing import Any, Callable, Dict, Optional, Tuple
 
@@ -108,7 +107,7 @@ class EvalTracer:
         metadata: Optional[Dict[str, Any]] = None,
     ) -> Tuple[FunctionCall, contextvars.Token]:
         # Lazily patch LLM libraries on first trace (not at import time)
-        from .auto_instrument import ensure_patched, _auto_patched
+        from .auto_instrument import _auto_patched, ensure_patched
 
         first_patch = not _auto_patched
         patch_results = ensure_patched()

@@ -17,7 +17,7 @@ from __future__ import annotations
 import hashlib
 import json
 import shutil
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional
@@ -41,7 +41,7 @@ class DatasetVersion:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "DatasetVersion":
+    def from_dict(cls, data: Dict[str, Any]) -> DatasetVersion:
         return cls(
             version_hash=data["version_hash"],
             item_count=data["item_count"],
@@ -129,7 +129,7 @@ def list_versions(dataset_dir: Path) -> List[DatasetVersion]:
         return []
 
     try:
-        with open(changelog_path, "r", encoding="utf-8") as f:
+        with open(changelog_path, encoding="utf-8") as f:
             entries = json.load(f)
         versions = [DatasetVersion.from_dict(e) for e in entries]
         return list(reversed(versions))  # newest first
@@ -174,7 +174,7 @@ def _append_changelog(versions_dir: Path, version: DatasetVersion) -> None:
     entries = []
     if changelog_path.exists():
         try:
-            with open(changelog_path, "r", encoding="utf-8") as f:
+            with open(changelog_path, encoding="utf-8") as f:
                 entries = json.load(f)
         except (json.JSONDecodeError, OSError):
             entries = []

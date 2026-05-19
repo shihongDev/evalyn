@@ -26,9 +26,9 @@ import importlib.util
 import time
 from typing import Any, Dict, List, Optional
 
-from ..base import Instrumentor, InstrumentorType
 from ....models import Span
 from ... import context as span_context
+from ..base import Instrumentor, InstrumentorType
 
 
 class LlamaIndexInstrumentor(Instrumentor):

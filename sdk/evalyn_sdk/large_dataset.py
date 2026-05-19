@@ -12,8 +12,8 @@ import os
 import sys
 import tempfile
 import time
-from dataclasses import dataclass, field
-from typing import Any, Callable, Dict, Iterator, List, Optional
+from dataclasses import dataclass
+from typing import Any, Callable, Dict, Iterator, Optional
 
 logger = logging.getLogger(__name__)
 
@@ -125,7 +125,7 @@ def stream_dataset(file_path: str, chunk_size: int = 100) -> Iterator[list[dict]
     Blank lines and unparseable lines are skipped.
     """
     chunk: list[dict] = []
-    with open(file_path, "r", encoding="utf-8") as fh:
+    with open(file_path, encoding="utf-8") as fh:
         for line in fh:
             line = line.strip()
             if not line:
@@ -178,7 +178,7 @@ def load_checkpoint(checkpoint_path: str) -> Optional[CheckpointState]:
     if not os.path.exists(checkpoint_path):
         return None
     try:
-        with open(checkpoint_path, "r", encoding="utf-8") as fh:
+        with open(checkpoint_path, encoding="utf-8") as fh:
             data = json.load(fh)
         return CheckpointState.from_dict(data)
     except (json.JSONDecodeError, KeyError, ValueError) as e:

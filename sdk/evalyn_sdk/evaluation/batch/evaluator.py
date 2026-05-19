@@ -22,11 +22,11 @@ import time
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Callable, Optional, TypeAlias
+from typing import Callable, Optional, TypeAlias
 
 from ...models import DatasetItem, FunctionCall, Metric, MetricResult
-from .providers import create_batch_provider
 from ...parsing import _extract_json_object, _parse_passed, _safe_trace_excerpt
+from .providers import create_batch_provider
 
 logger = logging.getLogger(__name__)
 

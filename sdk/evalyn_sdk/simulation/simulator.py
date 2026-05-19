@@ -18,7 +18,6 @@ from ..models import DatasetItem, FunctionCall, now_utc
 from ..trace.tracer import EvalTracer
 from ..utils.api_client import GeminiClient
 
-
 # =============================================================================
 # Simple Utilities
 # =============================================================================
@@ -306,13 +305,15 @@ class AgentSimulator:
         self,
         seed_dataset: List[DatasetItem],
         output_dir: Path,
-        modes: List[str] = ["similar", "outlier"],
+        modes: Optional[List[str]] = None,
     ) -> Dict[str, Path]:
         """
         Run simulation and save results.
 
         Returns dict mapping mode -> output path.
         """
+        if modes is None:
+            modes = ["similar", "outlier"]
         results = {}
 
         # Limit seed items

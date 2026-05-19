@@ -9,7 +9,7 @@ from __future__ import annotations
 import json
 import random
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List
 
 
 @dataclass
@@ -142,7 +142,7 @@ def stream_from_file(file_path: str, reservoir: Reservoir) -> ReservoirState:
     Each non-empty line is parsed as JSON and added to the reservoir.
     Returns the final reservoir state.
     """
-    with open(file_path, "r", encoding="utf-8") as fh:
+    with open(file_path, encoding="utf-8") as fh:
         for line in fh:
             line = line.strip()
             if not line:

@@ -31,11 +31,12 @@ ESSENTIAL = {"limit"}
 
 import argparse
 import json
-from typing import Any, Optional, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, Optional
 
 if TYPE_CHECKING:
     from ...storage import SQLiteStorage
 
+from ...storage.sqlite import DB_PATHS
 from ..utils.command_common import (
     resolve_call_id,
     resolve_call_id_or_last,
@@ -44,10 +45,9 @@ from ..utils.command_common import (
 from ..utils.errors import fatal_error
 from ..utils.formatters import format_duration, trim_timestamp
 from ..utils.hints import HintCollector
-from ..utils.rich import banner, kv, section, table as rich_table, footer, icon, status_icon
+from ..utils.rich import banner, footer, icon, kv, section, status_icon
+from ..utils.rich import table as rich_table
 from ..utils.validation import extract_project_id
-
-from ...storage.sqlite import DB_PATHS
 
 
 def _get_storage(args: argparse.Namespace) -> SQLiteStorage:

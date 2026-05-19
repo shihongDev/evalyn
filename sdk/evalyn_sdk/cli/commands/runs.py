@@ -40,8 +40,8 @@ import json
 
 from ..utils.errors import fatal_error
 from ..utils.formatters import print_token_usage_summary, trim_timestamp
-from ..utils.hints import HintCollector
-from ..utils.rich import banner, kv, section, table as rich_table, footer, icon, status_icon
+from ..utils.rich import banner, footer, kv, section, status_icon
+from ..utils.rich import table as rich_table
 
 
 def cmd_list_runs(args: argparse.Namespace) -> None:

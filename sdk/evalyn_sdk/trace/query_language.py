@@ -37,7 +37,7 @@ class Query:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "Query":
+    def from_dict(cls, data: Dict[str, Any]) -> Query:
         return cls(
             predicates=[
                 QueryPredicate(

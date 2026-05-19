@@ -8,7 +8,7 @@ quick triage and filtering.
 from __future__ import annotations
 
 from collections import defaultdict
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Any, Dict, List, Optional
 
 from ..models import Span
@@ -38,7 +38,7 @@ class ComplexityScore:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "ComplexityScore":
+    def from_dict(cls, data: Dict[str, Any]) -> ComplexityScore:
         return cls(
             total_spans=data.get("total_spans", 0),
             max_depth=data.get("max_depth", 0),

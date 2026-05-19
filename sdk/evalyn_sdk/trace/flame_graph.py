@@ -1,8 +1,8 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Dict, List
 from html import escape as html_escape
+from typing import Any, Dict, List
 
 from ..models import Span
 
@@ -228,7 +228,7 @@ def render_svg(
 
     svg_parts = [
         f'<svg xmlns="http://www.w3.org/2000/svg" width="{width}" height="{height}">',
-        f'  <style>text {{ font-family: monospace; }}</style>',
+        '  <style>text { font-family: monospace; }</style>',
     ]
     svg_parts.extend(rects)
     svg_parts.append("</svg>")

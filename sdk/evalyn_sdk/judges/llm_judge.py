@@ -21,13 +21,11 @@ from typing import Any, Dict, List, Optional
 
 logger = logging.getLogger(__name__)
 
-from ..models import DatasetItem, FunctionCall, Metric, MetricResult, MetricSpec
-from ..utils.api_client import create_llm_client
-
 # Import canonical templates from metrics.subjective
 from ..metrics.subjective import JUDGE_TEMPLATES
+from ..models import DatasetItem, FunctionCall, Metric, MetricResult, MetricSpec
 from ..parsing import _extract_json_object, _parse_passed, _safe_trace_excerpt
-
+from ..utils.api_client import create_llm_client
 
 # =============================================================================
 # LLMJudge Class
@@ -75,7 +73,7 @@ class LLMJudge:
 
         # Default model depends on provider
         if model is None:
-            from ..defaults import DEFAULT_MODELS_BY_PROVIDER, DEFAULT_EVAL_MODEL
+            from ..defaults import DEFAULT_EVAL_MODEL, DEFAULT_MODELS_BY_PROVIDER
 
             self.model = DEFAULT_MODELS_BY_PROVIDER.get(provider, DEFAULT_EVAL_MODEL)
         else:
@@ -100,7 +98,7 @@ class LLMJudge:
         model: Optional[str] = None,
         api_key: Optional[str] = None,
         provider: str = "gemini",
-    ) -> "LLMJudge":
+    ) -> LLMJudge:
         """Create judge from built-in template.
 
         Args:

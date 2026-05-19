@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Iterable, List, Optional, Dict, Any, Protocol, runtime_checkable
+from typing import Any, Dict, Iterable, List, Optional, Protocol, runtime_checkable
 
 from ..models import Annotation, EvalRun, FunctionCall, SpanMetricLink
 

@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import random
 from dataclasses import dataclass
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List
 
 
 @dataclass
@@ -47,7 +47,7 @@ class CanaryResult:
             f"  Threshold: {self.abort_threshold:.1%}",
         ]
         if self.should_abort:
-            lines.append(f"  Aborting: pass rate below threshold")
+            lines.append("  Aborting: pass rate below threshold")
             if self.estimated_cost_saved > 0:
                 lines.append(f"  Estimated savings: ${self.estimated_cost_saved:.4f}")
         else:

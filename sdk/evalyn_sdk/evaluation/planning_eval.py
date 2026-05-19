@@ -5,9 +5,8 @@ Evaluate plan quality: completeness, ordering, efficiency.
 
 from __future__ import annotations
 
-import re
 from dataclasses import dataclass, field
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 
 @dataclass
@@ -149,13 +148,15 @@ def evaluate_replanning(
 
 def evaluate_plan(
     plan_steps: List[PlanStep],
-    required_topics: List[str] = [],
+    required_topics: Optional[List[str]] = None,
     max_steps: int = 20,
 ) -> PlanEvalResult:
     """Full plan evaluation.
 
     Overall = average of completeness, ordering, efficiency.
     """
+    if required_topics is None:
+        required_topics = []
     completeness = evaluate_completeness(plan_steps, required_topics)
     ordering = evaluate_ordering(plan_steps)
     efficiency = evaluate_efficiency(plan_steps, max_steps)

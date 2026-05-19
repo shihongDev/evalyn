@@ -18,7 +18,6 @@ The rubric (evaluation criteria) is kept FIXED as defined by humans.
 from __future__ import annotations
 
 import logging
-import random
 from dataclasses import dataclass
 from typing import Any, Dict, List, Optional
 

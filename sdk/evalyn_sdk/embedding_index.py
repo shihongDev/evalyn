@@ -10,9 +10,8 @@ from __future__ import annotations
 import hashlib
 import json
 import re
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Any, Dict, List, Optional, Tuple
-
 
 _WORD_RE = re.compile(r"[a-zA-Z0-9]+")
 
@@ -143,7 +142,7 @@ class EmbeddingIndex:
     @classmethod
     def load_from_file(cls, path: str) -> EmbeddingIndex:
         """Load an index from a JSON file."""
-        with open(path, "r", encoding="utf-8") as f:
+        with open(path, encoding="utf-8") as f:
             data = json.load(f)
         index = cls()
         for entry_data in data.get("entries", []):
@@ -184,7 +183,7 @@ def format_index_stats(index: EmbeddingIndex) -> str:
     avg_features = total_features / n
 
     lines = [
-        f"Embedding Index Stats:",
+        "Embedding Index Stats:",
         f"  Entries:      {n}",
         f"  Total features: {total_features}",
         f"  Avg features: {avg_features:.1f}",

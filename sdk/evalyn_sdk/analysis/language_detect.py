@@ -8,7 +8,6 @@ from __future__ import annotations
 
 import re
 import unicodedata
-from collections import Counter
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional
 

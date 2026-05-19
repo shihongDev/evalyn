@@ -8,8 +8,8 @@ Never stores or logs full key values.
 from __future__ import annotations
 
 import os
-from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional
+from dataclasses import dataclass
+from typing import Any, Dict, List
 
 
 def mask_key(key: str) -> str:

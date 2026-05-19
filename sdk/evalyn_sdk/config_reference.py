@@ -428,11 +428,7 @@ def validate_config(config: Dict[str, Any], reference: ConfigReference) -> List[
                 errors.append(
                     f"Wrong type for '{key}': expected {opt.type_name}, got {type(value).__name__}"
                 )
-            elif opt.type_name == "int" and isinstance(value, bool):
-                errors.append(
-                    f"Wrong type for '{key}': expected {opt.type_name}, got bool"
-                )
-            elif opt.type_name == "float" and isinstance(value, bool):
+            elif opt.type_name == "int" and isinstance(value, bool) or opt.type_name == "float" and isinstance(value, bool):
                 errors.append(
                     f"Wrong type for '{key}': expected {opt.type_name}, got bool"
                 )

@@ -21,9 +21,9 @@ import importlib.util
 import logging
 from typing import Any, List
 
-from ..base import Instrumentor, InstrumentorType
 from ....models import Span
 from ... import context as span_context
+from ..base import Instrumentor, InstrumentorType
 from ._shared import calculate_cost
 
 

@@ -18,9 +18,9 @@ from dataclasses import dataclass
 from datetime import timedelta
 from typing import Any, AsyncIterator, Dict, List, Optional, TypedDict
 
-from ..base import Instrumentor, InstrumentorType
 from ....models import Span
 from ... import context as span_context
+from ..base import Instrumentor, InstrumentorType
 
 
 @dataclass

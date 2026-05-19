@@ -42,7 +42,7 @@ from typing import Optional
 from ..utils.command_common import load_eval_run_for_command
 from ..utils.config import load_config, resolve_dataset_path
 from ..utils.errors import fatal_error
-from ..utils.rich import banner, section, footer
+from ..utils.rich import banner, footer, section
 
 
 def _get_eval_run(args: argparse.Namespace) -> EvalRun:
@@ -287,9 +287,9 @@ def cmd_cluster_failures(args: argparse.Namespace) -> None:
         if compute_embeddings and not result.coordinates_2d and result.total_cases >= 3:
             # Check if deps are actually missing
             try:
+                import plotly  # noqa: F401
                 import sentence_transformers  # noqa: F401
                 import umap  # noqa: F401
-                import plotly  # noqa: F401
             except ImportError:
                 print(
                     "  Note: Scatter plot requires: pip install evalyn-sdk[clustering]"

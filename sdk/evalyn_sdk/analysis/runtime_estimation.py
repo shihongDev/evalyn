@@ -9,7 +9,6 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional
 
-
 # Default execution time estimates (milliseconds per evaluation)
 _DEFAULT_TIMES_MS = {
     "objective": 5,         # local computation

@@ -14,7 +14,6 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional, Sequence
 
-
 # ---------------------------------------------------------------------------
 # Data Models
 # ---------------------------------------------------------------------------
@@ -113,7 +112,7 @@ class SeededRandom:
 # ---------------------------------------------------------------------------
 
 
-def create_seeded_rng(seed: "int | SeedConfig") -> SeededRandom:
+def create_seeded_rng(seed: int | SeedConfig) -> SeededRandom:
     """Create a SeededRandom instance from an int seed or SeedConfig."""
     if isinstance(seed, SeedConfig):
         seed = seed.seed

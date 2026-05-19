@@ -39,12 +39,14 @@ import json
 import re
 from pathlib import Path
 
-from ..utils.command_common import load_eval_run_for_command, resolve_dataset_dir_and_file
+from ..utils.command_common import (
+    load_eval_run_for_command,
+    resolve_dataset_dir_and_file,
+)
 from ..utils.config import load_config, resolve_dataset_path
 from ..utils.dataset_resolver import get_dataset
 from ..utils.errors import fatal_error
 from ..utils.hints import HintCollector
-
 
 # Threshold for flagging a metric as a "problem" (failure rate > 20%)
 _PROBLEM_METRIC_THRESHOLD = 0.2
@@ -215,7 +217,7 @@ def cmd_status(args: argparse.Namespace) -> None:
 
 def cmd_validate(args: argparse.Namespace) -> None:
     """Validate dataset format and detect potential issues."""
-    from ..utils.rich import banner, icon, kv, section, status_icon
+    from ..utils.rich import banner, icon, kv, section
 
     config = load_config()
     dataset_dir, dataset_file = resolve_dataset_dir_and_file(
@@ -242,7 +244,7 @@ def cmd_validate(args: argparse.Namespace) -> None:
     }
 
     # Validate JSON format line by line
-    with open(dataset_file, "r", encoding="utf-8") as f:
+    with open(dataset_file, encoding="utf-8") as f:
         for line_num, line in enumerate(f, start=1):
             line = line.strip()
             if not line:
@@ -572,8 +574,14 @@ def _print_analysis_table_output(
 ) -> None:
     """Print table-formatted evaluation analysis."""
     from ...calibration import AlignmentMetrics
-
-    from ..utils.rich import banner, section, kv, icon, status_icon, progress_bar, footer
+    from ..utils.rich import (
+        banner,
+        icon,
+        kv,
+        progress_bar,
+        section,
+        status_icon,
+    )
 
     item_count = len(set(mr.item_id for mr in run.metric_results))
 
@@ -643,14 +651,14 @@ def _print_analysis_table_output(
 
     if not item_failures:
         print(f"  {icon('info')} All items passed! Consider adding more challenging test cases.")
-        print(f"    Run 'evalyn simulate --modes outlier' to generate edge cases.")
+        print("    Run 'evalyn simulate --modes outlier' to generate edge cases.")
 
     # Key findings from insights engine
     if run_analysis is not None:
         try:
             from ...analysis.insights import (
-                compute_metric_correlations,
                 analyze_score_distributions,
+                compute_metric_correlations,
             )
 
             findings = []
@@ -665,7 +673,7 @@ def _print_analysis_table_output(
                 print(f"\n{section('KEY FINDINGS')}\n")
                 for finding in findings[:5]:
                     print(f"  {icon('info')} {finding}")
-                print(f"\n  Run 'evalyn insights' for full diagnostic report.")
+                print("\n  Run 'evalyn insights' for full diagnostic report.")
         except (KeyError, ValueError, TypeError):
             pass
 
@@ -880,8 +888,8 @@ def cmd_compare(args: argparse.Namespace) -> None:
         if not run2:
             fatal_error(f"Could not load run2: {args.run2}")
 
-    from ..utils.rich import banner, section, kv, icon, status_icon, progress_bar
     from ..utils.colors import delta_color
+    from ..utils.rich import banner, icon, kv, section, status_icon
 
     print(banner("RUN COMPARISON"))
     print(kv([
@@ -1001,8 +1009,8 @@ def cmd_compare(args: argparse.Namespace) -> None:
 
 def cmd_trend(args: argparse.Namespace) -> None:
     """Show evaluation trends over time for a project."""
-    from ...decorators import get_default_tracer
     from ...analysis import analyze_trends, generate_trend_text_report
+    from ...decorators import get_default_tracer
 
     storage = get_default_tracer().storage
 
@@ -1078,7 +1086,7 @@ def cmd_trend(args: argparse.Namespace) -> None:
         if trend.regressing_metrics:
             metrics_str = ", ".join(trend.regressing_metrics[:3])
             hints.add(
-                f"evalyn calibrate --metric-id <metric> --annotations <path>",
+                "evalyn calibrate --metric-id <metric> --annotations <path>",
                 f"Calibrate regressing metrics: {metrics_str}",
                 options=[
                     ("--optimizer basic|gepa|opro|ape", "Optimization method"),

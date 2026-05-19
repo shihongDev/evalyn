@@ -15,7 +15,6 @@ from typing import Any, Dict, List, Literal, Optional, Tuple
 
 from .core import RunAnalysis
 
-
 # ---------------------------------------------------------------------------
 # Data Models
 # ---------------------------------------------------------------------------

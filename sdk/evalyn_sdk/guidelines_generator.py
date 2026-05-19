@@ -334,7 +334,7 @@ def format_guideline_html(guideline: AnnotationGuideline) -> str:
 
         if section.examples:
             for i, ex in enumerate(section.examples, 1):
-                parts.append(f"<div class=\"example\">")
+                parts.append("<div class=\"example\">")
                 parts.append(f"<strong>Example {i}</strong><br>")
                 for key in ("input", "output", "label", "reasoning"):
                     if key in ex:
@@ -375,8 +375,8 @@ def format_guidelines_index(
         parts.append("")
         return "\n".join(parts)
 
-    parts.append(f"| # | Metric | Description | Sections | Edge Cases |")
-    parts.append(f"|---|--------|-------------|----------|------------|")
+    parts.append("| # | Metric | Description | Sections | Edge Cases |")
+    parts.append("|---|--------|-------------|----------|------------|")
 
     for i, g in enumerate(guidelines, 1):
         parts.append(

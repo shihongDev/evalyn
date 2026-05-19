@@ -13,7 +13,6 @@ from typing import Any, Dict, List, Optional
 from ....models import Span
 from ... import context as span_context
 
-
 # Last updated: 2026-04. If prices are stale, update this dict and bump the date.
 _COST_LAST_UPDATED = "2026-04"
 

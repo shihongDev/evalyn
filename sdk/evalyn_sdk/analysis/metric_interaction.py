@@ -11,7 +11,6 @@ from dataclasses import dataclass, field
 from itertools import combinations
 from typing import Any, Dict, List
 
-
 # ---------------------------------------------------------------------------
 # Data Models
 # ---------------------------------------------------------------------------

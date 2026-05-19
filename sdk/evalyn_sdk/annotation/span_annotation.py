@@ -11,12 +11,11 @@ Supports annotating:
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field, asdict
-from typing import Any, Dict, List, Optional, Literal
+from dataclasses import asdict, dataclass, field
 from datetime import datetime
+from typing import Any, Dict, List, Literal, Optional
 
 from ..models import now_utc
-
 
 # Annotation span types (distinct from models.SpanType which covers execution spans)
 AnnotationSpanType = Literal[
@@ -39,7 +38,7 @@ class LLMCallAnnotation:
         return asdict(self)
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "LLMCallAnnotation":
+    def from_dict(cls, data: Dict[str, Any]) -> LLMCallAnnotation:
         return cls(**{k: v for k, v in data.items() if k in cls.__dataclass_fields__})
 
 
@@ -57,7 +56,7 @@ class ToolCallAnnotation:
         return asdict(self)
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "ToolCallAnnotation":
+    def from_dict(cls, data: Dict[str, Any]) -> ToolCallAnnotation:
         return cls(**{k: v for k, v in data.items() if k in cls.__dataclass_fields__})
 
 
@@ -75,7 +74,7 @@ class ReasoningAnnotation:
         return asdict(self)
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "ReasoningAnnotation":
+    def from_dict(cls, data: Dict[str, Any]) -> ReasoningAnnotation:
         return cls(**{k: v for k, v in data.items() if k in cls.__dataclass_fields__})
 
 
@@ -92,7 +91,7 @@ class RetrievalAnnotation:
         return asdict(self)
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "RetrievalAnnotation":
+    def from_dict(cls, data: Dict[str, Any]) -> RetrievalAnnotation:
         return cls(**{k: v for k, v in data.items() if k in cls.__dataclass_fields__})
 
 
@@ -108,7 +107,7 @@ class OverallAnnotation:
         return asdict(self)
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "OverallAnnotation":
+    def from_dict(cls, data: Dict[str, Any]) -> OverallAnnotation:
         return cls(**{k: v for k, v in data.items() if k in cls.__dataclass_fields__})
 
 
@@ -164,7 +163,7 @@ class SpanAnnotation:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "SpanAnnotation":
+    def from_dict(cls, data: Dict[str, Any]) -> SpanAnnotation:
         span_type = data.get("span_type", "overall")
         schema_cls = ANNOTATION_SCHEMAS.get(span_type, OverallAnnotation)
         annotation = schema_cls.from_dict(data.get("annotation", {}))

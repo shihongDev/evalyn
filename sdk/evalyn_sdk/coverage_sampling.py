@@ -6,8 +6,8 @@ for embedding-based diversity. Pure Python, no external dependencies.
 
 from __future__ import annotations
 
-import re
 import random
+import re
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional, Set
 

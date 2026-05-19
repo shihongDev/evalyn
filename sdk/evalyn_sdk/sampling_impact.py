@@ -11,7 +11,6 @@ import math
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional
 
-
 # ---------------------------------------------------------------------------
 # Z-score lookup (normal distribution critical values)
 # ---------------------------------------------------------------------------

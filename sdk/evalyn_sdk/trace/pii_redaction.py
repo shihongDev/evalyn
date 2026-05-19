@@ -27,7 +27,7 @@ class RedactionPattern:
     """A named regex pattern with its replacement template."""
 
     name: str
-    pattern: "re.Pattern[str]"
+    pattern: re.Pattern[str]
     replacement: str
 
     def as_dict(self) -> Dict[str, Any]:

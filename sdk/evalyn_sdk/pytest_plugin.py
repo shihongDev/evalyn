@@ -22,11 +22,10 @@ Or with the decorator:
 
 from __future__ import annotations
 
-import pytest
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, List
 
-from .models import DatasetItem, FunctionCall, MetricResult
 from .metrics.factory import build_objective_metric
+from .models import DatasetItem, FunctionCall, MetricResult
 
 
 class EvalynAssertionError(AssertionError):
@@ -102,7 +101,7 @@ def evalyn_assert(
             failures.append(f"{metric_id}: error ({e})")
 
     if failures:
-        msg = f"Evalyn assertion failed:\n" + "\n".join(f"  - {f}" for f in failures)
+        msg = "Evalyn assertion failed:\n" + "\n".join(f"  - {f}" for f in failures)
         raise EvalynAssertionError(msg, results)
 
     return results

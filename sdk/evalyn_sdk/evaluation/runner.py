@@ -9,15 +9,23 @@ from pathlib import Path
 from typing import Callable, Dict, Iterable, List, Optional, Tuple, Union
 from uuid import uuid4
 
-from ..decorators import get_default_tracer
 from ..datasets import hash_inputs
-from .units import EvalUnitBuilder, get_default_builders, get_builders_for_types
-from .units.views import project_unit
-from .execution import ProgressCallback, create_strategy
-from ..models import EvalUnit, EvalView, Metric
-from ..models import DatasetItem, EvalRun, FunctionCall, MetricResult, now_utc
+from ..decorators import get_default_tracer
+from ..models import (
+    DatasetItem,
+    EvalRun,
+    EvalUnit,
+    EvalView,
+    FunctionCall,
+    Metric,
+    MetricResult,
+    now_utc,
+)
 from ..storage.base import StorageBackend
 from ..trace.tracer import EvalTracer
+from .execution import ProgressCallback, create_strategy
+from .units import EvalUnitBuilder, get_builders_for_types, get_default_builders
+from .units.views import project_unit
 
 logger = logging.getLogger(__name__)
 
@@ -129,14 +137,14 @@ class EvalRunner:
             return {"results": [], "completed_items": set(), "run_id": str(uuid4())}
 
         try:
-            with open(self.checkpoint_path, "r", encoding="utf-8") as f:
+            with open(self.checkpoint_path, encoding="utf-8") as f:
                 data = json.load(f)
 
             # Check for JSONL results file (new format)
             results_path = self._checkpoint_results_path
             if results_path and results_path.exists():
                 raw_results = []
-                with open(results_path, "r", encoding="utf-8") as rf:
+                with open(results_path, encoding="utf-8") as rf:
                     for line in rf:
                         line = line.strip()
                         if line:

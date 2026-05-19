@@ -18,10 +18,10 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
-from .pipeline import PipelineStep, StepResult
+from ...defaults import DEFAULT_EVAL_MODEL
 from .config import get_config_default
 from .loaders import _load_callable
-from ...defaults import DEFAULT_EVAL_MODEL
+from .pipeline import PipelineStep, StepResult
 
 
 def _build_metrics_from_specs(
@@ -234,8 +234,8 @@ class SuggestMetricsStep(PipelineStep):
         """Suggest metrics based on mode."""
         from ...metrics.suggester import (
             HeuristicSuggester,
-            LLMSuggester,
             LLMRegistrySelector,
+            LLMSuggester,
         )
 
         if mode == "all":
@@ -254,9 +254,9 @@ class SuggestMetricsStep(PipelineStep):
 
     def _get_bundle_metrics(self, bundle_name: str) -> List:
         """Get metrics for a bundle by name."""
-        from ...models import MetricSpec
         from ...metrics.objective import OBJECTIVE_REGISTRY
         from ...metrics.subjective import SUBJECTIVE_REGISTRY
+        from ...models import MetricSpec
         from ..constants import BUNDLES
 
         bundle = bundle_name.lower()

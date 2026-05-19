@@ -28,7 +28,7 @@ class Spinner:
         sys.stderr.write("\r" + " " * (len(self.message) + 5) + "\r")
         sys.stderr.flush()
 
-    def __enter__(self) -> "Spinner":
+    def __enter__(self) -> Spinner:
         self._running = True
         self._thread = threading.Thread(target=self._spin, daemon=True)
         self._thread.start()

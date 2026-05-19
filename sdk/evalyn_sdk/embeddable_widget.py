@@ -206,7 +206,7 @@ def generate_widget_html(
 
     parts: List[str] = []
     parts.append("<!DOCTYPE html>")
-    parts.append(f'<html lang="en">')
+    parts.append('<html lang="en">')
     parts.append("<head>")
     parts.append('<meta charset="utf-8">')
     parts.append(

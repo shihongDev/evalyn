@@ -7,7 +7,7 @@ metrics to LLM API providers. Reports cost savings from split routing.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Tuple
+from typing import Any, Dict, List
 
 
 @dataclass
@@ -30,7 +30,7 @@ class RoutingPlan:
 
     def format_text(self) -> str:
         lines = [
-            f"Split-Model Routing Plan:",
+            "Split-Model Routing Plan:",
             f"  Local (objective):    {self.local_count} metrics (free)",
             f"  API (subjective):     {self.api_count} metrics (LLM cost)",
         ]

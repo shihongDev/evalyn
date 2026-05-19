@@ -15,14 +15,14 @@ import hashlib
 import json
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Dict, List, Optional, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
 from ..calibration.models import DisagreementAnalysis, DisagreementCase
 from ..defaults import DEFAULT_EVAL_MODEL
 from ..utils.api_client import GeminiClient
 
 if TYPE_CHECKING:
-    from ..models import MetricResult, DatasetItem
+    from ..models import DatasetItem, MetricResult
 
 
 @dataclass
@@ -335,8 +335,8 @@ class ReasonClusterer:
 
     def cluster_failures(
         self,
-        metric_results: List["MetricResult"],
-        dataset_items: Optional[List["DatasetItem"]] = None,
+        metric_results: List[MetricResult],
+        dataset_items: Optional[List[DatasetItem]] = None,
         compute_embeddings: bool = True,
     ) -> FailureClusteringResult:
         """
@@ -360,7 +360,7 @@ class ReasonClusterer:
         metric_id = failed_results[0].metric_id if failed_results else ""
 
         # Build item lookup for input/output context
-        items_by_call: Dict[str, "DatasetItem"] = {}
+        items_by_call: Dict[str, DatasetItem] = {}
         if dataset_items:
             for item in dataset_items:
                 call_id = item.metadata.get("call_id", item.id)
@@ -648,8 +648,8 @@ Example format:
     ) -> None:
         """Add embeddings and 2D coordinates for failure visualization."""
         try:
-            from sentence_transformers import SentenceTransformer
             import umap
+            from sentence_transformers import SentenceTransformer
         except ImportError:
             return
 
@@ -897,8 +897,8 @@ Example format:
         """Add embeddings and 2D coordinates for visualization."""
         try:
             # Import optional dependencies
-            from sentence_transformers import SentenceTransformer
             import umap
+            from sentence_transformers import SentenceTransformer
         except ImportError:
             # Optional dependencies not available
             return

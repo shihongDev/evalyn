@@ -11,7 +11,6 @@ import random
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional, Tuple
 
-
 # ---------------------------------------------------------------------------
 # Synonym Table
 # ---------------------------------------------------------------------------
@@ -73,7 +72,7 @@ class AugmentationConfig:
         return cls(
             methods=data.get("methods", ["synonym", "shuffle", "truncate"]),
             augmentations_per_example=data.get("augmentations_per_example", 2),
-            seed=data.get("seed", None),
+            seed=data.get("seed"),
         )
 
 

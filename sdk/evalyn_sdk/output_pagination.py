@@ -35,7 +35,7 @@ class PagerConfig:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "PagerConfig":
+    def from_dict(cls, data: Dict[str, Any]) -> PagerConfig:
         return cls(
             enabled=data.get("enabled", True),
             page_size=data.get("page_size", 0),

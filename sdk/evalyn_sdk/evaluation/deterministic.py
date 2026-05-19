@@ -9,7 +9,6 @@ from __future__ import annotations
 
 import hashlib
 import json
-import random
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional
 
@@ -61,7 +60,7 @@ class RunManifest:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "RunManifest":
+    def from_dict(cls, data: Dict[str, Any]) -> RunManifest:
         return cls(
             evalyn_version=data.get("evalyn_version", ""),
             python_version=data.get("python_version", ""),

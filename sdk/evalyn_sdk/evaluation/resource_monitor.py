@@ -9,7 +9,7 @@ from __future__ import annotations
 import os
 import time
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List
 
 
 @dataclass
@@ -162,7 +162,7 @@ def _get_memory_mb() -> float:
 
     # Fallback: read /proc/self/status on Linux
     try:
-        with open("/proc/self/status", "r") as f:
+        with open("/proc/self/status") as f:
             for line in f:
                 if line.startswith("VmRSS:"):
                     return int(line.split()[1]) / 1024  # kB to MB

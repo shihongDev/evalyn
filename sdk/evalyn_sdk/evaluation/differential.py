@@ -61,7 +61,7 @@ class DiffResult:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "DiffResult":
+    def from_dict(cls, data: Dict[str, Any]) -> DiffResult:
         changes = [
             ItemChange(
                 item_id=c["item_id"],

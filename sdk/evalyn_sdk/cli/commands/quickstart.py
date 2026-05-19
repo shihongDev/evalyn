@@ -31,7 +31,6 @@ RANGES = {"timeout": (10, 600, 5)}
 UNITS = {"timeout": "seconds"}
 
 import argparse
-import os
 import re
 import shlex
 import subprocess
@@ -42,8 +41,7 @@ from typing import Dict, List, Optional, Tuple
 from ..utils.config import create_evalyn_yaml
 from ..utils.errors import fatal_error
 from ..utils.hints import HintCollector
-from ..utils.rich import banner, section, icon, footer
-
+from ..utils.rich import banner, section
 
 # Framework detection patterns: framework name -> (compiled regex patterns, display name)
 FRAMEWORK_PATTERNS: Dict[str, Tuple[List[re.Pattern], str]] = {

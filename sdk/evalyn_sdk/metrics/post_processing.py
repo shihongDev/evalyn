@@ -79,7 +79,7 @@ class PostProcessorChain:
     def __init__(self, processors: Optional[List[PostProcessor]] = None):
         self.processors = processors or []
 
-    def add(self, processor: PostProcessor) -> "PostProcessorChain":
+    def add(self, processor: PostProcessor) -> PostProcessorChain:
         """Add a processor to the chain. Returns self for fluent API."""
         self.processors.append(processor)
         return self

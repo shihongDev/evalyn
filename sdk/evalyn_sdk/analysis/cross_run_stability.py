@@ -11,7 +11,6 @@ import math
 from dataclasses import dataclass, field
 from typing import Any, Dict, List
 
-
 # ---------------------------------------------------------------------------
 # Data Models
 # ---------------------------------------------------------------------------
@@ -43,7 +42,7 @@ class StabilityMetric:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "StabilityMetric":
+    def from_dict(cls, data: Dict[str, Any]) -> StabilityMetric:
         return cls(
             metric_id=data["metric_id"],
             mean_score=data.get("mean_score", 0.0),
@@ -76,7 +75,7 @@ class StabilityReport:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "StabilityReport":
+    def from_dict(cls, data: Dict[str, Any]) -> StabilityReport:
         metrics = [
             StabilityMetric.from_dict(m) for m in data.get("metrics", [])
         ]

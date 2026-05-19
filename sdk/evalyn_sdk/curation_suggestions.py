@@ -8,13 +8,11 @@ dependencies, no actual LLM calls.
 
 from __future__ import annotations
 
-import math
 import re
 import uuid
-from collections import Counter, defaultdict
+from collections import Counter
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional
-
+from typing import Any, Dict, List
 
 # ---------------------------------------------------------------------------
 # Data Models
@@ -501,7 +499,7 @@ def format_curation_report(report: CurationReport) -> str:
         lines.append(f"     Severity: {s.gap.severity}")
         lines.append(f"     Action: {s.action}")
         if s.example_prompt:
-            lines.append(f"     (LLM prompt available)")
+            lines.append("     (LLM prompt available)")
     lines.append("")
 
     return "\n".join(lines)

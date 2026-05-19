@@ -12,7 +12,6 @@ from __future__ import annotations
 import re
 from typing import Any, Dict, List, Optional
 
-
 # Built-in variable names
 BUILTIN_VARS = {"input", "output", "expected", "item_id"}
 

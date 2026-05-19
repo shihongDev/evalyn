@@ -48,7 +48,7 @@ class MetricPreview:
             for i, r in enumerate(self.rubric, 1):
                 lines.append(f"    {i}. {r}")
         if self.prompt:
-            lines.append(f"  Prompt preview:")
+            lines.append("  Prompt preview:")
             # Show first 200 chars
             preview = self.prompt[:200]
             if len(self.prompt) > 200:

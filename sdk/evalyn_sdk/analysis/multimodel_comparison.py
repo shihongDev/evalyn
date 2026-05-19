@@ -8,8 +8,7 @@ pairwise comparisons, ranking, and cost-efficiency analysis.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Dict, List
-
+from typing import Any, Dict, List, Optional
 
 # ---------------------------------------------------------------------------
 # Data Models
@@ -40,7 +39,7 @@ class ModelResult:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "ModelResult":
+    def from_dict(cls, data: Dict[str, Any]) -> ModelResult:
         return cls(
             model=data["model"],
             provider=data.get("provider", ""),
@@ -102,7 +101,7 @@ class MultiModelReport:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "MultiModelReport":
+    def from_dict(cls, data: Dict[str, Any]) -> MultiModelReport:
         return cls(
             models=[ModelResult.from_dict(m) for m in data.get("models", [])],
             comparisons=[],  # comparisons are derived, not stored
@@ -150,11 +149,15 @@ class MultiModelReport:
 def build_model_result(
     model: str,
     scores: List[float],
-    latencies: List[float] = [],
-    costs: List[float] = [],
+    latencies: Optional[List[float]] = None,
+    costs: Optional[List[float]] = None,
     provider: str = "",
 ) -> ModelResult:
     """Aggregate per-model stats from raw score/latency/cost lists."""
+    if latencies is None:
+        latencies = []
+    if costs is None:
+        costs = []
     n = len(scores)
     if n == 0:
         return ModelResult(model=model, provider=provider, item_count=0)

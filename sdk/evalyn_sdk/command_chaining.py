@@ -38,7 +38,7 @@ class ChainStep:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "ChainStep":
+    def from_dict(cls, data: Dict[str, Any]) -> ChainStep:
         return cls(
             command=data.get("command", ""),
             args=list(data.get("args", [])),
@@ -67,7 +67,7 @@ class ChainConfig:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "ChainConfig":
+    def from_dict(cls, data: Dict[str, Any]) -> ChainConfig:
         return cls(
             stop_on_error=data.get("stop_on_error", True),
             pass_output_as=data.get("pass_output_as", "stdin"),
@@ -102,7 +102,7 @@ class ChainResult:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "ChainResult":
+    def from_dict(cls, data: Dict[str, Any]) -> ChainResult:
         return cls(
             steps=[ChainStep.from_dict(s) for s in data.get("steps", [])],
             final_output=data.get("final_output", ""),

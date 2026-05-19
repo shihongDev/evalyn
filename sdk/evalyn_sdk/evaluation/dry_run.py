@@ -9,7 +9,6 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional
 
-
 # Average tokens per judge call by metric type (estimated from typical prompts)
 _AVG_TOKENS_PER_JUDGE_CALL = {
     "input": 800,   # system prompt + rubric + input/output content
@@ -112,8 +111,10 @@ def estimate_eval_cost(
     Returns:
         DryRunEstimate with cost and time projections.
     """
-    from ..trace.instrumentation.providers._shared import COST_PER_1M_TOKENS, _match_model_costs
     from ..defaults import DEFAULT_MODELS_BY_PROVIDER
+    from ..trace.instrumentation.providers._shared import (
+        _match_model_costs,
+    )
 
     if model is None:
         model = DEFAULT_MODELS_BY_PROVIDER.get(provider, "gemini-2.5-flash-lite")

@@ -35,7 +35,7 @@ import re
 import secrets
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Iterable
+from typing import Iterable
 
 from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import JSONResponse

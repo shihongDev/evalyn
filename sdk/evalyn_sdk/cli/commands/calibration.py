@@ -42,12 +42,16 @@ import json
 from pathlib import Path
 from typing import List, Optional
 
-from ..utils.command_common import load_eval_run_for_command, try_resolve_dataset_dir_and_file
-from ..utils.config import load_config, resolve_dataset_path, get_config_default
+from ..utils.command_common import (
+    load_eval_run_for_command,
+    try_resolve_dataset_dir_and_file,
+)
+from ..utils.config import get_config_default, load_config, resolve_dataset_path
 from ..utils.errors import fatal_error
 from ..utils.formatters import print_token_usage_summary
 from ..utils.hints import HintCollector
-from ..utils.rich import banner, table as rich_table, footer, icon, status_icon
+from ..utils.rich import banner, footer
+from ..utils.rich import table as rich_table
 from ..utils.ui import Spinner
 
 # Real defaults for calibration arguments.
@@ -253,11 +257,11 @@ def _load_optional_calibration_dataset_context(
 def _build_calibration_optimizer_configs(args: argparse.Namespace) -> dict:
     """Build optimizer-specific config objects from CLI args."""
     from ...calibration import (
-        GEPAConfig,
         GEPA_AVAILABLE,
+        APEConfig,
+        GEPAConfig,
         GEPANativeConfig,
         OPROConfig,
-        APEConfig,
     )
 
     gepa_config = None

@@ -7,9 +7,8 @@ as a lightweight proxy for semantic diversity.
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
-from typing import Any, Dict, List, Tuple
-
+from dataclasses import dataclass
+from typing import Any, Dict, List
 
 # ---------------------------------------------------------------------------
 # Stop words (common English words to ignore in text analysis)

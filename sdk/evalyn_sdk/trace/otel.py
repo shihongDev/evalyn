@@ -10,7 +10,6 @@ from opentelemetry.sdk.trace.export import BatchSpanProcessor, ConsoleSpanExport
 
 from ..storage.sqlite import _get_default_db_path
 
-
 # OTLP exporter import path differs by version; try modern path first.
 try:
     from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import (

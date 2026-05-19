@@ -11,7 +11,6 @@ from typing import Any, Dict, List
 
 from ..models import Span
 
-
 UNIT_TYPES = ["outcome", "per_call", "per_turn", "per_tool", "per_node"]
 
 

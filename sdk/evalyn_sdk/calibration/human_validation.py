@@ -126,11 +126,13 @@ def create_validation_request(
     metric_id: str,
     original_prompt: str,
     calibrated_prompt: str,
-    sample_items: List[Dict[str, Any]] = [],
+    sample_items: Optional[List[Dict[str, Any]]] = None,
     alignment_before: float = 0.0,
     alignment_after: float = 0.0,
 ) -> ValidationRequest:
     """Factory for creating a validation request."""
+    if sample_items is None:
+        sample_items = []
     return ValidationRequest(
         metric_id=metric_id,
         original_prompt=original_prompt,

@@ -1,9 +1,9 @@
 from __future__ import annotations
 
+import uuid
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import Any, Callable, Dict, List, Literal, Optional
-import uuid
 
 
 def now_utc() -> datetime:
@@ -105,7 +105,7 @@ class Span:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "Span":
+    def from_dict(cls, data: Dict[str, Any]) -> Span:
         return cls(
             id=data["id"],
             name=data["name"],
@@ -124,7 +124,7 @@ class Span:
         span_type: str,
         parent_id: Optional[str] = None,
         **attributes: Any,
-    ) -> "Span":
+    ) -> Span:
         """Create a new span with auto-generated ID."""
         return cls(
             id=_default_id(),
@@ -136,7 +136,7 @@ class Span:
             attributes=attributes,
         )
 
-    def finish(self, status: str = "ok", **extra_attributes: Any) -> "Span":
+    def finish(self, status: str = "ok", **extra_attributes: Any) -> Span:
         """Mark span as finished."""
         self.end_time = now_utc()
         self.status = status
@@ -165,7 +165,7 @@ class TraceEvent:
         return result
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "TraceEvent":
+    def from_dict(cls, data: Dict[str, Any]) -> TraceEvent:
         return cls(
             kind=data["kind"],
             timestamp=_parse_datetime(data["timestamp"]) or now_utc(),
@@ -220,7 +220,7 @@ class FunctionCall:
         session_id: Optional[str],
         metadata: Optional[Dict[str, Any]] = None,
         parent_call_id: Optional[str] = None,
-    ) -> "FunctionCall":
+    ) -> FunctionCall:
         return cls(
             id=_default_id(),
             function_name=function_name,
@@ -238,7 +238,7 @@ class FunctionCall:
         )
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "FunctionCall":
+    def from_dict(cls, data: Dict[str, Any]) -> FunctionCall:
         return cls(
             id=data["id"],
             function_name=data["function_name"],
@@ -304,7 +304,7 @@ class EvalUnit:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "EvalUnit":
+    def from_dict(cls, data: Dict[str, Any]) -> EvalUnit:
         return cls(
             id=data["id"],
             unit_type=data["unit_type"],
@@ -389,7 +389,7 @@ class MetricSpec:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "MetricSpec":
+    def from_dict(cls, data: Dict[str, Any]) -> MetricSpec:
         return cls(
             id=data["id"],
             name=data.get("name", data["id"]),
@@ -440,7 +440,7 @@ class MetricResult:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "MetricResult":
+    def from_dict(cls, data: Dict[str, Any]) -> MetricResult:
         return cls(
             metric_id=data["metric_id"],
             item_id=data["item_id"],
@@ -481,7 +481,7 @@ class SpanMetricLink:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "SpanMetricLink":
+    def from_dict(cls, data: Dict[str, Any]) -> SpanMetricLink:
         return cls(
             id=data["id"],
             metric_result_id=data["metric_result_id"],
@@ -498,19 +498,19 @@ class Metric:
     def __init__(
         self,
         spec: MetricSpec,
-        handler: Callable[["FunctionCall", "DatasetItem"], MetricResult],
+        handler: Callable[[FunctionCall, DatasetItem], MetricResult],
         unit_handler: Optional[
-            Callable[["EvalView", "DatasetItem"], MetricResult]
+            Callable[[EvalView, DatasetItem], MetricResult]
         ] = None,
     ):
         self.spec = spec
         self.handler = handler
         self.unit_handler = unit_handler
 
-    def evaluate(self, call: "FunctionCall", item: "DatasetItem") -> MetricResult:
+    def evaluate(self, call: FunctionCall, item: DatasetItem) -> MetricResult:
         return self.handler(call, item)
 
-    def evaluate_unit(self, view: "EvalView", item: "DatasetItem") -> MetricResult:
+    def evaluate_unit(self, view: EvalView, item: DatasetItem) -> MetricResult:
         """Evaluate a unit view. Falls back to handler with synthetic call if no unit_handler."""
         if self.unit_handler:
             return self.unit_handler(view, item)
@@ -574,7 +574,7 @@ class CompositeMetric(Metric):
             description=description or f"Composite metric ({aggregation}) of {len(children)} children",
         )
 
-        def composite_handler(call: "FunctionCall", item: "DatasetItem") -> MetricResult:
+        def composite_handler(call: FunctionCall, item: DatasetItem) -> MetricResult:
             child_results = []
             for child_metric, weight in self.children:
                 result = child_metric.evaluate(call, item)
@@ -645,7 +645,7 @@ class MetricRegistry:
         return list(self._metrics.values())
 
     def apply_all(
-        self, call: "FunctionCall", item: "DatasetItem"
+        self, call: FunctionCall, item: DatasetItem
     ) -> List[MetricResult]:
         return [metric.evaluate(call, item) for metric in self._metrics.values()]
 
@@ -698,7 +698,7 @@ class DatasetItem:
         }
 
     @classmethod
-    def from_payload(cls, payload: Dict[str, Any]) -> "DatasetItem":
+    def from_payload(cls, payload: Dict[str, Any]) -> DatasetItem:
         # Support both old format (inputs/expected) and new format (input/output)
         input_data = payload.get("input") or payload.get("inputs", {})
         output_data = payload.get("output") or payload.get("expected")
@@ -712,7 +712,7 @@ class DatasetItem:
         )
 
     @classmethod
-    def from_call(cls, call: "FunctionCall") -> "DatasetItem":
+    def from_call(cls, call: FunctionCall) -> DatasetItem:
         """Create a DatasetItem from a traced FunctionCall."""
         return cls(
             id=_default_id(),
@@ -747,7 +747,7 @@ class JudgeConfig:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "JudgeConfig":
+    def from_dict(cls, data: Dict[str, Any]) -> JudgeConfig:
         return cls(
             id=data["id"],
             model=data["model"],
@@ -797,7 +797,7 @@ class EvalRun:
         return tag in self.tags
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "EvalRun":
+    def from_dict(cls, data: Dict[str, Any]) -> EvalRun:
         return cls(
             id=data["id"],
             dataset_name=data["dataset_name"],
@@ -844,7 +844,7 @@ class HumanLabel:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "HumanLabel":
+    def from_dict(cls, data: Dict[str, Any]) -> HumanLabel:
         return cls(
             passed=data.get("passed", True),
             scores=data.get("scores", {}),
@@ -882,7 +882,7 @@ class AnnotationItem:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "AnnotationItem":
+    def from_dict(cls, data: Dict[str, Any]) -> AnnotationItem:
         human_label_data = data.get("human_label")
         return cls(
             id=data.get("id", _default_id()),
@@ -914,7 +914,7 @@ class MetricLabel:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "MetricLabel":
+    def from_dict(cls, data: Dict[str, Any]) -> MetricLabel:
         return cls(
             metric_id=data.get("metric_id", ""),
             agree_with_llm=data.get("agree_with_llm", True),
@@ -961,7 +961,7 @@ class Annotation:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "Annotation":
+    def from_dict(cls, data: Dict[str, Any]) -> Annotation:
         metric_labels_raw = data.get("metric_labels", {})
         metric_labels = {
             k: MetricLabel.from_dict(v)

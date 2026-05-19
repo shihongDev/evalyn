@@ -9,8 +9,7 @@ from __future__ import annotations
 
 import math
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional
-
+from typing import Any, Dict, List
 
 # ---------------------------------------------------------------------------
 # Data Models
@@ -84,7 +83,7 @@ class CohortReport:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "CohortReport":
+    def from_dict(cls, data: Dict[str, Any]) -> CohortReport:
         cohorts = [
             CohortStats(**c) for c in data.get("cohorts", [])
         ]

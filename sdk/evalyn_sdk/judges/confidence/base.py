@@ -78,8 +78,8 @@ def get_confidence_estimator(method: str, **kwargs) -> ConfidenceEstimator:
     Raises:
         ValueError: If method is unknown
     """
-    from .logprobs import LogprobsConfidence, PerplexityConfidence, DeepConfConfidence
     from .consistency import SelfConsistencyConfidence
+    from .logprobs import DeepConfConfidence, LogprobsConfidence, PerplexityConfidence
     from .verbalized import VerbalizedConfidence
 
     methods = {

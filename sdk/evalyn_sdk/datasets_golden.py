@@ -8,8 +8,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import Any, Dict, List
-
+from typing import Any, Dict, List, Optional
 
 # ---------------------------------------------------------------------------
 # Data Models
@@ -262,13 +261,15 @@ def compare_golden_sets(
 def filter_golden_set(
     golden: GoldenSet,
     category: str = "",
-    tags: List[str] = [],
+    tags: Optional[List[str]] = None,
     verified_only: bool = False,
 ) -> GoldenSet:
     """Filter items in a golden set by category, tags, or verification status.
 
     Returns a new golden set with only matching items.
     """
+    if tags is None:
+        tags = []
     filtered: List[GoldenItem] = []
     for item in golden.items:
         if category and item.category != category:

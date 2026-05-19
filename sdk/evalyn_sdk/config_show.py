@@ -10,7 +10,6 @@ import os
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional
 
-
 # Priority order (highest to lowest): flag > env > project > global > default
 SOURCE_PRIORITY = ["flag", "env", "project", "global", "default"]
 
@@ -31,7 +30,7 @@ class ConfigSource:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "ConfigSource":
+    def from_dict(cls, data: Dict[str, Any]) -> ConfigSource:
         return cls(
             key=data["key"],
             value=data["value"],
@@ -53,7 +52,7 @@ class MergedConfig:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "MergedConfig":
+    def from_dict(cls, data: Dict[str, Any]) -> MergedConfig:
         return cls(
             entries=[ConfigSource.from_dict(e) for e in data.get("entries", [])],
             sources_used=list(data.get("sources_used", [])),

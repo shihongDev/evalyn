@@ -7,7 +7,6 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
-
 _DESTRUCTIVE_COMMANDS = frozenset({"gc", "delete", "reset"})
 
 
@@ -69,7 +68,7 @@ def get_last_command(history_path: str) -> Optional[Tuple[str, List[str]]]:
         return None
 
     last_line: Optional[str] = None
-    with open(path, "r", encoding="utf-8") as f:
+    with open(path, encoding="utf-8") as f:
         for line in f:
             stripped = line.strip()
             if stripped:

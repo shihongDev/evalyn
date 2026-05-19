@@ -17,13 +17,13 @@ Usage:
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional, Union
 
 from .analysis.core import RunAnalysis, analyze_run
 from .datasets import load_dataset
-from .models import DatasetItem, EvalRun, MetricResult, MetricSpec
+from .models import DatasetItem, EvalRun
 
 
 @dataclass
@@ -174,7 +174,7 @@ def _resolve_dataset(dataset) -> List[DatasetItem]:
 
 def _resolve_metrics(metrics, provider: str) -> List:
     """Resolve metrics argument to a list of Metric objects."""
-    from .metrics.factory import build_objective_metric, build_metrics_from_specs
+    from .metrics.factory import build_metrics_from_specs, build_objective_metric
 
     if metrics is None:
         # Default: all objective metrics (no LLM cost)
@@ -194,7 +194,6 @@ def _resolve_metrics(metrics, provider: str) -> List:
         if not metrics:
             return []
         # Check if already Metric objects
-        from .models import Metric
         if all(hasattr(m, "spec") for m in metrics):
             return metrics
         # List of metric ID strings

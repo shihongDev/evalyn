@@ -46,17 +46,17 @@ from typing import Any, Dict, List, Optional
 
 logger = logging.getLogger(__name__)
 
+from ..utils.command_common import resolve_dataset_dir_and_file
 from ..utils.errors import fatal_error
+from ..utils.hints import HintCollector
 from ..utils.input_helpers import (
-    truncate_text,
     get_bool_input,
+    get_confidence,
     get_int_input,
     get_str_input,
-    get_confidence,
+    truncate_text,
 )
-from ..utils.command_common import resolve_dataset_dir_and_file
-from ..utils.hints import HintCollector
-from ..utils.rich import banner, icon, section, kv, table, progress_bar
+from ..utils.rich import banner, icon, kv, progress_bar, section, table
 
 
 def cmd_import_annotations(args: argparse.Namespace) -> None:
@@ -209,7 +209,7 @@ def cmd_annotation_stats(args: argparse.Namespace) -> None:
             stored_anns = tracer.storage.list_annotations(limit=10000)
             # list_annotations returns newest-first; setdefault keeps the
             # newest annotation per target when multiple exist.
-            stored_by_target: Dict[str, "Annotation"] = {}
+            stored_by_target: Dict[str, Annotation] = {}
             for ann in stored_anns:
                 stored_by_target.setdefault(ann.target_id, ann)
             for item in items:
@@ -405,8 +405,7 @@ def _collect_spans_for_annotation(
     existing_annotations: Dict[str, SpanAnnotation],
 ) -> List[Dict[str, Any]]:
     """Collect unannotated spans with call context attached."""
-    from ...annotation import SpanAnnotation, extract_spans_from_trace
-    from ...models import DatasetItem
+    from ...annotation import extract_spans_from_trace
 
     all_spans: List[Dict[str, Any]] = []
     for item in dataset_items:
@@ -547,7 +546,7 @@ def _build_span_annotation_record(
     annotation_values: dict,
 ) -> SpanAnnotation:
     """Build a SpanAnnotation model from collected form values."""
-    from ...annotation import SpanAnnotation, ANNOTATION_SCHEMAS
+    from ...annotation import ANNOTATION_SCHEMAS, SpanAnnotation
 
     call = span["call"]
     span_type = span["span_type"]
@@ -747,7 +746,7 @@ def _save_single_annotation(output_path: Path, ann: Annotation) -> bool:
             f.flush()
             os.fsync(f.fileno())
         return True
-    except IOError as e:
+    except OSError as e:
         print(f"Warning: Failed to save annotation: {e}")
         return False
 
@@ -772,7 +771,7 @@ def _save_all_annotations_atomic(output_path: Path, annotations: List[Annotation
             if os.path.exists(temp_path):
                 os.unlink(temp_path)
             raise
-    except IOError as e:
+    except OSError as e:
         print(f"Warning: Failed to save annotations: {e}")
         return False
 

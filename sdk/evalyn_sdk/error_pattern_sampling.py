@@ -8,9 +8,8 @@ from __future__ import annotations
 
 import random
 import re
-from collections import Counter
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List
 
 
 @dataclass
@@ -207,9 +206,7 @@ def sample_by_error_patterns(
     # Phase 1: one item per pattern (highest score)
     pattern_best: Dict[str, PatternMatch] = {}
     for m in matches:
-        if m.pattern_id not in pattern_best:
-            pattern_best[m.pattern_id] = m
-        elif m.match_score > pattern_best[m.pattern_id].match_score:
+        if m.pattern_id not in pattern_best or m.match_score > pattern_best[m.pattern_id].match_score:
             pattern_best[m.pattern_id] = m
 
     for pid in sorted(pattern_best.keys()):

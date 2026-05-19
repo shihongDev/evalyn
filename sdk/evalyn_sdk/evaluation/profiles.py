@@ -39,7 +39,7 @@ class EvalProfile:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "EvalProfile":
+    def from_dict(cls, data: Dict[str, Any]) -> EvalProfile:
         return cls(
             name=data.get("name", "custom"),
             description=data.get("description", ""),

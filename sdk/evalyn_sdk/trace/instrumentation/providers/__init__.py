@@ -6,16 +6,16 @@ Each provider implements the Instrumentor protocol for a specific SDK.
 
 from __future__ import annotations
 
-from .openai import OpenAIInstrumentor
 from .anthropic import AnthropicInstrumentor
+from .autogen import AutoGenInstrumentor
+from .crewai import CrewAIInstrumentor
+from .dspy import DSPyInstrumentor
 from .gemini import GeminiInstrumentor
+from .haystack import HaystackInstrumentor
 from .langchain import LangChainInstrumentor
 from .langgraph import LangGraphInstrumentor
-from .crewai import CrewAIInstrumentor
-from .autogen import AutoGenInstrumentor
-from .dspy import DSPyInstrumentor
-from .haystack import HaystackInstrumentor
 from .llamaindex import LlamaIndexInstrumentor
+from .openai import OpenAIInstrumentor
 from .semantic_kernel import SemanticKernelInstrumentor
 
 # These are imported conditionally to avoid import errors if deps not installed

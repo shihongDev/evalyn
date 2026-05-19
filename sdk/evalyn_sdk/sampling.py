@@ -22,7 +22,7 @@ def input_to_text(item: DatasetItem) -> str:
     return json.dumps(item.input, sort_keys=True, default=str)
 
 
-def _get_embeddings(texts: List[str]) -> "numpy.ndarray":
+def _get_embeddings(texts: List[str]) -> numpy.ndarray:
     """Compute embeddings using SentenceTransformer. Raises ImportError if unavailable."""
     from sentence_transformers import SentenceTransformer
 
@@ -31,7 +31,7 @@ def _get_embeddings(texts: List[str]) -> "numpy.ndarray":
     return model.encode(texts, show_progress_bar=False)
 
 
-def _cosine_similarity_matrix(embeddings: "numpy.ndarray") -> "numpy.ndarray":
+def _cosine_similarity_matrix(embeddings: numpy.ndarray) -> numpy.ndarray:
     """Compute pairwise cosine similarity matrix."""
     import numpy as np
 

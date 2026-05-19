@@ -9,7 +9,6 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional
 
-
 MODEL_PRICING: Dict[str, Dict[str, float]] = {
     "gemini-2.5-flash": {
         "input_per_1k": 0.00015,

@@ -11,7 +11,7 @@ import html
 import io
 import json
 from base64 import b64encode
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Any, Dict, List
 
@@ -151,19 +151,19 @@ def generate_export_panel_html(bundle: ExportBundle) -> str:
 
     for chart in bundle.charts:
         safe_title = html.escape(chart.title)
-        parts.append(f'  <div class="export-chart-section">')
+        parts.append('  <div class="export-chart-section">')
         parts.append(f"    <h4>{safe_title}</h4>")
         parts.append(f"    {generate_download_button_html(chart, 'csv')}")
         parts.append(f"    {generate_download_button_html(chart, 'json')}")
-        parts.append(f"  </div>")
+        parts.append("  </div>")
 
     summary_text = json.dumps(bundle.summary, indent=2)
-    parts.append(f'  <div class="export-summary-section">')
-    parts.append(f"    <h4>Summary</h4>")
+    parts.append('  <div class="export-summary-section">')
+    parts.append("    <h4>Summary</h4>")
     parts.append(
         f"    {generate_copy_button_html(summary_text, 'Copy Summary')}"
     )
-    parts.append(f"  </div>")
+    parts.append("  </div>")
     parts.append("</div>")
 
     return "\n".join(parts)

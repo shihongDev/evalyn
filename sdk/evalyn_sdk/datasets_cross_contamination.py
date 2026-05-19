@@ -11,7 +11,6 @@ import hashlib
 from dataclasses import dataclass, field
 from typing import Any, Dict, List
 
-
 # ---------------------------------------------------------------------------
 # Data Models
 # ---------------------------------------------------------------------------
@@ -72,7 +71,7 @@ class ContaminationCheckResult:
     def format_text(self) -> str:
         """Human-readable summary of contamination check."""
         lines: List[str] = []
-        lines.append(f"Cross-Contamination Check")
+        lines.append("Cross-Contamination Check")
         lines.append(f"Splits checked: {', '.join(self.splits_checked) or 'none'}")
         lines.append(f"Total items checked: {self.total_checked}")
         if self.clean:

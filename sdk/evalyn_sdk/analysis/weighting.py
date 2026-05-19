@@ -7,7 +7,7 @@ Used for computing weighted pass rates and weighted overall scores.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, Optional
 
 
 @dataclass
@@ -39,7 +39,7 @@ class WeightProfile:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "WeightProfile":
+    def from_dict(cls, data: Dict[str, Any]) -> WeightProfile:
         return cls(
             name=data.get("name", "custom"),
             weights=data.get("weights", {}),

@@ -90,11 +90,11 @@ def eval(
             metric_mode=mode,
             metric_bundle=bundle,
         )
-        setattr(wrapped, "_evalyn_metric_mode", mode)
-        setattr(wrapped, "_evalyn_metric_bundle", bundle)
-        setattr(wrapped, "_evalyn_project", project)
-        setattr(wrapped, "_evalyn_version", version)
-        setattr(wrapped, "_evalyn_is_simulation", is_simulation)
+        wrapped._evalyn_metric_mode = mode
+        wrapped._evalyn_metric_bundle = bundle
+        wrapped._evalyn_project = project
+        wrapped._evalyn_version = version
+        wrapped._evalyn_is_simulation = is_simulation
         return wrapped
 
     if func is not None:

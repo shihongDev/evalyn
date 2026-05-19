@@ -41,26 +41,26 @@ import argparse
 import json
 import os
 import re
+from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional
 
-from dataclasses import dataclass, field
-
 from ..constants import BUNDLES
-from ..utils.config import load_config, get_config_default, resolve_dataset_path
+from ..utils.config import get_config_default, load_config, resolve_dataset_path
+from ..utils.dataset_utils import (
+    ProgressBar,
+    _dataset_has_reference,
+    _extract_code_meta,
+    _resolve_dataset_and_metrics,
+)
 from ..utils.errors import fatal_error
 from ..utils.formatters import print_token_usage_summary
 from ..utils.hints import HintCollector
 from ..utils.loaders import _load_callable
-from ..utils.rich import banner, icon, kv, section, table as rich_table
+from ..utils.rich import banner, icon, kv, section
+from ..utils.rich import table as rich_table
 from ..utils.validation import check_llm_api_keys
-from ..utils.dataset_utils import (
-    ProgressBar,
-    _resolve_dataset_and_metrics,
-    _dataset_has_reference,
-    _extract_code_meta,
-)
 
 
 def _save_suggested_metrics(
@@ -484,7 +484,7 @@ def _execute_run_eval(
         print("Note: --batch only applies to subjective metrics. No subjective metrics found; ignoring --batch.")
 
     if use_batch and subjective_count > 0:
-        from ...evaluation.batch import BatchEvaluator, BatchEvalProgress
+        from ...evaluation.batch import BatchEvalProgress, BatchEvaluator
         from ...models import EvalRun
 
         batch_provider = getattr(args, "batch_provider", "gemini")
@@ -623,11 +623,13 @@ def _save_eval_run_and_report(
     Returns (run_folder, results_path, report_path, run_analysis).
     run_analysis is the RunAnalysis object if analysis succeeded, else None.
     """
-    from ...evaluation.runner import save_eval_run_json
     from ...analysis import (
         analyze_run as analyze_run_data,
+    )
+    from ...analysis import (
         generate_html_report,
     )
+    from ...evaluation.runner import save_eval_run_json
 
     run_data = run.as_dict()  # serialize once, reuse for both file and analysis
     run_folder = save_eval_run_json(run, dataset_dir, _precomputed_dict=run_data)
@@ -791,16 +793,18 @@ def _run_auto_insights(
     - Deep (dataset <= 500 items): metric correlations, input feature analysis
     """
     from ...analysis import (
+        analyze_run as analyze_run_data,
+    )
+    from ...analysis import (
         find_eval_runs,
         load_eval_run,
-        analyze_run as analyze_run_data,
     )
     from ...analysis.insights import (
         InsightsReport,
-        compute_metric_correlations,
-        detect_regressions,
         analyze_input_features,
         analyze_score_distributions,
+        compute_metric_correlations,
+        detect_regressions,
         generate_recommendations,
     )
 

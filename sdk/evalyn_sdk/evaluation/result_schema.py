@@ -81,7 +81,7 @@ class ResultSchema:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "ResultSchema":
+    def from_dict(cls, data: Dict[str, Any]) -> ResultSchema:
         return cls(
             version=data.get("version", "1.0"),
             name=data.get("name", "evalyn_result"),
@@ -298,7 +298,7 @@ def generate_example_result(schema: ResultSchema) -> Dict[str, Any]:
         elif sf.field_type == "float":
             example[sf.name] = _EXAMPLE_VALUES.get(sf.field_type, 0.5)
         else:
-            example[sf.name] = _EXAMPLE_VALUES.get(sf.field_type, None)
+            example[sf.name] = _EXAMPLE_VALUES.get(sf.field_type)
     return example
 
 

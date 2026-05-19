@@ -23,7 +23,7 @@ class InstrumentorRegistry:
         registry.instrument("openai")  # Instrument specific SDK
     """
 
-    _instance: Optional["InstrumentorRegistry"] = None
+    _instance: Optional[InstrumentorRegistry] = None
 
     def __init__(self):
         self._instrumentors: Dict[str, Instrumentor] = {}
@@ -31,7 +31,7 @@ class InstrumentorRegistry:
         self._instrument_result_cache: Dict[str, bool] = {}
 
     @classmethod
-    def get(cls) -> "InstrumentorRegistry":
+    def get(cls) -> InstrumentorRegistry:
         """Get the singleton instance."""
         if cls._instance is None:
             cls._instance = cls()

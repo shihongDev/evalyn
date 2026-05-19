@@ -13,7 +13,7 @@ import uuid
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List
 
 
 def _get_evalyn_version() -> str:
@@ -153,7 +153,7 @@ def read_audit_log(log_path: str) -> AuditLog:
     if not path.exists():
         return AuditLog(entries=entries, log_path=log_path)
 
-    with open(path, "r", encoding="utf-8") as f:
+    with open(path, encoding="utf-8") as f:
         for line in f:
             line = line.strip()
             if not line:

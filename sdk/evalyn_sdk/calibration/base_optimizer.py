@@ -15,7 +15,11 @@ from typing import Any, Dict, List, Optional
 logger = logging.getLogger(__name__)
 
 from .models import AlignmentMetrics, PromptOptimizationResult, TokenAccumulator
-from .utils import build_dataset_from_annotations, build_full_prompt, parse_judge_response
+from .utils import (
+    build_dataset_from_annotations,
+    build_full_prompt,
+    parse_judge_response,
+)
 
 
 class BaseOptimizer(ABC):
@@ -39,7 +43,7 @@ class BaseOptimizer(ABC):
         return self._base_scorer_client
 
     def _generate_with_retry(self, client, prompt: str, max_retries: int = 2,
-                              accumulator=None) -> Optional["GenerateResult"]:
+                              accumulator=None) -> Optional[GenerateResult]:
         """Call client.generate_with_usage with retry and exponential backoff.
 
         Args:

@@ -114,7 +114,7 @@ def save_sampling_record(record: SamplingRecord, path: str) -> None:
 def load_sampling_record(path: str) -> Optional[SamplingRecord]:
     """Load a SamplingRecord from JSON. Returns None if file is missing."""
     try:
-        with open(path, "r", encoding="utf-8") as f:
+        with open(path, encoding="utf-8") as f:
             data = json.load(f)
         return SamplingRecord.from_dict(data)
     except FileNotFoundError:

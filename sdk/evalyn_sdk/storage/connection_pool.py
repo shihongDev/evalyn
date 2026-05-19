@@ -8,9 +8,8 @@ acquire/release semantics, stats tracking, and a factory function.
 from __future__ import annotations
 
 import threading
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Any, Dict, List
-
 
 # ---------------------------------------------------------------------------
 # Data Models

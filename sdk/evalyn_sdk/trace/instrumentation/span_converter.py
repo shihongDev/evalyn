@@ -15,9 +15,9 @@ from typing import Any, Dict, Optional
 
 from ...models import Span
 from .conventions import (
+    IOAttributes,
     LLMAttributes,
     ToolAttributes,
-    IOAttributes,
     get_span_type,
 )
 

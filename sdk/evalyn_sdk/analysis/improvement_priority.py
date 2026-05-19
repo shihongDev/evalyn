@@ -11,7 +11,6 @@ import math
 from dataclasses import dataclass, field
 from typing import Any, Dict, List
 
-
 # ---------------------------------------------------------------------------
 # Data Models
 # ---------------------------------------------------------------------------
@@ -57,7 +56,7 @@ class PriorityReport:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "PriorityReport":
+    def from_dict(cls, data: Dict[str, Any]) -> PriorityReport:
         rankings = []
         for r in data.get("rankings", []):
             rankings.append(

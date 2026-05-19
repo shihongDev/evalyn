@@ -12,7 +12,7 @@ from __future__ import annotations
 import json
 import random
 import re
-from typing import Any, Dict, List, Optional, Tuple, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple
 
 from ..models import Annotation, DatasetItem, MetricResult
 
@@ -188,7 +188,7 @@ def parse_judge_response(response: str) -> bool:
 
 
 def save_calibration(
-    record: "CalibrationRecord",
+    record: CalibrationRecord,
     dataset_path: str,
     metric_id: str,
 ) -> Dict[str, str]:
@@ -215,8 +215,8 @@ def save_calibration(
         - "preamble": Path to preamble file (if available)
         - "full_prompt": Path to full prompt file (if available)
     """
-    from pathlib import Path
     from datetime import datetime
+    from pathlib import Path
 
     dataset_dir = Path(dataset_path)
     if not dataset_dir.exists():

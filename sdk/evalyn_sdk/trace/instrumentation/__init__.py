@@ -50,18 +50,18 @@ def _setup_registry() -> None:
     registry = get_registry()
 
     # Core instrumentors (monkey-patch) - imported here, not at module level
-    from .providers.openai import OpenAIInstrumentor
     from .providers.anthropic import AnthropicInstrumentor
+    from .providers.autogen import AutoGenInstrumentor
+    from .providers.crewai import CrewAIInstrumentor
+    from .providers.dspy import DSPyInstrumentor
     from .providers.gemini import GeminiInstrumentor
+    from .providers.haystack import HaystackInstrumentor
     from .providers.langchain import LangChainInstrumentor
     from .providers.langgraph import LangGraphInstrumentor
-    from .providers.xai import XAIInstrumentor
-    from .providers.crewai import CrewAIInstrumentor
-    from .providers.autogen import AutoGenInstrumentor
-    from .providers.dspy import DSPyInstrumentor
-    from .providers.haystack import HaystackInstrumentor
     from .providers.llamaindex import LlamaIndexInstrumentor
+    from .providers.openai import OpenAIInstrumentor
     from .providers.semantic_kernel import SemanticKernelInstrumentor
+    from .providers.xai import XAIInstrumentor
 
     registry.register(OpenAIInstrumentor())
     registry.register(AnthropicInstrumentor())

@@ -40,8 +40,8 @@ from ..utils.rich import icon
 
 def cmd_export_for_annotation(args: argparse.Namespace) -> None:
     """Export dataset items with eval results for human annotation."""
-    from ...models import AnnotationItem
     from ...decorators import get_default_tracer
+    from ...models import AnnotationItem
 
     tracer = get_default_tracer()
     if not tracer.storage:

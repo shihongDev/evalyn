@@ -10,11 +10,10 @@ from __future__ import annotations
 import getpass
 import json
 import os
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional
-
 
 # ---------------------------------------------------------------------------
 # Data Models
@@ -134,7 +133,7 @@ def read_audit_log(log_path: str, limit: int = 100) -> List[AuditRecord]:
     if not path.exists():
         return []
     records: List[AuditRecord] = []
-    with open(path, "r", encoding="utf-8") as f:
+    with open(path, encoding="utf-8") as f:
         for line in f:
             line = line.strip()
             if not line:

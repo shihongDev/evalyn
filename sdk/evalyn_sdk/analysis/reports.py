@@ -10,7 +10,6 @@ from typing import List, Optional
 
 from .core import RunAnalysis
 
-
 # =============================================================================
 # ASCII Visualization Helpers (for terminal output)
 # =============================================================================

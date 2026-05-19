@@ -37,7 +37,7 @@ from typing import Optional
 from ..utils.config import get_data_dir
 from ..utils.errors import fatal_error
 from ..utils.hints import HintCollector
-from ..utils.rich import banner, icon, kv
+from ..utils.rich import icon
 from ..utils.validation import extract_project_id
 
 

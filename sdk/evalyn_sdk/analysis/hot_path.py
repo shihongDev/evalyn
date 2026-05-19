@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from collections import Counter, defaultdict
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Tuple
 
 from ..models import Span
 
@@ -64,7 +64,7 @@ class HotPathReport:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "HotPathReport":
+    def from_dict(cls, data: Dict[str, Any]) -> HotPathReport:
         patterns = []
         for pd in data.get("patterns", []):
             patterns.append(PathPattern(

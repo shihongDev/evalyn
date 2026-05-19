@@ -159,10 +159,10 @@ def detect_format(file_path: str, content: Optional[str] = None) -> FormatDetect
     else:
         # Try reading the file
         try:
-            with open(file_path, "r", encoding="utf-8") as f:
+            with open(file_path, encoding="utf-8") as f:
                 raw = f.read(4096)
             content_result = detect_format_from_content(raw)
-        except (OSError, IOError):
+        except OSError:
             content_result = FormatDetection()
 
     # If extension gives a known format, prefer it
@@ -217,9 +217,9 @@ def autoload(file_path: str) -> AutoloadResult:
     errors: List[str] = []
 
     try:
-        with open(file_path, "r", encoding="utf-8") as f:
+        with open(file_path, encoding="utf-8") as f:
             content = f.read()
-    except (OSError, IOError) as exc:
+    except OSError as exc:
         return AutoloadResult(errors=[f"cannot read file: {exc}"])
 
     if not content.strip():

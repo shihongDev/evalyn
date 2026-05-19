@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import json
-import os
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
@@ -87,7 +86,7 @@ def read_history(log_path: str, limit: int = 50) -> HistoryLog:
         return HistoryLog(entries=[], log_path=log_path)
 
     entries: List[HistoryEntry] = []
-    with open(path, "r", encoding="utf-8") as f:
+    with open(path, encoding="utf-8") as f:
         for line in f:
             line = line.strip()
             if not line:

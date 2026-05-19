@@ -6,7 +6,7 @@ it did, beyond just the pass/fail result.
 
 from __future__ import annotations
 
-from typing import Any, Dict, Optional
+from typing import Any, Dict
 
 
 def explain_metric_result(result) -> str:

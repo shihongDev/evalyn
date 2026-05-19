@@ -4,7 +4,6 @@ from collections import deque
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Tuple
 
-
 VALID_STEP_TYPES = ("trace", "evaluate", "analyze", "calibrate", "export")
 
 

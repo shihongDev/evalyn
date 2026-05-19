@@ -4,7 +4,7 @@ Session-level analysis: aggregate metrics across all calls within an eval sessio
 from __future__ import annotations
 
 from collections import defaultdict
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Any, Dict, List, Optional
 
 from ..models import Span

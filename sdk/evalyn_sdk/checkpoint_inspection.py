@@ -95,7 +95,7 @@ def scan_checkpoints(data_dir: str) -> CheckpointSummary:
                 full_path = os.path.join(dirpath, fname)
                 try:
                     size = os.path.getsize(full_path)
-                    with open(full_path, "r") as f:
+                    with open(full_path) as f:
                         content = json.load(f)
                     info = CheckpointInfo(
                         path=full_path,
@@ -119,7 +119,7 @@ def scan_checkpoints(data_dir: str) -> CheckpointSummary:
 
 def read_checkpoint(path: str) -> dict:
     """Read and parse a checkpoint JSON file."""
-    with open(path, "r") as f:
+    with open(path) as f:
         return json.load(f)
 
 

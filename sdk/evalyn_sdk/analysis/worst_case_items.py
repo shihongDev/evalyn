@@ -12,7 +12,6 @@ from dataclasses import dataclass, field
 from itertools import combinations
 from typing import Any, Dict, List
 
-
 # ---------------------------------------------------------------------------
 # Data Models
 # ---------------------------------------------------------------------------
@@ -58,7 +57,7 @@ class WorstCaseReport:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "WorstCaseReport":
+    def from_dict(cls, data: Dict[str, Any]) -> WorstCaseReport:
         items = []
         for item_data in data.get("items", []):
             items.append(WorstCaseItem(

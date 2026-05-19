@@ -10,7 +10,6 @@ import math
 from dataclasses import dataclass
 from typing import Any, Dict, List
 
-
 # ---------------------------------------------------------------------------
 # Data Models
 # ---------------------------------------------------------------------------

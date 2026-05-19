@@ -10,7 +10,6 @@ import statistics
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional
 
-
 # ---------------------------------------------------------------------------
 # Data Models
 # ---------------------------------------------------------------------------
@@ -250,9 +249,7 @@ def render_fix_timeline(history: ItemFixHistory, total_runs: int) -> str:
 
     chars = []
     for i in range(total_runs):
-        if i < history.first_failed_run:
-            chars.append("P")
-        elif history.first_fixed_run is not None and i >= history.first_fixed_run:
+        if i < history.first_failed_run or history.first_fixed_run is not None and i >= history.first_fixed_run:
             chars.append("P")
         else:
             chars.append("F")

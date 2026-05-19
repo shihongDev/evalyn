@@ -8,10 +8,9 @@ binary dependencies (wkhtmltopdf etc.) are required.
 from __future__ import annotations
 
 import html as _html
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Dict, List, Optional
-
 
 # ---------------------------------------------------------------------------
 # Data Models

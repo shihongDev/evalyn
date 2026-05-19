@@ -11,9 +11,9 @@ import importlib.util
 from contextvars import ContextVar
 from typing import Any, Callable, Optional, Set
 
-from ..base import Instrumentor, InstrumentorType
 from ....models import Span
 from ... import context as span_context
+from ..base import Instrumentor, InstrumentorType
 
 # Track active node spans to prevent double-spanning when both _execute_node
 # patching and node function wrapping fire for the same node execution.

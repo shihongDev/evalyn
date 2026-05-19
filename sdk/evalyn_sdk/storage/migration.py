@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import json
 import os
-import time
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Tuple
 
@@ -159,7 +158,7 @@ def export_to_json(data: List[Dict[str, Any]], file_path: str) -> int:
 
 def import_from_json(file_path: str) -> List[Dict[str, Any]]:
     """Read data from a JSON file."""
-    with open(file_path, "r") as f:
+    with open(file_path) as f:
         return json.load(f)
 
 

@@ -6,7 +6,7 @@ Pure Python, no external dependencies.
 from __future__ import annotations
 
 import json
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
@@ -189,7 +189,7 @@ class AnnotationSession:
     @classmethod
     def load(cls, path: str) -> AnnotationSession:
         """Load session from a JSON file."""
-        with open(path, "r") as f:
+        with open(path) as f:
             data = json.load(f)
         session = cls(
             session_id=data["session_id"],

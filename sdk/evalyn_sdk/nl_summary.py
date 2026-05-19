@@ -11,7 +11,6 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
-
 # ---------------------------------------------------------------------------
 # Data Models
 # ---------------------------------------------------------------------------
@@ -33,7 +32,7 @@ class SummaryConfig:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "SummaryConfig":
+    def from_dict(cls, data: Dict[str, Any]) -> SummaryConfig:
         return cls(
             style=data.get("style", "executive"),
             include_recommendations=data.get("include_recommendations", True),
@@ -63,7 +62,7 @@ class NLSummary:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "NLSummary":
+    def from_dict(cls, data: Dict[str, Any]) -> NLSummary:
         return cls(
             title=data.get("title", ""),
             paragraphs=data.get("paragraphs", []),

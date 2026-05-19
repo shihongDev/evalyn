@@ -29,7 +29,7 @@ class BatchConfig:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "BatchConfig":
+    def from_dict(cls, data: Dict[str, Any]) -> BatchConfig:
         return cls(
             stop_on_error=data.get("stop_on_error", True),
             dry_run=data.get("dry_run", False),
@@ -57,7 +57,7 @@ class CommandResult:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "CommandResult":
+    def from_dict(cls, data: Dict[str, Any]) -> CommandResult:
         return cls(
             command=data["command"],
             exit_code=data.get("exit_code", 0),
@@ -87,7 +87,7 @@ class BatchResult:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "BatchResult":
+    def from_dict(cls, data: Dict[str, Any]) -> BatchResult:
         return cls(
             results=[CommandResult.from_dict(r) for r in data.get("results", [])],
             total_commands=data.get("total_commands", 0),
@@ -200,7 +200,7 @@ def execute_batch(
 
 def load_script_file(path: str) -> List[str]:
     """Read a script file and parse it into commands."""
-    with open(path, "r", encoding="utf-8") as f:
+    with open(path, encoding="utf-8") as f:
         return parse_script(f.read())
 
 

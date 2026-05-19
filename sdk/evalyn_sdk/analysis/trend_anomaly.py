@@ -11,7 +11,6 @@ import math
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional
 
-
 # ---------------------------------------------------------------------------
 # Data Models
 # ---------------------------------------------------------------------------
@@ -53,7 +52,7 @@ class AnomalyConfig:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "AnomalyConfig":
+    def from_dict(cls, data: Dict[str, Any]) -> AnomalyConfig:
         return cls(
             z_threshold=data.get("z_threshold", 2.0),
             min_data_points=data.get("min_data_points", 5),
@@ -81,7 +80,7 @@ class AnomalyReport:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "AnomalyReport":
+    def from_dict(cls, data: Dict[str, Any]) -> AnomalyReport:
         return cls(
             anomalies=[
                 AnomalyPoint(**a) for a in data.get("anomalies", [])

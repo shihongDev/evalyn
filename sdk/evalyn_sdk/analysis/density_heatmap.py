@@ -40,7 +40,7 @@ class HeatmapData:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "HeatmapData":
+    def from_dict(cls, data: Dict[str, Any]) -> HeatmapData:
         return cls(
             cells=[
                 HeatmapCell(

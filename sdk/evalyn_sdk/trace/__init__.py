@@ -30,10 +30,10 @@ For advanced instrumentation:
 """
 
 from .context import (
-    span,
-    get_current_span_id,
     get_current_call,
+    get_current_span_id,
     set_current_call,
+    span,
 )
 from .tracer import EvalTracer, eval_session
 

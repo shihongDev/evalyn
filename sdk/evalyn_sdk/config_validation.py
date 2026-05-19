@@ -4,8 +4,7 @@ from __future__ import annotations
 
 import os
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional
-
+from typing import Any, Dict, List
 
 # ---------------------------------------------------------------------------
 # Data Models
@@ -295,7 +294,7 @@ def validate_config_file(
         )
 
     config: Dict[str, Any] = {}
-    with open(path, "r") as f:
+    with open(path) as f:
         for line in f:
             line = line.strip()
             if not line or line.startswith("#"):

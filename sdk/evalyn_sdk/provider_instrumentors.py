@@ -5,7 +5,7 @@ Pure Python registry and spec definitions - no external deps, no actual API call
 from __future__ import annotations
 
 import os
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Dict, List, Optional
 
 

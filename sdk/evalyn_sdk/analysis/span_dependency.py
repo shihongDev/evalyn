@@ -7,9 +7,8 @@ dependency graph and identifies bottleneck spans.
 
 from __future__ import annotations
 
-from collections import defaultdict
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional, Set, Tuple
+from typing import Any, Dict, List, Set, Tuple
 
 from ..models import Span
 
@@ -85,7 +84,7 @@ class DependencyGraph:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "DependencyGraph":
+    def from_dict(cls, data: Dict[str, Any]) -> DependencyGraph:
         edges = [
             DependencyEdge(
                 source_id=e["source_id"],

@@ -361,7 +361,7 @@ def _align_rows(
     """Join two per-side maps on input_hash. Rows present on only one side
     appear with a null on the missing side and ``delta = NaN`` (serialized
     as JSON null since NaN isn't valid JSON)."""
-    keys = list(side_a.keys()) + [k for k in side_b.keys() if k not in side_a]
+    keys = list(side_a.keys()) + [k for k in side_b if k not in side_a]
     rows: list[dict[str, Any]] = []
     for key in keys:
         a_entry = side_a.get(key)

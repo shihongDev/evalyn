@@ -6,8 +6,7 @@ import json
 import os
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional
-
+from typing import Any, Dict, List
 
 # ---------------------------------------------------------------------------
 # Data Models
@@ -157,7 +156,7 @@ def read_debug_log(log_path: str, limit: int = 50) -> list[DebugEntry]:
     if not os.path.exists(log_path):
         return []
     entries: list[DebugEntry] = []
-    with open(log_path, "r", encoding="utf-8") as f:
+    with open(log_path, encoding="utf-8") as f:
         for line in f:
             line = line.strip()
             if not line:

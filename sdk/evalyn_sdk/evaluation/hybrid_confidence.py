@@ -47,7 +47,7 @@ class HybridScore:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "HybridScore":
+    def from_dict(cls, data: Dict[str, Any]) -> HybridScore:
         method_scores = [
             MethodScore(
                 method=m["method"],

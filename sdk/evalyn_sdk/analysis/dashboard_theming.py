@@ -114,7 +114,7 @@ class Theme:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "Theme":
+    def from_dict(cls, data: Dict[str, Any]) -> Theme:
         return cls(
             name=data.get("name", "custom"),
             description=data.get("description", ""),

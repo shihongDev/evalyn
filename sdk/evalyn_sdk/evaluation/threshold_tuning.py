@@ -51,7 +51,7 @@ class ThresholdResult:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "ThresholdResult":
+    def from_dict(cls, data: Dict[str, Any]) -> ThresholdResult:
         candidates = [
             ThresholdCandidate(
                 threshold=c["threshold"],

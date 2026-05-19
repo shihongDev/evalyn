@@ -12,7 +12,6 @@ import uuid
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional, Tuple
 
-
 # ---------------------------------------------------------------------------
 # Data Models
 # ---------------------------------------------------------------------------
@@ -176,11 +175,7 @@ def process_key_action(
     current_label: Optional[float] = None
     undo_stack.push(item.item_id, item.status, current_label)
 
-    if action.action == "pass":
-        item.status = "annotated"
-    elif action.action == "fail":
-        item.status = "annotated"
-    elif action.action == "confidence":
+    if action.action == "pass" or action.action == "fail" or action.action == "confidence":
         item.status = "annotated"
     elif action.action == "skip":
         item.status = "skipped"

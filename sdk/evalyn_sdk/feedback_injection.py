@@ -11,7 +11,6 @@ import random
 from dataclasses import dataclass, field
 from typing import Any, Dict, List
 
-
 # ---------------------------------------------------------------------------
 # Severity ordering (higher index = more severe)
 # ---------------------------------------------------------------------------

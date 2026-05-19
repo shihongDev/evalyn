@@ -2,10 +2,9 @@ from __future__ import annotations
 
 import copy
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional, Set
+from typing import Any, Dict, List, Set
 
 from ..models import Span
-
 
 STANDARD_TAGS: Set[str] = {"environment", "user_id", "experiment_id", "variant", "version"}
 

@@ -20,7 +20,6 @@ from typing import Any, Dict, List, Optional
 from .core import RunAnalysis
 from .insights import InsightsReport
 
-
 # ---------------------------------------------------------------------------
 # Data Models
 # ---------------------------------------------------------------------------
@@ -50,7 +49,7 @@ class ExpertOpinion:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "ExpertOpinion":
+    def from_dict(cls, data: Dict[str, Any]) -> ExpertOpinion:
         return cls(
             role=data.get("role", "unknown"),
             summary=data.get("summary", ""),
@@ -83,7 +82,7 @@ class PanelDiscussion:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "PanelDiscussion":
+    def from_dict(cls, data: Dict[str, Any]) -> PanelDiscussion:
         return cls(
             experts=[ExpertOpinion.from_dict(e) for e in data.get("experts", [])],
             synthesis=data.get("synthesis", ""),
@@ -396,7 +395,7 @@ def create_api_client(
     Returns:
         GeminiClient, OpenAIClient, or OllamaClient instance
     """
-    from ..utils.api_client import GeminiClient, OpenAIClient, OllamaClient
+    from ..utils.api_client import GeminiClient, OllamaClient, OpenAIClient
 
     default_models = {
         "gemini": "gemini-2.5-flash",

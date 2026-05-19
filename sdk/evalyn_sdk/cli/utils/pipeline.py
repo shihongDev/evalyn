@@ -41,7 +41,7 @@ class PipelineState:
     completed_at: Optional[str] = None
 
     @classmethod
-    def load(cls, path: Path) -> Optional["PipelineState"]:
+    def load(cls, path: Path) -> Optional[PipelineState]:
         """Load state from file."""
         if not path.exists():
             return None

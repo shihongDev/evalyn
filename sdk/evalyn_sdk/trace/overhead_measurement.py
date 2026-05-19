@@ -46,7 +46,7 @@ class OverheadReport:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "OverheadReport":
+    def from_dict(cls, data: Dict[str, Any]) -> OverheadReport:
         samples = [
             OverheadSample(
                 operation=s["operation"],
