@@ -67,9 +67,7 @@ was too lenient on a one-liner).
 ## Regenerating
 
 The files are checked in directly. If schemas evolve, edit the JSON
-inline or use the `python3` snippet in
-`docs/superpowers/specs/2026-05-01-evalyn-dashboard-design.md` notes
-as a starting point.
+inline.
 
 The fixture is loaded by `dashboard/evalyn_dashboard/api/demo.py`
 which copies the tree with `shutil.copytree(..., dirs_exist_ok=True)`
