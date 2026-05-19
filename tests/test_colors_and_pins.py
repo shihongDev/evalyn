@@ -6,8 +6,8 @@ import pytest
 from pathlib import Path
 from unittest.mock import patch
 from evalyn_sdk.cli.utils.colors import (
-    green, red, yellow, blue, bold, dim, cyan,
-    pass_fail, score_color, pass_rate_color, delta_color, status_badge,
+    green, red, yellow, blue, dim,
+    delta_color,
     _colors_enabled,
 )
 from evalyn_sdk.models import DatasetItem
@@ -52,52 +52,8 @@ class TestColorFunctions:
     def test_blue_contains_text(self):
         assert "info" in blue("info")
 
-    def test_bold_contains_text(self):
-        assert "title" in bold("title")
-
     def test_dim_contains_text(self):
         assert "subtle" in dim("subtle")
-
-    def test_cyan_contains_text(self):
-        assert "data" in cyan("data")
-
-
-class TestPassFail:
-    def test_pass(self):
-        result = pass_fail(True)
-        assert "PASS" in result
-
-    def test_fail(self):
-        result = pass_fail(False)
-        assert "FAIL" in result
-
-
-class TestScoreColor:
-    def test_high_score(self):
-        result = score_color(0.95)
-        assert "0.95" in result
-
-    def test_medium_score(self):
-        result = score_color(0.65)
-        assert "0.65" in result
-
-    def test_low_score(self):
-        result = score_color(0.20)
-        assert "0.20" in result
-
-
-class TestPassRateColor:
-    def test_high_rate(self):
-        result = pass_rate_color(0.90)
-        assert "90.0%" in result
-
-    def test_medium_rate(self):
-        result = pass_rate_color(0.60)
-        assert "60.0%" in result
-
-    def test_low_rate(self):
-        result = pass_rate_color(0.30)
-        assert "30.0%" in result
 
 
 class TestDeltaColor:
@@ -112,21 +68,6 @@ class TestDeltaColor:
     def test_zero(self):
         result = delta_color(0.0)
         assert "0.0%" in result
-
-
-class TestStatusBadge:
-    def test_pass_badge(self):
-        assert "PASS" in status_badge("pass")
-
-    def test_fail_badge(self):
-        assert "FAIL" in status_badge("fail")
-
-    def test_warn_badge(self):
-        assert "WARN" in status_badge("warn")
-
-    def test_unknown_badge(self):
-        result = status_badge("unknown")
-        assert "[UNKNOWN]" in result
 
 
 # =============================================================================

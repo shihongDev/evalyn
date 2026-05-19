@@ -26,19 +26,12 @@ def _colors_enabled() -> bool:
 
 # ANSI escape codes
 _RESET = "\033[0m"
-_BOLD = "\033[1m"
 _DIM = "\033[2m"
 
 _RED = "\033[31m"
 _GREEN = "\033[32m"
 _YELLOW = "\033[33m"
 _BLUE = "\033[34m"
-_CYAN = "\033[36m"
-_WHITE = "\033[37m"
-
-_BG_RED = "\033[41m"
-_BG_GREEN = "\033[42m"
-_BG_YELLOW = "\033[43m"
 
 
 def _wrap(text: str, code: str) -> str:
@@ -68,52 +61,9 @@ def blue(text: str) -> str:
     return _wrap(text, _BLUE)
 
 
-def cyan(text: str) -> str:
-    """Cyan text (secondary info)."""
-    return _wrap(text, _CYAN)
-
-
 def dim(text: str) -> str:
     """Dimmed text (less important)."""
     return _wrap(text, _DIM)
-
-
-def bold(text: str) -> str:
-    """Bold text (emphasis)."""
-    return _wrap(text, _BOLD)
-
-
-def pass_fail(passed: bool) -> str:
-    """Color-coded PASS/FAIL label."""
-    if passed:
-        return green("PASS")
-    return red("FAIL")
-
-
-def score_color(score: float) -> str:
-    """Color-code a numeric score (0.0-1.0).
-
-    Green >= 0.8, yellow >= 0.5, red < 0.5.
-    """
-    text = f"{score:.2f}"
-    if score >= 0.8:
-        return green(text)
-    if score >= 0.5:
-        return yellow(text)
-    return red(text)
-
-
-def pass_rate_color(rate: float) -> str:
-    """Color-code a pass rate (0.0-1.0) as percentage.
-
-    Green >= 80%, yellow >= 50%, red < 50%.
-    """
-    pct = f"{rate * 100:.1f}%"
-    if rate >= 0.8:
-        return green(pct)
-    if rate >= 0.5:
-        return yellow(pct)
-    return red(pct)
 
 
 def delta_color(delta: float) -> str:
@@ -131,13 +81,3 @@ def delta_color(delta: float) -> str:
     return yellow(text)
 
 
-def status_badge(status: str) -> str:
-    """Color-coded status badge."""
-    s = status.upper()
-    if s in ("PASS", "SUCCESS", "OK", "GOOD"):
-        return green(f"[{s}]")
-    if s in ("FAIL", "ERROR", "CRITICAL"):
-        return red(f"[{s}]")
-    if s in ("WARN", "WARNING", "MODERATE", "NEEDS_ATTENTION"):
-        return yellow(f"[{s}]")
-    return f"[{s}]"

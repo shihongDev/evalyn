@@ -11,7 +11,7 @@ import os
 import re
 from typing import List, Optional, Sequence, Tuple
 
-from .colors import _colors_enabled, blue, bold, dim, green, red, yellow
+from .colors import _colors_enabled, blue, dim, green, red, yellow
 
 # ---------------------------------------------------------------------------
 # Internal helpers

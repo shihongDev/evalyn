@@ -42,19 +42,6 @@ class DatasetInfo:
     def eval_runs_dir(self) -> Path:
         return self.path / "eval_runs"
 
-    def get_active_metrics_file(self) -> Optional[Path]:
-        """Get the active metrics file from meta.json."""
-        active_set = self.meta.get("active_metric_set")
-        if not active_set:
-            return None
-        metric_sets = self.meta.get("metric_sets", [])
-        for ms in metric_sets:
-            if ms.get("name") == active_set:
-                rel_path = ms.get("file")
-                if rel_path:
-                    return self.path / rel_path
-        return None
-
     def list_metrics_files(self) -> List[Path]:
         """List all metrics JSON files."""
         if not self.metrics_dir.exists():

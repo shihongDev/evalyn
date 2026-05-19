@@ -1210,7 +1210,7 @@ def _load_suggest_metrics_project_context(
     meta = first_call.metadata if isinstance(first_call.metadata, dict) else {}
     function_docstring = meta.get("docstring", "")
 
-    def _placeholder_fn(*a, **kw):
+    def _placeholder_fn(*_args, **_kwargs):
         pass
 
     _placeholder_fn.__name__ = function_name
