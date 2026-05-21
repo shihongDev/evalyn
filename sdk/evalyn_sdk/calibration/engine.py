@@ -24,7 +24,7 @@ logger = logging.getLogger(__name__)
 from ..defaults import DEFAULT_EVAL_MODEL
 from ..models import Annotation, CalibrationRecord, DatasetItem, MetricResult, now_utc
 from .factory import call_optimizer, create_optimizer
-from .gepa import GEPAConfig
+from .optimizers.gepa import GEPAConfig
 from .models import (
     AlignmentMetrics,
     DisagreementAnalysis,

@@ -319,7 +319,7 @@ def _build_calibration_optimizer_configs(args: argparse.Namespace) -> dict:
     # New optimizers use generic optimizer_config
     optimizer_config = None
     if args.optimizer == "evoprompt":
-        from ...calibration.evoprompt import EvoPromptConfig
+        from ...calibration.optimizers.evoprompt import EvoPromptConfig
 
         optimizer_config = EvoPromptConfig(
             population_size=_resolve("evo_population", _DEFAULT_EVO_POPULATION),
@@ -327,14 +327,14 @@ def _build_calibration_optimizer_configs(args: argparse.Namespace) -> dict:
             mutation_rate=_resolve("evo_mutation_rate", _DEFAULT_EVO_MUTATION_RATE),
         )
     elif args.optimizer == "textgrad":
-        from ...calibration.textgrad import TextGradConfig
+        from ...calibration.optimizers.textgrad import TextGradConfig
 
         optimizer_config = TextGradConfig(
             max_iterations=_resolve("textgrad_iterations", _DEFAULT_TEXTGRAD_ITERATIONS),
             improvement_threshold=_resolve("textgrad_threshold", _DEFAULT_TEXTGRAD_THRESHOLD),
         )
     elif args.optimizer == "miprov2":
-        from ...calibration.miprov2 import MIPROv2Config
+        from ...calibration.optimizers.miprov2 import MIPROv2Config
 
         optimizer_config = MIPROv2Config(
             num_instructions=_resolve("mipro_instructions", _DEFAULT_MIPRO_INSTRUCTIONS),
@@ -342,7 +342,7 @@ def _build_calibration_optimizer_configs(args: argparse.Namespace) -> dict:
             eval_samples=_resolve("mipro_eval_samples", _DEFAULT_MIPRO_EVAL_SAMPLES),
         )
     elif args.optimizer == "promptbreeder":
-        from ...calibration.promptbreeder import PromptBreederConfig
+        from ...calibration.optimizers.promptbreeder import PromptBreederConfig
 
         optimizer_config = PromptBreederConfig(
             population_size=_resolve("pb_population", _DEFAULT_PB_POPULATION),

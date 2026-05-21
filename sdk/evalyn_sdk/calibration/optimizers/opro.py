@@ -24,15 +24,15 @@ logger = logging.getLogger(__name__)
 
 from tqdm import tqdm
 
-from ..defaults import DEFAULT_EVAL_MODEL, DEFAULT_GENERATOR_MODEL
-from ..models import Annotation, DatasetItem, MetricResult
-from ..utils.api_client import GeminiClient
-from .models import (
+from ...defaults import DEFAULT_EVAL_MODEL, DEFAULT_GENERATOR_MODEL
+from ...models import Annotation, DatasetItem, MetricResult
+from ...utils.api_client import GeminiClient
+from ..models import (
     AlignmentMetrics,
     PromptOptimizationResult,
     TokenAccumulator,
 )
-from .utils import (
+from ..utils import (
     build_dataset_from_annotations,
     build_full_prompt,
     parse_candidates_response,

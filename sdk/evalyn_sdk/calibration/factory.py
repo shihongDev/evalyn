@@ -13,15 +13,15 @@ from .models import PromptOptimizationResult
 
 # Registry: name -> (module_path, class_name)
 OPTIMIZER_REGISTRY: dict[str, tuple[str, str]] = {
-    "basic": ("evalyn_sdk.calibration.basic", "BasicOptimizer"),
-    "ape": ("evalyn_sdk.calibration.ape", "APEOptimizer"),
-    "opro": ("evalyn_sdk.calibration.opro", "OPROOptimizer"),
-    "gepa": ("evalyn_sdk.calibration.gepa", "GEPAOptimizer"),
-    "gepa-native": ("evalyn_sdk.calibration.gepa_native", "GEPANativeOptimizer"),
-    "evoprompt": ("evalyn_sdk.calibration.evoprompt", "EvoPromptOptimizer"),
-    "textgrad": ("evalyn_sdk.calibration.textgrad", "TextGradOptimizer"),
-    "miprov2": ("evalyn_sdk.calibration.miprov2", "MIPROv2Optimizer"),
-    "promptbreeder": ("evalyn_sdk.calibration.promptbreeder", "PromptBreederOptimizer"),
+    "basic": ("evalyn_sdk.calibration.optimizers.basic", "BasicOptimizer"),
+    "ape": ("evalyn_sdk.calibration.optimizers.ape", "APEOptimizer"),
+    "opro": ("evalyn_sdk.calibration.optimizers.opro", "OPROOptimizer"),
+    "gepa": ("evalyn_sdk.calibration.optimizers.gepa", "GEPAOptimizer"),
+    "gepa-native": ("evalyn_sdk.calibration.optimizers.gepa_native", "GEPANativeOptimizer"),
+    "evoprompt": ("evalyn_sdk.calibration.optimizers.evoprompt", "EvoPromptOptimizer"),
+    "textgrad": ("evalyn_sdk.calibration.optimizers.textgrad", "TextGradOptimizer"),
+    "miprov2": ("evalyn_sdk.calibration.optimizers.miprov2", "MIPROv2Optimizer"),
+    "promptbreeder": ("evalyn_sdk.calibration.optimizers.promptbreeder", "PromptBreederOptimizer"),
 }
 
 
@@ -48,7 +48,7 @@ def create_optimizer(
 
     # Special handling for GEPA (external library)
     if name == "gepa":
-        from .gepa import GEPA_AVAILABLE
+        from .optimizers.gepa import GEPA_AVAILABLE
 
         if not GEPA_AVAILABLE:
             raise ImportError(

@@ -111,13 +111,13 @@ class TestFactory:
         assert opt.__class__.__name__ == "BasicOptimizer"
 
     def test_create_ape_optimizer(self):
-        from evalyn_sdk.calibration.ape import APEConfig
+        from evalyn_sdk.calibration.optimizers.ape import APEConfig
 
         opt = create_optimizer("ape", config=APEConfig())
         assert opt.__class__.__name__ == "APEOptimizer"
 
     def test_create_opro_optimizer(self):
-        from evalyn_sdk.calibration.opro import OPROConfig
+        from evalyn_sdk.calibration.optimizers.opro import OPROConfig
 
         opt = create_optimizer("opro", config=OPROConfig())
         assert opt.__class__.__name__ == "OPROOptimizer"
@@ -158,7 +158,7 @@ class TestFactory:
 # EvoPrompt tests
 # ---------------------------------------------------------------------------
 
-from evalyn_sdk.calibration.evoprompt import EvoPromptConfig, EvoPromptOptimizer
+from evalyn_sdk.calibration.optimizers.evoprompt import EvoPromptConfig, EvoPromptOptimizer
 
 
 class TestEvoPromptConfig:
@@ -322,7 +322,7 @@ class TestEvoPrompt:
 # TextGrad tests
 # ---------------------------------------------------------------------------
 
-from evalyn_sdk.calibration.textgrad import TextGradConfig, TextGradOptimizer
+from evalyn_sdk.calibration.optimizers.textgrad import TextGradConfig, TextGradOptimizer
 from evalyn_sdk.calibration.models import TokenAccumulator
 from evalyn_sdk.utils.api_client import GenerateResult
 
@@ -438,7 +438,7 @@ class TestTextGrad:
 # MIPROv2 tests
 # ---------------------------------------------------------------------------
 
-from evalyn_sdk.calibration.miprov2 import MIPROv2Config, MIPROv2Optimizer
+from evalyn_sdk.calibration.optimizers.miprov2 import MIPROv2Config, MIPROv2Optimizer
 
 
 class TestMIPROv2Config:
@@ -507,7 +507,7 @@ class TestMIPROv2:
         # Mock build_dataset_from_annotations to return train/val splits
         train = _make_examples(7)
         val = _make_examples(3)
-        import evalyn_sdk.calibration.miprov2 as miprov2_mod
+        import evalyn_sdk.calibration.optimizers.miprov2 as miprov2_mod
         original_build = miprov2_mod.build_dataset_from_annotations
         miprov2_mod.build_dataset_from_annotations = MagicMock(return_value=(train, val))
         try:
@@ -530,7 +530,7 @@ class TestMIPROv2:
 
     def test_not_enough_data(self):
         opt = self._make_optimizer()
-        import evalyn_sdk.calibration.miprov2 as miprov2_mod
+        import evalyn_sdk.calibration.optimizers.miprov2 as miprov2_mod
         original_build = miprov2_mod.build_dataset_from_annotations
         miprov2_mod.build_dataset_from_annotations = MagicMock(return_value=([], []))
         try:
@@ -555,7 +555,7 @@ class TestMIPROv2:
 # PromptBreeder tests
 # ---------------------------------------------------------------------------
 
-from evalyn_sdk.calibration.promptbreeder import (
+from evalyn_sdk.calibration.optimizers.promptbreeder import (
     BreederUnit,
     PromptBreederConfig,
     PromptBreederOptimizer,

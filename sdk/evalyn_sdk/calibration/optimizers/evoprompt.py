@@ -21,10 +21,10 @@ logger = logging.getLogger(__name__)
 
 from tqdm import tqdm
 
-from ..defaults import DEFAULT_EVAL_MODEL
-from ..utils.api_client import GeminiClient
-from .base_optimizer import BaseOptimizer
-from .models import (
+from ...defaults import DEFAULT_EVAL_MODEL
+from ...utils.api_client import GeminiClient
+from ..base_optimizer import BaseOptimizer
+from ..models import (
     DisagreementAnalysis,
     PromptOptimizationResult,
     TokenAccumulator,
@@ -192,7 +192,7 @@ class EvoPromptOptimizer(BaseOptimizer):
             result = self._task_client.generate_with_usage(prompt)
             if accumulator:
                 accumulator.add(result)
-            from .utils import parse_candidates_response
+            from ..utils import parse_candidates_response
 
             variants = parse_candidates_response(result.text)
         except Exception:

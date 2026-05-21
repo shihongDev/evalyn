@@ -11,15 +11,15 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-from ..defaults import DEFAULT_EVAL_MODEL
-from ..utils.api_client import GeminiClient
-from .models import (
+from ...defaults import DEFAULT_EVAL_MODEL
+from ...utils.api_client import GeminiClient
+from ..models import (
     AlignmentMetrics,
     DisagreementAnalysis,
     PromptOptimizationResult,
     TokenAccumulator,
 )
-from .utils import build_full_prompt
+from ..utils import build_full_prompt
 
 
 class BasicOptimizer:
