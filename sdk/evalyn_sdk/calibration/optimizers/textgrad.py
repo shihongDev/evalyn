@@ -25,10 +25,10 @@ logger = logging.getLogger(__name__)
 
 from tqdm import tqdm
 
-from ..defaults import DEFAULT_EVAL_MODEL
-from ..utils.api_client import GeminiClient
-from .base_optimizer import BaseOptimizer
-from .models import (
+from ...defaults import DEFAULT_EVAL_MODEL
+from ...utils.api_client import GeminiClient
+from ..base_optimizer import BaseOptimizer
+from ..models import (
     PromptOptimizationResult,
     TokenAccumulator,
 )

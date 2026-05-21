@@ -84,7 +84,7 @@ def create_pin(
     Returns:
         The created DatasetPin.
     """
-    from .models import now_utc
+    from ..models import now_utc
 
     content_hash = compute_dataset_content_hash(items)
     pin = DatasetPin(

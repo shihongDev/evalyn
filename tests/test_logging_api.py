@@ -6,7 +6,7 @@ import os
 import pytest
 from pathlib import Path
 from unittest.mock import patch
-from evalyn_sdk.logging_config import (
+from evalyn_sdk.utils.logging import (
     configure_logging, get_logger, JSONFormatter, TextFormatter,
 )
 from evalyn_sdk.models import DatasetItem

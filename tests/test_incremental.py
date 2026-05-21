@@ -4,7 +4,7 @@ import json
 import pytest
 from pathlib import Path
 from evalyn_sdk.models import DatasetItem
-from evalyn_sdk.datasets_incremental import (
+from evalyn_sdk.datasets.incremental import (
     incremental_build,
     load_build_state,
     save_build_state,

@@ -4,7 +4,7 @@ Provides a clean, user-friendly API for creating custom spans
 without needing to understand the internal tracing machinery.
 
 Usage:
-    from evalyn_sdk.tracing_api import trace_span
+    from evalyn_sdk.trace.api import trace_span
 
     with trace_span("my_operation", "custom") as s:
         result = do_work()
@@ -17,7 +17,7 @@ from collections.abc import Generator
 from contextlib import contextmanager
 from typing import Any
 
-from .trace.context import span as _internal_span
+from .context import span as _internal_span
 
 
 @contextmanager

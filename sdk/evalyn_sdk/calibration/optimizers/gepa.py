@@ -13,10 +13,10 @@ import random
 from dataclasses import dataclass
 from typing import Any
 
-from ..defaults import DEFAULT_DSPY_MODEL
-from ..models import Annotation, DatasetItem, MetricResult
-from .models import PromptOptimizationResult
-from .utils import build_full_prompt
+from ...defaults import DEFAULT_DSPY_MODEL
+from ...models import Annotation, DatasetItem, MetricResult
+from ..models import PromptOptimizationResult
+from ..utils import build_full_prompt
 
 # GEPA import (optional dependency)
 try:

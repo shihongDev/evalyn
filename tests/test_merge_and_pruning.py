@@ -2,7 +2,7 @@
 
 import pytest
 from evalyn_sdk.models import DatasetItem
-from evalyn_sdk.datasets_merge import (
+from evalyn_sdk.datasets.merge import (
     diff_datasets, merge_datasets, DatasetDiff,
 )
 from evalyn_sdk.analysis.correlation_pruning import (

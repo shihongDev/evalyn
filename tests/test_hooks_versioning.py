@@ -4,7 +4,7 @@ import json
 import pytest
 from pathlib import Path
 from evalyn_sdk.evaluation.hooks import EvalHooks
-from evalyn_sdk.datasets_versioning import (
+from evalyn_sdk.datasets.versioning import (
     create_snapshot, list_versions, rollback_to_version,
     compute_version_hash, DatasetVersion,
 )

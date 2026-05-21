@@ -26,16 +26,16 @@ from typing import Any
 
 logger = logging.getLogger(__name__)
 
-from ..defaults import DEFAULT_EVAL_MODEL
-from ..models import Annotation, DatasetItem, MetricResult
-from ..utils.api_client import GeminiClient
-from .base_optimizer import BaseOptimizer
-from .models import (
+from ...defaults import DEFAULT_EVAL_MODEL
+from ...models import Annotation, DatasetItem, MetricResult
+from ...utils.api_client import GeminiClient
+from ..base_optimizer import BaseOptimizer
+from ..models import (
     DisagreementAnalysis,
     PromptOptimizationResult,
     TokenAccumulator,
 )
-from .utils import (
+from ..utils import (
     build_dataset_from_annotations,
     build_full_prompt,
     parse_candidates_response,

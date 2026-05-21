@@ -11,7 +11,7 @@ from evalyn_sdk.cli.utils.colors import (
     _colors_enabled,
 )
 from evalyn_sdk.models import DatasetItem
-from evalyn_sdk.datasets_pin import (
+from evalyn_sdk.datasets.pin import (
     create_pin, load_pin, verify_pin, remove_pin,
     compute_dataset_content_hash, DatasetPin, PIN_FILENAME,
 )

@@ -5,7 +5,7 @@ verbosity, and file output. Respects EVALYN_LOG_LEVEL and EVALYN_LOG_FILE
 environment variables.
 
 Usage:
-    from evalyn_sdk.logging_config import configure_logging
+    from evalyn_sdk.utils.logging import configure_logging
 
     configure_logging(level="info", json_format=True, log_file="evalyn.log")
 """

@@ -1,7 +1,7 @@
 """Tests for public tracing API and metric benchmarking."""
 
 import pytest
-from evalyn_sdk.tracing_api import trace_span, trace_llm_call, trace_tool_call, trace_retrieval
+from evalyn_sdk.trace.api import trace_span, trace_llm_call, trace_tool_call, trace_retrieval
 from evalyn_sdk.models import MetricResult, MetricSpec
 from evalyn_sdk.analysis.metric_benchmark import (
     benchmark_metrics, MetricBenchmark, BenchmarkReport,
