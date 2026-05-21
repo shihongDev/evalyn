@@ -1,0 +1,54 @@
+# Pre-commit hooks for evalyn.
+#
+# Setup (one-time, per checkout):
+#   uv tool install pre-commit
+#   pre-commit install
+#
+# After install, every `git commit` runs these hooks against the staged
+# changes. To run them ad-hoc against the whole repo:
+#   pre-commit run --all-files
+#
+# To bypass for a single commit (NOT for landing - secrets must never
+# be committed): `git commit --no-verify`. Treat any --no-verify use as
+# a code-review red flag.
+
+repos:
+  # Detect new secret material being committed.
+  # `.secrets.baseline` records the current set of false-positive hits
+  # (test fixtures, hash values, etc.); only secrets NOT in the
+  # baseline trigger the hook. Update the baseline with:
+  #   uvx detect-secrets scan --baseline .secrets.baseline
+  - repo: https://github.com/Yelp/detect-secrets
+    rev: v1.5.0
+    hooks:
+      - id: detect-secrets
+        args:
+          - --baseline
+          - .secrets.baseline
+        exclude: |
+          (?x)^(
+            \.venv/.*|
+            node_modules/.*|
+            __pycache__/.*|
+            dashboard/frontend/dist/.*|
+            dashboard/evalyn_dashboard/static/.*|
+            .*/\.venv/.*|
+            .secrets\.baseline
+          )$
+
+  # Reject common high-risk filenames outright (private keys, env files,
+  # cloud-credential dumps, sqlite production DBs).
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      - id: detect-private-key
+      - id: check-added-large-files
+        args: ["--maxkb=5000"]
+      - id: check-yaml
+      - id: check-toml
+      - id: check-json
+        exclude: |
+          (?x)^(
+            \.vscode/.*|
+            dashboard/frontend/.*\.json$
+          )$

@@ -17,7 +17,30 @@ uv pip install -e "./sdk[dev,llm]"
 
 # Set up API key for testing
 export GEMINI_API_KEY="your-key"
+
+# Install pre-commit hooks (secret detection + style)
+uv tool install pre-commit
+pre-commit install
 ```
+
+## Pre-commit Hooks (Secret Detection)
+
+Every commit runs `detect-secrets` against the staged diff and rejects new
+API keys / private keys / tokens. The baseline of known-non-secret hits
+lives in `.secrets.baseline` (test fixtures, content hashes, etc.); only
+NEW secret-shaped strings outside that baseline block the commit.
+
+If you added a deliberate non-secret that the scanner flagged (e.g. an
+example payload that happens to look like a token), update the baseline:
+
+```bash
+uvx detect-secrets scan --baseline .secrets.baseline
+git add .secrets.baseline
+```
+
+Do NOT bypass the hook with `--no-verify` to land code. If you do, that
+commit will not be reviewable for secret leakage; treat any
+`--no-verify` in a PR as a hard reject.
 
 ## Running Tests
 
