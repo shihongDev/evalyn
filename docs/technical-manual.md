@@ -1497,7 +1497,8 @@ evalyn/
 │       │   │   ├── export.py
 │       │   │   ├── infrastructure.py  # one-click command
 │       │   │   ├── insights.py        # evalyn insights command
-│       │   │   ├── dashboard.py      # Interactive dashboard
+│       │   │   ├── report.py          # static HTML insights report
+│       │   │   ├── dashboard_alias.py # `dashboard` alias (forwards to report when evalyn-dashboard not installed)
 │       │   │   ├── quickstart.py     # Onboarding workflow
 │       │   │   ├── runs.py
 │       │   │   ├── simulate.py

@@ -114,7 +114,7 @@ evalyn/
 │   ├── evalyn_sdk/                 # 579 modules total
 │   │   ├── cli/                    # CLI module (37 files)
 │   │   │   ├── main.py             # Entry point & command registration
-│   │   │   ├── commands/           # 15 command modules
+│   │   │   ├── commands/           # 16 command modules
 │   │   │   │   ├── analysis.py     # analyze, compare, trend, status, validate
 │   │   │   │   ├── traces.py       # list-calls, show-call, show-trace
 │   │   │   │   ├── runs.py         # list-runs, show-run
@@ -130,14 +130,13 @@ evalyn/
 │   │   │   │   ├── infrastructure.py # init, one-click, workflow
 │   │   │   │   ├── quickstart.py   # quickstart
 │   │   │   │   └── clustering.py   # cluster-failures, cluster-misalignments
-│   │   │   └── utils/              # 17 CLI utility modules
+│   │   │   └── utils/              # 16 CLI utility modules
 │   │   │       ├── formatters.py   # print_table, format_cost, output_json
 │   │   │       ├── config.py       # Config file loading, dataset path resolution
 │   │   │       ├── validation.py   # API key checks, extract_project_id
 │   │   │       ├── command_common.py # resolve_call_id, resolve_dataset_dir_and_file
 │   │   │       ├── ui.py           # Spinner, ProgressBar
 │   │   │       ├── loaders.py      # Module/callable loading
-│   │   │       ├── llm_callers.py  # LLM API callers
 │   │   │       ├── pipeline.py     # One-click pipeline orchestration
 │   │   │       ├── colors.py       # Terminal color support
 │   │   │       ├── hints.py        # Contextual hint system
@@ -157,7 +156,7 @@ evalyn/
 │   │   │   ├── what_if.py          # What-if scenario simulation
 │   │   │   ├── significance_testing.py # Statistical significance
 │   │   │   └── ...                 # 65+ more: sensitivity, normalization, regression_bisection, etc.
-│   │   ├── trace/                  # Tracing & instrumentation (47 modules)
+│   │   ├── trace/                  # Tracing & instrumentation (70 modules)
 │   │   │   ├── tracer.py           # Core tracing logic
 │   │   │   ├── auto_instrument.py  # Auto-patching for LLM libraries
 │   │   │   ├── instrumentation/    # Provider-specific instrumentors
@@ -178,7 +177,7 @@ evalyn/
 │   │   │   ├── active_learning.py  # Active learning strategies
 │   │   │   ├── ensemble_fusion.py  # Ensemble fusion
 │   │   │   └── ...                 # 37+ more: curriculum, sensitivity, cost_tracking, etc.
-│   │   ├── evaluation/             # Evaluation engine (72 modules)
+│   │   ├── evaluation/             # Evaluation engine (78 modules)
 │   │   │   ├── runner.py           # EvalRunner with checkpointing and caching
 │   │   │   ├── batch/              # Batch processing
 │   │   │   ├── units/              # Span-level evaluation units

@@ -1,10 +1,12 @@
 # Evalyn Roadmap
 
-This document tracks planned features and completed work. Future roadmap items are listed first, followed by completed features.
+This document tracks completed work organized by area. As of 2026-05-20 every
+item is shipped (559 checked, 0 outstanding); new planned features should be
+added back to this file with `- [ ]` checkboxes when scoped.
 
 ---
 
-## Roadmap (Planned Features)
+## Shipped Features
 
 ### Tracing & Instrumentation
 
