@@ -2,7 +2,7 @@
 
 import pytest
 from evalyn_sdk.models import DatasetItem
-from evalyn_sdk.datasets_split import split_dataset, split_two_way, SplitResult
+from evalyn_sdk.datasets.split import split_dataset, split_two_way, SplitResult
 
 
 def _item(item_id: str, metadata: dict = None) -> DatasetItem:

@@ -11,7 +11,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from evalyn_sdk.framework_instrumentors import (
+from evalyn_sdk.trace.framework_instrumentors import (
     BUILTIN_FRAMEWORKS,
     FrameworkDetectionResult,
     FrameworkRegistry,
@@ -310,8 +310,8 @@ class TestFrameworkRegistryDetection:
                 raise ImportError("broken")
             return importlib.import_module(name)
 
-        with patch("evalyn_sdk.framework_instrumentors.importlib.util.find_spec", side_effect=fake_find_spec):
-            with patch("evalyn_sdk.framework_instrumentors.importlib.import_module", side_effect=fake_import):
+        with patch("evalyn_sdk.trace.framework_instrumentors.importlib.util.find_spec", side_effect=fake_find_spec):
+            with patch("evalyn_sdk.trace.framework_instrumentors.importlib.import_module", side_effect=fake_import):
                 results = reg.detect_installed()
                 assert results[0].detected is True
                 assert results[0].version == ""

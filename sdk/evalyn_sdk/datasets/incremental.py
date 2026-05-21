@@ -13,7 +13,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from .datasets import hash_inputs, save_dataset
+from . import hash_inputs, save_dataset
 
 logger = logging.getLogger(__name__)
 

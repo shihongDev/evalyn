@@ -8,7 +8,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from .models import DatasetItem, FunctionCall
+from ..models import DatasetItem, FunctionCall
 
 logger = logging.getLogger(__name__)
 

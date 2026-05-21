@@ -2,7 +2,7 @@
 
 import pytest
 from evalyn_sdk.models import DatasetItem
-from evalyn_sdk.datasets_filter import (
+from evalyn_sdk.datasets.filter import (
     parse_filter,
     filter_items,
     FilterExpression,
