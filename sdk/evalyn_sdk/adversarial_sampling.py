@@ -90,9 +90,7 @@ class AdversarialResult:
     def from_dict(cls, data: dict[str, Any]) -> AdversarialResult:
         return cls(
             selected_ids=data.get("selected_ids", []),
-            weights=[
-                AdversarialWeight.from_dict(w) for w in data.get("weights", [])
-            ],
+            weights=[AdversarialWeight.from_dict(w) for w in data.get("weights", [])],
             failure_count=data.get("failure_count", 0),
             boundary_count=data.get("boundary_count", 0),
             total_pool=data.get("total_pool", 0),
@@ -319,9 +317,7 @@ def run_adversarial_sampling(
 
     threshold = 0.5
 
-    failure_w = compute_failure_weights(
-        scores, threshold=threshold, boost=config.failure_boost
-    )
+    failure_w = compute_failure_weights(scores, threshold=threshold, boost=config.failure_boost)
     boundary_w = compute_boundary_weights(
         scores,
         threshold=threshold,
@@ -350,9 +346,7 @@ def run_adversarial_sampling(
     boundary_count = sum(
         1
         for s in scores.values()
-        if (threshold - config.boundary_width)
-        <= s
-        <= (threshold + config.boundary_width)
+        if (threshold - config.boundary_width) <= s <= (threshold + config.boundary_width)
     )
 
     return AdversarialResult(

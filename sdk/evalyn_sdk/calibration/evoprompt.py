@@ -162,9 +162,7 @@ class EvoPromptOptimizer(BaseOptimizer):
         if count <= 0:
             return [current_preamble]
 
-        rubric_text = (
-            "\n".join([f"- {r}" for r in rubric]) if rubric else "(no rubric defined)"
-        )
+        rubric_text = "\n".join([f"- {r}" for r in rubric]) if rubric else "(no rubric defined)"
 
         disagreement_summary = "(no disagreement data available)"
         if disagreements and disagreements.total_disagreements > 0:
@@ -314,9 +312,7 @@ class EvoPromptOptimizer(BaseOptimizer):
         4. Validate best on val set and return result
         """
         # Split data
-        trainset, valset = self.split_train_val(
-            metric_results, annotations, dataset_items
-        )
+        trainset, valset = self.split_train_val(metric_results, annotations, dataset_items)
 
         if len(trainset) < 3 or len(valset) < 2:
             return self.build_result(
@@ -327,15 +323,17 @@ class EvoPromptOptimizer(BaseOptimizer):
                 estimated_improvement="unknown",
             )
 
-        seed = current_preamble.strip() if current_preamble else (
-            f"You are an expert evaluator for the metric: {metric_id}. "
-            "Carefully analyze the output quality and provide an honest assessment."
+        seed = (
+            current_preamble.strip()
+            if current_preamble
+            else (
+                f"You are an expert evaluator for the metric: {metric_id}. "
+                "Carefully analyze the output quality and provide an honest assessment."
+            )
         )
 
         # Step 2: initialize population
-        population = self._init_population(
-            seed, disagreements, current_rubric, accumulator
-        )
+        population = self._init_population(seed, disagreements, current_rubric, accumulator)
 
         # Score initial population
         scored: list[tuple[str, float]] = []

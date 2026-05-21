@@ -71,7 +71,7 @@ def cmd_build_dataset(args: argparse.Namespace) -> None:
             )
         elif len(projects) == 1:
             # Auto-select the only project
-            args.project = list(projects)[0]
+            args.project = next(iter(projects))
             print(f"Auto-selected project: {args.project}")
 
     def _parse_dt(value: str | None) -> datetime | None:
@@ -169,9 +169,7 @@ def cmd_build_dataset(args: argparse.Namespace) -> None:
         },
     }
 
-    dataset_path = save_dataset_with_meta(
-        items, dataset_dir, meta, dataset_filename=dataset_file
-    )
+    dataset_path = save_dataset_with_meta(items, dataset_dir, meta, dataset_filename=dataset_file)
     print(f"{icon('pass')} Wrote {len(items)} items to {dataset_path}")
     hints = HintCollector(quiet=getattr(args, "quiet", False))
     hints.add(
@@ -179,7 +177,10 @@ def cmd_build_dataset(args: argparse.Namespace) -> None:
         "Suggest evaluation metrics",
         options=[
             ("--mode llm-brainstorm", "LLM free-form metric generation"),
-            ("--mode bundle --bundle <name>", "Use preset bundle (summarization, orchestrator, ...)"),
+            (
+                "--mode bundle --bundle <name>",
+                "Use preset bundle (summarization, orchestrator, ...)",
+            ),
             ("--scope overall|llm_call|tool_call", "Filter metrics by scope"),
             ("-n <count>", "Max number of metrics to return (default: 5)"),
         ],
@@ -207,12 +208,8 @@ def register_commands(subparsers) -> None:
         help="Include all projects (use with caution)",
     )
     p.add_argument("--version", help="Filter by metadata.version")
-    p.add_argument(
-        "--simulation", action="store_true", help="Include only simulation traces"
-    )
-    p.add_argument(
-        "--production", action="store_true", help="Include only production traces"
-    )
+    p.add_argument("--simulation", action="store_true", help="Include only simulation traces")
+    p.add_argument("--production", action="store_true", help="Include only production traces")
     p.add_argument("--since", help="ISO timestamp lower bound for started_at")
     p.add_argument("--until", help="ISO timestamp upper bound for started_at")
     p.add_argument(

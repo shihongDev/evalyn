@@ -112,9 +112,7 @@ class CostDashboard:
             lines.append("")
             lines.append("Daily breakdown:")
             for d in self.daily_costs:
-                models_str = ", ".join(
-                    f"{m}=${c:.4f}" for m, c in sorted(d.by_model.items())
-                )
+                models_str = ", ".join(f"{m}=${c:.4f}" for m, c in sorted(d.by_model.items()))
                 lines.append(
                     f"  {d.date}: ${d.total_cost_usd:.4f} "
                     f"({d.total_tokens} tokens, {d.total_calls} calls)"
@@ -224,9 +222,7 @@ def render_cost_chart_ascii(dashboard: CostDashboard, width: int = 60) -> str:
     return "\n".join(lines)
 
 
-def find_cost_spikes(
-    daily_costs: list[DailyCost], threshold_multiplier: float = 2.0
-) -> list[str]:
+def find_cost_spikes(daily_costs: list[DailyCost], threshold_multiplier: float = 2.0) -> list[str]:
     """Return dates where cost > threshold_multiplier * average."""
     if not daily_costs:
         return []

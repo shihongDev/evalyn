@@ -63,12 +63,8 @@ class MultimodalSpanData:
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> MultimodalSpanData:
         return cls(
-            input_media=[
-                MediaAttachment.from_dict(m) for m in data.get("input_media", [])
-            ],
-            output_media=[
-                MediaAttachment.from_dict(m) for m in data.get("output_media", [])
-            ],
+            input_media=[MediaAttachment.from_dict(m) for m in data.get("input_media", [])],
+            output_media=[MediaAttachment.from_dict(m) for m in data.get("output_media", [])],
             text_input=data.get("text_input", ""),
             text_output=data.get("text_output", ""),
         )
@@ -112,9 +108,7 @@ def create_media_attachment(
 ) -> MediaAttachment:
     """Factory with validation for MediaAttachment."""
     if media_type not in _VALID_MEDIA_TYPES:
-        raise ValueError(
-            f"Invalid media_type {media_type!r}, must be one of {_VALID_MEDIA_TYPES}"
-        )
+        raise ValueError(f"Invalid media_type {media_type!r}, must be one of {_VALID_MEDIA_TYPES}")
     return MediaAttachment(
         media_type=media_type,
         file_path=file_path,

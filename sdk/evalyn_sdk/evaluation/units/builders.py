@@ -20,12 +20,10 @@ class EvalUnitBuilder(ABC):
     @abstractmethod
     def unit_type(self) -> str:
         """The type of units this builder creates."""
-        pass
 
     @abstractmethod
     def discover(self, call: FunctionCall) -> list[EvalUnit]:
         """Discover all evaluatable units of this type from a FunctionCall."""
-        pass
 
 
 class OutcomeBuilder(EvalUnitBuilder):

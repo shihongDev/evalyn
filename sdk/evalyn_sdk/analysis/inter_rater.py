@@ -16,7 +16,7 @@ class AgreementStats:
 
     num_raters: int
     num_items: int
-    raw_agreement: float          # fraction of items where all raters agree
+    raw_agreement: float  # fraction of items where all raters agree
     cohens_kappa: float | None = None  # for 2 raters (binary)
     fleiss_kappa: float | None = None  # for N raters (binary)
     items_with_disagreement: list[str] = field(default_factory=list)
@@ -181,7 +181,7 @@ def _fleiss_kappa(item_ratings: list[list[bool]]) -> float:
     p_pass = sum(pass_counts) / total_votes
     p_fail = 1 - p_pass
 
-    pe = p_pass ** 2 + p_fail ** 2  # expected agreement
+    pe = p_pass**2 + p_fail**2  # expected agreement
 
     if pe == 1.0:
         return 1.0 if p_bar == 1.0 else 0.0

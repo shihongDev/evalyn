@@ -47,9 +47,7 @@ class IntegrityReport:
 
     @classmethod
     def from_dict(cls, d: dict[str, Any]) -> IntegrityReport:
-        checks = [
-            IntegrityCheck(**c) for c in d.get("checks", [])
-        ]
+        checks = [IntegrityCheck(**c) for c in d.get("checks", [])]
         return cls(
             checks=checks,
             all_passed=d.get("all_passed", True),
@@ -73,9 +71,7 @@ class IntegrityReport:
                 if check.details:
                     lines.append(f"       {check.details}")
                 if check.affected_rows > 0:
-                    lines.append(
-                        f"       affected rows: {check.affected_rows}"
-                    )
+                    lines.append(f"       affected rows: {check.affected_rows}")
         return "\n".join(lines)
 
 
@@ -195,9 +191,9 @@ def check_data_types(
 
 def run_integrity_checks(
     records: list[dict[str, Any]],
-    valid_parent_ids: set = None,
-    required_fields: list[str] = None,
-    field_types: dict[str, type] = None,
+    valid_parent_ids: set | None = None,
+    required_fields: list[str] | None = None,
+    field_types: dict[str, type] | None = None,
 ) -> IntegrityReport:
     """Run all applicable integrity checks on a record set.
 
@@ -218,9 +214,7 @@ def run_integrity_checks(
 
     # Orphan references - only if valid_parent_ids provided
     if valid_parent_ids:
-        checks.append(
-            check_orphan_references(records, valid_parent_ids)
-        )
+        checks.append(check_orphan_references(records, valid_parent_ids))
 
     # Required fields - only if specified
     if required_fields:
@@ -247,24 +241,16 @@ def suggest_fixes(report: IntegrityReport) -> list[str]:
             continue
         if check.name == "orphan_references":
             suggestions.append(
-                "Remove or update records with orphan references "
-                "to point to valid parent IDs"
+                "Remove or update records with orphan references to point to valid parent IDs"
             )
         elif check.name == "duplicate_ids":
             suggestions.append(
-                "Deduplicate records by removing or renaming entries "
-                "with duplicate IDs"
+                "Deduplicate records by removing or renaming entries with duplicate IDs"
             )
         elif check.name == "required_fields":
-            suggestions.append(
-                "Fill in missing required fields or remove incomplete records"
-            )
+            suggestions.append("Fill in missing required fields or remove incomplete records")
         elif check.name == "data_types":
-            suggestions.append(
-                "Cast or correct field values to match expected types"
-            )
+            suggestions.append("Cast or correct field values to match expected types")
         else:
-            suggestions.append(
-                f"Review and fix issues reported by '{check.name}'"
-            )
+            suggestions.append(f"Review and fix issues reported by '{check.name}'")
     return suggestions

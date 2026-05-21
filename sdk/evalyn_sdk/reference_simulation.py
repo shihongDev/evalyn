@@ -104,9 +104,7 @@ class ReferenceSet:
 # ---------------------------------------------------------------------------
 
 
-def apply_quality_filter(
-    pairs: list[ReferencePair], config: QualityConfig
-) -> list[ReferencePair]:
+def apply_quality_filter(pairs: list[ReferencePair], config: QualityConfig) -> list[ReferencePair]:
     """Filter reference pairs by quality criteria.
 
     Checks confidence threshold, output length bounds, and non-empty constraint.
@@ -180,7 +178,7 @@ def score_reference_quality(pair: ReferencePair) -> float:
 
     # Non-repetitiveness: unique word ratio
     words = pair.reference_output.split()
-    if len(words) == 0:
+    if not words:
         return 0.0
     unique_ratio = len(set(words)) / len(words)
 

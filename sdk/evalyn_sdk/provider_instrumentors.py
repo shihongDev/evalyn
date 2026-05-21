@@ -2,6 +2,7 @@
 
 Pure Python registry and spec definitions - no external deps, no actual API calls.
 """
+
 from __future__ import annotations
 
 import os
@@ -189,17 +190,13 @@ def format_provider_status(registry: ProviderRegistry) -> str:
     env_w = max(len(s.env_key) for s in providers)
     env_w = max(env_w, len("Env Var"))
 
-    header = (
-        f"{'Provider':<{name_w}}  {'Status':<{status_w}}  {'Env Var':<{env_w}}"
-    )
+    header = f"{'Provider':<{name_w}}  {'Status':<{status_w}}  {'Env Var':<{env_w}}"
     sep = f"{'-' * name_w}  {'-' * status_w}  {'-' * env_w}"
     lines = [header, sep]
 
     for spec in providers:
         available = registry.is_available(spec.provider_id)
         status = "available" if available else "not configured"
-        lines.append(
-            f"{spec.name:<{name_w}}  {status:<{status_w}}  {spec.env_key:<{env_w}}"
-        )
+        lines.append(f"{spec.name:<{name_w}}  {status:<{status_w}}  {spec.env_key:<{env_w}}")
 
     return "\n".join(lines)

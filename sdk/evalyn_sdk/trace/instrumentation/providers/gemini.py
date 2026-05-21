@@ -105,9 +105,7 @@ class GeminiInstrumentor(Instrumentor):
                                     )
                                 return chunk
 
-                        wrapper = GeminiStreamWrapper(
-                            response, request_start_time=start
-                        )
+                        wrapper = GeminiStreamWrapper(response, request_start_time=start)
 
                         def _on_exhaust(w):
                             duration_ms = (time.time() - start) * 1000
@@ -127,15 +125,9 @@ class GeminiInstrumentor(Instrumentor):
 
                     # Extract token usage
                     usage = getattr(response, "usage_metadata", None)
-                    input_tokens = (
-                        getattr(usage, "prompt_token_count", 0) if usage else 0
-                    )
-                    output_tokens = (
-                        getattr(usage, "candidates_token_count", 0) if usage else 0
-                    )
-                    tool_tokens = (
-                        getattr(usage, "tool_use_prompt_token_count", 0) if usage else 0
-                    )
+                    input_tokens = getattr(usage, "prompt_token_count", 0) if usage else 0
+                    output_tokens = getattr(usage, "candidates_token_count", 0) if usage else 0
+                    tool_tokens = getattr(usage, "tool_use_prompt_token_count", 0) if usage else 0
 
                     # Extract grounding metadata
                     search_queries = None
@@ -152,9 +144,7 @@ class GeminiInstrumentor(Instrumentor):
                                     if web:
                                         sources.append(
                                             {
-                                                "title": getattr(web, "title", "")[
-                                                    :100
-                                                ],
+                                                "title": getattr(web, "title", "")[:100],
                                                 "uri": getattr(web, "uri", "")[:200],
                                             }
                                         )
@@ -218,9 +208,7 @@ class GeminiInstrumentor(Instrumentor):
                                     )
                                 return chunk
 
-                        wrapper = LegacyGeminiStreamWrapper(
-                            response, request_start_time=start
-                        )
+                        wrapper = LegacyGeminiStreamWrapper(response, request_start_time=start)
 
                         def _on_exhaust(w):
                             duration_ms = (time.time() - start) * 1000
@@ -240,12 +228,8 @@ class GeminiInstrumentor(Instrumentor):
 
                     # Extract token usage
                     usage = getattr(response, "usage_metadata", None)
-                    input_tokens = (
-                        getattr(usage, "prompt_token_count", 0) if usage else 0
-                    )
-                    output_tokens = (
-                        getattr(usage, "candidates_token_count", 0) if usage else 0
-                    )
+                    input_tokens = getattr(usage, "prompt_token_count", 0) if usage else 0
+                    output_tokens = getattr(usage, "candidates_token_count", 0) if usage else 0
 
                     log_llm_call(
                         provider="gemini",
@@ -288,9 +272,7 @@ class GeminiInstrumentor(Instrumentor):
                 import google.generativeai as genai
 
                 if hasattr(genai, "GenerativeModel"):
-                    genai.GenerativeModel.generate_content = (
-                        self._original_legacy_generate
-                    )
+                    genai.GenerativeModel.generate_content = self._original_legacy_generate
         except ImportError:
             pass
 

@@ -152,12 +152,20 @@ def build_item_metric_heatmap(
         for col in cols:
             value = scores[row].get(col, 0.0)
             intensity = compute_color_intensity(value, min_val, max_val)
-            cells.append(HeatmapCell(
-                row=row, col=col, value=value, color_intensity=intensity,
-            ))
+            cells.append(
+                HeatmapCell(
+                    row=row,
+                    col=col,
+                    value=value,
+                    color_intensity=intensity,
+                )
+            )
 
     return HeatmapData(
-        cells=cells, rows=rows, cols=cols, title="Item-Metric Heatmap",
+        cells=cells,
+        rows=rows,
+        cols=cols,
+        title="Item-Metric Heatmap",
     )
 
 
@@ -188,12 +196,20 @@ def build_run_metric_heatmap(
         for col in cols:
             value = run_scores[row].get(col, 0.0)
             intensity = compute_color_intensity(value, min_val, max_val)
-            cells.append(HeatmapCell(
-                row=row, col=col, value=value, color_intensity=intensity,
-            ))
+            cells.append(
+                HeatmapCell(
+                    row=row,
+                    col=col,
+                    value=value,
+                    color_intensity=intensity,
+                )
+            )
 
     return HeatmapData(
-        cells=cells, rows=rows, cols=cols, title="Run-Metric Heatmap",
+        cells=cells,
+        rows=rows,
+        cols=cols,
+        title="Run-Metric Heatmap",
     )
 
 
@@ -318,9 +334,7 @@ def render_heatmap_html(data: HeatmapData) -> str:
     parts.append("<table>")
 
     if data.title:
-        parts.append(
-            f"<caption>{_html.escape(data.title)}</caption>"
-        )
+        parts.append(f"<caption>{_html.escape(data.title)}</caption>")
 
     # Header
     parts.append("<tr><th></th>")
@@ -340,10 +354,7 @@ def render_heatmap_html(data: HeatmapData) -> str:
                 g = int(100 + cell.color_intensity * 155)
                 r = int(255 - cell.color_intensity * 155)
                 bg = f"rgb({r},{g},100)"
-                parts.append(
-                    f"<td style=\"background-color:{bg}\">"
-                    f"{cell.value:.2f}</td>"
-                )
+                parts.append(f'<td style="background-color:{bg}">{cell.value:.2f}</td>')
         parts.append("</tr>")
 
     parts.append("</table>")

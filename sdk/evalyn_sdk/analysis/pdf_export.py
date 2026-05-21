@@ -5,6 +5,7 @@ Generates print-optimized HTML with CSS @media print rules that can be
 converted to PDF via the browser's "Print to PDF" function. No external
 binary dependencies (wkhtmltopdf etc.) are required.
 """
+
 from __future__ import annotations
 
 import html as _html
@@ -20,6 +21,7 @@ from typing import Any
 @dataclass
 class PDFConfig:
     """Configuration for PDF export."""
+
     title: str = "Evalyn Report"
     author: str = ""
     page_size: str = "A4"  # "A4" or "letter"
@@ -52,6 +54,7 @@ class PDFConfig:
 @dataclass
 class PDFSection:
     """A single section in the PDF report."""
+
     title: str
     content_html: str = ""
     page_break_after: bool = False
@@ -67,6 +70,7 @@ class PDFSection:
 @dataclass
 class PDFExportResult:
     """Result of a PDF export operation."""
+
     html_content: str
     sections: int = 0
     estimated_pages: int = 0
@@ -159,17 +163,14 @@ def build_pdf_html(sections: list[PDFSection], config: PDFConfig) -> str:
         cls = "section page-break" if sec.page_break_after else "section"
         escaped_sec_title = _html.escape(sec.title)
         section_parts.append(
-            f'<div class="{cls}">'
-            f"<h2>{escaped_sec_title}</h2>"
-            f"{sec.content_html}"
-            f"</div>"
+            f'<div class="{cls}"><h2>{escaped_sec_title}</h2>{sec.content_html}</div>'
         )
 
     body = "\n".join(header_parts) + "\n" + "\n".join(section_parts)
 
     return (
         "<!DOCTYPE html>\n"
-        f"<html lang=\"en\">\n<head>\n<meta charset=\"UTF-8\">\n"
+        f'<html lang="en">\n<head>\n<meta charset="UTF-8">\n'
         f"<title>{escaped_title}</title>\n{css}\n</head>\n"
         f"<body>\n{body}\n</body>\n</html>"
     )
@@ -239,9 +240,7 @@ def create_chart_section(title: str, chart_data: dict[str, Any]) -> PDFSection:
 
     summary = ", ".join(items) if items else "No data"
     html_content = (
-        f'<div class="chart-placeholder">'
-        f"[Chart: {_html.escape(title)}] - {summary}"
-        f"</div>"
+        f'<div class="chart-placeholder">[Chart: {_html.escape(title)}] - {summary}</div>'
     )
     return PDFSection(title=title, content_html=html_content)
 

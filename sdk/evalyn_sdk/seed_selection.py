@@ -14,16 +14,84 @@ from typing import Any
 # Stop words (common English words to ignore in text analysis)
 # ---------------------------------------------------------------------------
 
-_STOP_WORDS = frozenset({
-    "the", "a", "an", "and", "or", "but", "in", "on", "at", "to", "for",
-    "of", "with", "by", "from", "is", "it", "as", "was", "are", "be",
-    "this", "that", "not", "has", "had", "have", "been", "will", "can",
-    "do", "does", "did", "if", "so", "no", "up", "out", "its", "all",
-    "my", "we", "he", "she", "they", "you", "me", "us", "him", "her",
-    "who", "what", "when", "how", "which", "where", "there", "here",
-    "then", "than", "also", "just", "about", "into", "over", "after",
-    "more", "some", "any", "each", "very", "too", "own", "same",
-})
+_STOP_WORDS = frozenset(
+    {
+        "the",
+        "a",
+        "an",
+        "and",
+        "or",
+        "but",
+        "in",
+        "on",
+        "at",
+        "to",
+        "for",
+        "of",
+        "with",
+        "by",
+        "from",
+        "is",
+        "it",
+        "as",
+        "was",
+        "are",
+        "be",
+        "this",
+        "that",
+        "not",
+        "has",
+        "had",
+        "have",
+        "been",
+        "will",
+        "can",
+        "do",
+        "does",
+        "did",
+        "if",
+        "so",
+        "no",
+        "up",
+        "out",
+        "its",
+        "all",
+        "my",
+        "we",
+        "he",
+        "she",
+        "they",
+        "you",
+        "me",
+        "us",
+        "him",
+        "her",
+        "who",
+        "what",
+        "when",
+        "how",
+        "which",
+        "where",
+        "there",
+        "here",
+        "then",
+        "than",
+        "also",
+        "just",
+        "about",
+        "into",
+        "over",
+        "after",
+        "more",
+        "some",
+        "any",
+        "each",
+        "very",
+        "too",
+        "own",
+        "same",
+    }
+)
 
 
 # ---------------------------------------------------------------------------
@@ -92,10 +160,7 @@ class SelectionResult:
 
 def _tokenize(text: str) -> set[str]:
     """Lowercase, split on whitespace, filter short words and stop words."""
-    return {
-        w for w in text.lower().split()
-        if len(w) >= 3 and w not in _STOP_WORDS
-    }
+    return {w for w in text.lower().split() if len(w) >= 3 and w not in _STOP_WORDS}
 
 
 def _jaccard_similarity(a: set[str], b: set[str]) -> float:
@@ -319,9 +384,7 @@ def format_selection_report(result: SelectionResult) -> str:
         for sid in result.dropped_seeds:
             score = next((s for s in result.scores if s.seed_id == sid), None)
             if score:
-                lines.append(
-                    f"  {sid}: diversity={score.diversity_score:.3f}"
-                )
+                lines.append(f"  {sid}: diversity={score.diversity_score:.3f}")
             else:
                 lines.append(f"  {sid}")
         lines.append("")

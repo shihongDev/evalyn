@@ -17,15 +17,16 @@ from typing import Any
 # Dataclasses
 # ---------------------------------------------------------------------------
 
+
 @dataclass
 class DAGNode:
     """A single node in a decision DAG."""
 
     id: str
     condition: str  # e.g. 'len(output) > 10' or '"keyword" in output'
-    true_branch: str | None = None   # next node id when condition is True
+    true_branch: str | None = None  # next node id when condition is True
     false_branch: str | None = None  # next node id when condition is False
-    score: float | None = None       # leaf score (used when no branches)
+    score: float | None = None  # leaf score (used when no branches)
     label: str = ""
 
     def as_dict(self) -> dict[str, Any]:
@@ -69,10 +70,7 @@ class DAGMetric:
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> DAGMetric:
-        nodes = {
-            nid: DAGNode.from_dict(ndata)
-            for nid, ndata in data.get("nodes", {}).items()
-        }
+        nodes = {nid: DAGNode.from_dict(ndata) for nid, ndata in data.get("nodes", {}).items()}
         return cls(
             name=data["name"],
             nodes=nodes,
@@ -87,8 +85,8 @@ class DAGResult:
 
     metric_name: str
     score: float
-    path: list[str]                          # node ids traversed
-    decisions: list[tuple[str, bool]]        # (condition, result) pairs
+    path: list[str]  # node ids traversed
+    decisions: list[tuple[str, bool]]  # (condition, result) pairs
 
     def as_dict(self) -> dict[str, Any]:
         return {
@@ -102,6 +100,7 @@ class DAGResult:
 # ---------------------------------------------------------------------------
 # Condition parser (safe - regex-based, no dynamic code running)
 # ---------------------------------------------------------------------------
+
 
 def _compare(actual: int, op: str, expected: int) -> bool:
     if op == "<":
@@ -138,22 +137,22 @@ def _check_condition(condition: str, context: dict[str, Any]) -> bool:
     input_length = context.get("input_length", len(input_text))
 
     # len(output) op N
-    m = re.match(r'^len\(output\)\s*([<>=!]+)\s*(\d+)$', cond)
+    m = re.match(r"^len\(output\)\s*([<>=!]+)\s*(\d+)$", cond)
     if m:
         return _compare(len(output_text), m.group(1), int(m.group(2)))
 
     # len(input) op N
-    m = re.match(r'^len\(input\)\s*([<>=!]+)\s*(\d+)$', cond)
+    m = re.match(r"^len\(input\)\s*([<>=!]+)\s*(\d+)$", cond)
     if m:
         return _compare(len(input_text), m.group(1), int(m.group(2)))
 
     # output_length op N
-    m = re.match(r'^output_length\s*([<>=!]+)\s*(\d+)$', cond)
+    m = re.match(r"^output_length\s*([<>=!]+)\s*(\d+)$", cond)
     if m:
         return _compare(int(output_length), m.group(1), int(m.group(2)))
 
     # input_length op N
-    m = re.match(r'^input_length\s*([<>=!]+)\s*(\d+)$', cond)
+    m = re.match(r"^input_length\s*([<>=!]+)\s*(\d+)$", cond)
     if m:
         return _compare(int(input_length), m.group(1), int(m.group(2)))
 
@@ -188,6 +187,7 @@ _evaluate_condition = _check_condition
 # ---------------------------------------------------------------------------
 # DAG walker
 # ---------------------------------------------------------------------------
+
 
 def evaluate_dag(dag: DAGMetric, context: dict[str, Any]) -> DAGResult:
     """Walk the DAG from root and produce a score.
@@ -243,6 +243,7 @@ def evaluate_dag(dag: DAGMetric, context: dict[str, Any]) -> DAGResult:
 # ---------------------------------------------------------------------------
 # Builder helper
 # ---------------------------------------------------------------------------
+
 
 def build_simple_dag(
     name: str,

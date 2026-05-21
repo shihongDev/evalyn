@@ -97,9 +97,7 @@ class PreAnnotationReport:
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> PreAnnotationReport:
         return cls(
-            annotations=[
-                PreAnnotation.from_dict(a) for a in data.get("annotations", [])
-            ],
+            annotations=[PreAnnotation.from_dict(a) for a in data.get("annotations", [])],
             auto_accepted=data.get("auto_accepted", 0),
             needs_review=data.get("needs_review", 0),
             rejected=data.get("rejected", 0),
@@ -156,8 +154,7 @@ def build_pre_annotation_prompt(
     and provide a confidence level and reasoning.
     """
     lines = [
-        "You are an evaluation annotator. Score the following item on the "
-        f"metric '{metric_id}'.",
+        f"You are an evaluation annotator. Score the following item on the metric '{metric_id}'.",
         "",
         "Item:",
     ]
@@ -172,12 +169,14 @@ def build_pre_annotation_prompt(
         lines.append(f"  {rubric}")
         lines.append("")
 
-    lines.extend([
-        "Respond with exactly three lines:",
-        "  score: <float between 0.0 and 1.0>",
-        "  confidence: <float between 0.0 and 1.0>",
-        "  reasoning: <brief explanation>",
-    ])
+    lines.extend(
+        [
+            "Respond with exactly three lines:",
+            "  score: <float between 0.0 and 1.0>",
+            "  confidence: <float between 0.0 and 1.0>",
+            "  reasoning: <brief explanation>",
+        ]
+    )
 
     return "\n".join(lines)
 

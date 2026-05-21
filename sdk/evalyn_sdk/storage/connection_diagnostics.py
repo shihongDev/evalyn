@@ -48,9 +48,7 @@ class ConnectionHealth:
 
     @classmethod
     def from_dict(cls, d: dict[str, Any]) -> ConnectionHealth:
-        items = [
-            DiagnosticItem(**item) for item in d.get("items", [])
-        ]
+        items = [DiagnosticItem(**item) for item in d.get("items", [])]
         return cls(
             items=items,
             overall_status=d.get("overall_status", "ok"),

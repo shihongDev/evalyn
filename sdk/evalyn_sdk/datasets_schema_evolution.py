@@ -91,9 +91,7 @@ class SchemaMigration:
         return cls(
             from_version=data["from_version"],
             to_version=data["to_version"],
-            add_fields=[
-                SchemaField.from_dict(f) for f in data.get("add_fields", [])
-            ],
+            add_fields=[SchemaField.from_dict(f) for f in data.get("add_fields", [])],
             remove_fields=data.get("remove_fields", []),
             rename_fields=data.get("rename_fields", {}),
         )
@@ -134,7 +132,7 @@ class MigrationResult:
 # ---------------------------------------------------------------------------
 
 _PYTHON_TYPE_TO_SCHEMA: list[tuple] = [
-    (bool, "bool"),   # bool before int (bool is subclass of int)
+    (bool, "bool"),  # bool before int (bool is subclass of int)
     (int, "int"),
     (float, "float"),
     (str, "str"),
@@ -188,9 +186,7 @@ def detect_schema(records: list[dict[str, Any]]) -> SchemaVersion:
     return SchemaVersion(version=1, fields=fields)
 
 
-def compare_schemas(
-    old: SchemaVersion, new: SchemaVersion
-) -> SchemaMigration:
+def compare_schemas(old: SchemaVersion, new: SchemaVersion) -> SchemaMigration:
     """Compute a migration that transforms old schema into new schema.
 
     Fields present in new but not old are additions. Fields present in old

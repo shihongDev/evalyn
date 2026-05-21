@@ -19,7 +19,7 @@ class CorrelationPair:
     metric_a: str
     metric_b: str
     correlation: float  # Pearson r
-    relationship: str   # "redundant", "tradeoff", "independent"
+    relationship: str  # "redundant", "tradeoff", "independent"
 
     def as_dict(self) -> dict[str, Any]:
         return {
@@ -86,7 +86,7 @@ def compute_correlations(
     pairs = []
 
     for i, a in enumerate(metric_ids):
-        for b in metric_ids[i + 1:]:
+        for b in metric_ids[i + 1 :]:
             scores_a = metric_scores[a]
             scores_b = metric_scores[b]
 
@@ -105,10 +105,14 @@ def compute_correlations(
             else:
                 relationship = "independent"
 
-            pairs.append(CorrelationPair(
-                metric_a=a, metric_b=b,
-                correlation=r, relationship=relationship,
-            ))
+            pairs.append(
+                CorrelationPair(
+                    metric_a=a,
+                    metric_b=b,
+                    correlation=r,
+                    relationship=relationship,
+                )
+            )
 
     return pairs
 

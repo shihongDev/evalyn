@@ -19,9 +19,7 @@ def _colors_enabled() -> bool:
     if os.environ.get("EVALYN_NO_COLOR") is not None:
         return False
     # Check if stdout is a terminal (not piped)
-    if not hasattr(sys.stdout, "isatty") or not sys.stdout.isatty():
-        return False
-    return True
+    return hasattr(sys.stdout, "isatty") and sys.stdout.isatty()
 
 
 # ANSI escape codes
@@ -79,5 +77,3 @@ def delta_color(delta: float) -> str:
     if delta < -0.01:
         return red(text)
     return yellow(text)
-
-

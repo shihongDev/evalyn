@@ -34,9 +34,7 @@ class TokenAccumulator:
         self._per_model[model_key]["input_tokens"] += result.input_tokens
         self._per_model[model_key]["output_tokens"] += result.output_tokens
 
-    def add_usage(
-        self, input_tokens: int, output_tokens: int, model: str | None = None
-    ) -> None:
+    def add_usage(self, input_tokens: int, output_tokens: int, model: str | None = None) -> None:
         """Add tokens directly from counts (e.g., from LLMJudge.score() result)."""
         model_key = model if model else "_unknown"
         self._ensure_model(model_key)
@@ -110,12 +108,7 @@ class AlignmentMetrics:
 
     @property
     def total(self) -> int:
-        return (
-            self.true_positive
-            + self.true_negative
-            + self.false_positive
-            + self.false_negative
-        )
+        return self.true_positive + self.true_negative + self.false_positive + self.false_negative
 
     @property
     def accuracy(self) -> float:
@@ -163,9 +156,7 @@ class AlignmentMetrics:
         # Expected agreement (by chance)
         judge_pass_rate = (self.true_positive + self.false_positive) / self.total
         human_pass_rate = (self.true_positive + self.false_negative) / self.total
-        p_e = (judge_pass_rate * human_pass_rate) + (
-            (1 - judge_pass_rate) * (1 - human_pass_rate)
-        )
+        p_e = (judge_pass_rate * human_pass_rate) + ((1 - judge_pass_rate) * (1 - human_pass_rate))
 
         if p_e >= 1.0:
             return 1.0 if p_o >= 1.0 else 0.0

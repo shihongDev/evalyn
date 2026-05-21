@@ -40,7 +40,8 @@ def _build_metrics_from_specs(
 
     calibrated_prompts = calibrated_prompts or {}
     calibrated_count = sum(
-        1 for s in metrics_data
+        1
+        for s in metrics_data
         if s.get("type") == "subjective" and s.get("id", "") in calibrated_prompts
     )
 
@@ -170,9 +171,7 @@ class SuggestMetricsStep(PipelineStep):
         llm_mode = getattr(self.args, "llm_mode", "api")
         bundle = getattr(self.args, "bundle", None)
 
-        metric_specs = self._suggest_metrics(
-            mode, model, llm_mode, bundle, target_fn, calls
-        )
+        metric_specs = self._suggest_metrics(mode, model, llm_mode, bundle, target_fn, calls)
 
         # Save metrics
         payload = []
@@ -360,7 +359,7 @@ class InitialEvalStep(PipelineStep):
         metrics, _ = _build_metrics_from_specs(metrics_data, gemini_key)
 
         # Run evaluation
-        items = list(load_dataset(dataset_path))
+        items = load_dataset(dataset_path)
         runner = EvalRunner(
             target_fn=target_fn or (lambda: None),
             metrics=metrics,
@@ -378,9 +377,7 @@ class InitialEvalStep(PipelineStep):
 
         # Validate output exists
         if not run_path.exists():
-            return StepResult(
-                status="failed", error="Eval run file was not created"
-            ), {}
+            return StepResult(status="failed", error="Eval run file was not created"), {}
 
         print(f"  Evaluated {len(items)} items")
         print("  RESULTS:")
@@ -492,9 +489,7 @@ class CalibrationStep(PipelineStep):
         ann_path = output_dir / "annotations" / "annotations.jsonl"
         if not ann_path.exists():
             print("  SKIPPED (requires annotations)\n")
-            return StepResult(
-                status="skipped", details={"reason": "no annotations"}
-            ), {}
+            return StepResult(status="skipped", details={"reason": "no annotations"}), {}
 
         cal_dir = output_dir / "calibrations"
         cal_dir.mkdir(exist_ok=True)
@@ -506,9 +501,7 @@ class CalibrationStep(PipelineStep):
 
         if not subj_metrics:
             print("  SKIPPED (no subjective metrics)\n")
-            return StepResult(
-                status="skipped", details={"reason": "no subjective metrics"}
-            ), {}
+            return StepResult(status="skipped", details={"reason": "no subjective metrics"}), {}
 
         print(f"  -> Calibrating {len(subj_metrics)} subjective metrics...\n")
 
@@ -538,9 +531,7 @@ class CalibrationStep(PipelineStep):
         if calibrated_metrics:
             print(f"  Successfully calibrated: {', '.join(calibrated_metrics)}")
         if failed_metrics:
-            print(
-                f"  Failed to calibrate: {', '.join(m['id'] for m in failed_metrics)}"
-            )
+            print(f"  Failed to calibrate: {', '.join(m['id'] for m in failed_metrics)}")
 
         # Determine status based on results
         if not calibrated_metrics and failed_metrics:
@@ -592,9 +583,7 @@ class CalibratedEvalStep(PipelineStep):
         cal_dir = output_dir / "calibrations"
         if not cal_dir.exists():
             print("  SKIPPED (no calibrations)\n")
-            return StepResult(
-                status="skipped", details={"reason": "no calibrations"}
-            ), {}
+            return StepResult(status="skipped", details={"reason": "no calibrations"}), {}
 
         eval_dir = output_dir / self.name
         eval_dir.mkdir(exist_ok=True)
@@ -627,7 +616,7 @@ class CalibratedEvalStep(PipelineStep):
         )
 
         # Run evaluation
-        items = list(load_dataset(dataset_path))
+        items = load_dataset(dataset_path)
         runner = EvalRunner(
             target_fn=target_fn or (lambda: None),
             metrics=metrics,
@@ -645,9 +634,7 @@ class CalibratedEvalStep(PipelineStep):
 
         # Validate output exists
         if not run_path.exists():
-            return StepResult(
-                status="failed", error="Calibrated eval run file was not created"
-            ), {}
+            return StepResult(status="failed", error="Calibrated eval run file was not created"), {}
 
         print(f"  Used {calibrated_count} calibrated prompts")
         print(f"  Evaluated {len(items)} items")
@@ -722,9 +709,7 @@ class SimulationStep(PipelineStep):
         return f"  -> Would generate simulations: modes={modes}\n"
 
 
-def create_pipeline_steps(
-    args: argparse.Namespace, config: dict[str, Any]
-) -> list[PipelineStep]:
+def create_pipeline_steps(args: argparse.Namespace, config: dict[str, Any]) -> list[PipelineStep]:
     """Create all pipeline steps."""
     return [
         BuildDatasetStep(args, config),

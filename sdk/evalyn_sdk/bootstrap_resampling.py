@@ -88,9 +88,7 @@ class BootstrapReport:
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> BootstrapReport:
         return cls(
-            intervals=[
-                BootstrapCI.from_dict(ci) for ci in data.get("intervals", [])
-            ],
+            intervals=[BootstrapCI.from_dict(ci) for ci in data.get("intervals", [])],
             confidence_level=data.get("confidence_level", 0.95),
             n_samples=data.get("n_samples", 0),
         )
@@ -113,7 +111,7 @@ def percentile(sorted_values: list[float], p: float) -> float:
         return sorted_values[0]
     p = max(0.0, min(1.0, p))
     idx = p * (n - 1)
-    lo = int(math.floor(idx))
+    lo = math.floor(idx)
     hi = min(lo + 1, n - 1)
     frac = idx - lo
     return sorted_values[lo] + frac * (sorted_values[hi] - sorted_values[lo])
@@ -186,9 +184,7 @@ def bootstrap_metric(
     """Full bootstrap CI computation for one metric using mean as the statistic."""
     point_estimate = _mean(scores)
     distribution = compute_bootstrap_distribution(scores, _mean, config)
-    ci_lower, ci_upper = compute_confidence_interval(
-        distribution, config.confidence_level
-    )
+    ci_lower, ci_upper = compute_confidence_interval(distribution, config.confidence_level)
     std_error = _std_error(distribution)
     return BootstrapCI(
         metric_id=metric_id,
@@ -230,10 +226,7 @@ def bootstrap_all_metrics(
 def format_bootstrap_report(report: BootstrapReport) -> str:
     """Format a bootstrap report as a human-readable table."""
     lines: list[str] = []
-    lines.append(
-        f"Bootstrap Report ({report.confidence_level:.0%} CI, "
-        f"n={report.n_samples})"
-    )
+    lines.append(f"Bootstrap Report ({report.confidence_level:.0%} CI, n={report.n_samples})")
     lines.append("-" * 72)
     header = f"{'Metric':<20} {'Estimate':>10} {'CI Lower':>10} {'CI Upper':>10} {'Std Err':>10}"
     lines.append(header)

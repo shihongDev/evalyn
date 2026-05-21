@@ -58,9 +58,7 @@ def get_effective_width(config: WidthConfig | None = None) -> int:
     return max(width, config.min_width)
 
 
-def truncate_table_row(
-    columns: list[str], widths: list[int], separator: str = " | "
-) -> str:
+def truncate_table_row(columns: list[str], widths: list[int], separator: str = " | ") -> str:
     """Truncate each column to its designated width and join with separator.
 
     Columns wider than their width get an ellipsis suffix.
@@ -195,9 +193,7 @@ def wrap_paragraph(text: str, width: int | None = None) -> str:
     return textwrap.fill(text, width=width)
 
 
-def format_progress_bar(
-    progress: float, width: int | None = None, label: str = ""
-) -> str:
+def format_progress_bar(progress: float, width: int | None = None, label: str = "") -> str:
     """Render a progress bar fitting terminal width.
 
     Format: [=====>     ] 50% label

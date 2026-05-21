@@ -75,11 +75,13 @@ class PackRegistry:
         query_lower = query.lower()
         results: list[RubricPack] = []
         for pack in self._packs.values():
-            searchable = " ".join([
-                pack.pack_id,
-                pack.description,
-                pack.domain,
-            ]).lower()
+            searchable = " ".join(
+                [
+                    pack.pack_id,
+                    pack.description,
+                    pack.domain,
+                ]
+            ).lower()
             if query_lower in searchable:
                 results.append(pack)
         return results
@@ -96,7 +98,8 @@ class PackRegistry:
         """Remove rubrics from a pack (match by id prefix). Returns count removed."""
         prefix = pack_id + "/"
         to_remove = [
-            r for r in target_registry
+            r
+            for r in target_registry
             if isinstance(r, dict) and str(r.get("id", "")).startswith(prefix)
         ]
         for r in to_remove:

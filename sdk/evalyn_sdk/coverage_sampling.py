@@ -99,9 +99,7 @@ def compute_item_features(text: str) -> set[str]:
     return {w for w in words if len(w) >= 2}
 
 
-def compute_coverage_rate(
-    selected_features: set[str], total_features: set[str]
-) -> float:
+def compute_coverage_rate(selected_features: set[str], total_features: set[str]) -> float:
     """Fraction of total vocabulary covered by selected features."""
     if not total_features:
         return 1.0
@@ -191,9 +189,7 @@ def greedy_max_coverage(
     )
 
 
-def run_coverage_sampling(
-    items: dict[str, str], config: CoverageConfig
-) -> CoverageResult:
+def run_coverage_sampling(items: dict[str, str], config: CoverageConfig) -> CoverageResult:
     """Full coverage-aware sampling pipeline.
 
     Uses greedy_max_coverage with the given configuration.

@@ -68,9 +68,7 @@ def insert_citation_markers(text, citations_list):
         for segment in citation_info["segments"]:
             marker_to_insert += f" [{segment['label']}]({segment['short_url']})"
         # Insert the citation marker at the original end_idx position
-        modified_text = (
-            modified_text[:end_idx] + marker_to_insert + modified_text[end_idx:]
-        )
+        modified_text = modified_text[:end_idx] + marker_to_insert + modified_text[end_idx:]
 
     return modified_text
 
@@ -126,11 +124,7 @@ def get_citations(response, resolved_urls_map):
         if not hasattr(support, "segment") or support.segment is None:
             continue  # Skip this support if segment info is missing
 
-        start_index = (
-            support.segment.start_index
-            if support.segment.start_index is not None
-            else 0
-        )
+        start_index = support.segment.start_index if support.segment.start_index is not None else 0
 
         # Ensure end_index is present to form a valid segment
         if support.segment.end_index is None:
@@ -142,10 +136,7 @@ def get_citations(response, resolved_urls_map):
         citation["end_index"] = support.segment.end_index
 
         citation["segments"] = []
-        if (
-            hasattr(support, "grounding_chunk_indices")
-            and support.grounding_chunk_indices
-        ):
+        if hasattr(support, "grounding_chunk_indices") and support.grounding_chunk_indices:
             for ind in support.grounding_chunk_indices:
                 try:
                     chunk = candidate.grounding_metadata.grounding_chunks[ind]

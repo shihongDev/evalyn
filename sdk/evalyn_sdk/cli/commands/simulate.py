@@ -208,13 +208,16 @@ def _cmd_simulate_inner(args: argparse.Namespace) -> None:
 
         # Show hints
         hints = HintCollector(quiet=getattr(args, "quiet", False))
-        first_result_path = list(results.values())[0] if results else None
+        first_result_path = next(iter(results.values()), None) if results else None
         if first_result_path:
             hints.add(
                 f"evalyn run-eval --dataset {first_result_path}",
                 "Evaluate simulated data",
                 options=[
-                    ("--provider gemini|openai|ollama", "LLM provider for judges (default: gemini)"),
+                    (
+                        "--provider gemini|openai|ollama",
+                        "LLM provider for judges (default: gemini)",
+                    ),
                     ("--workers <N>", "Parallel workers (default: 4)"),
                 ],
             )
@@ -271,9 +274,7 @@ def _cmd_simulate_inner(args: argparse.Namespace) -> None:
                 "num_queries": len(generated),
                 "config": {
                     "model": config.model,
-                    "num_per_seed": config.num_similar
-                    if mode == "similar"
-                    else config.num_outlier,
+                    "num_per_seed": config.num_similar if mode == "similar" else config.num_outlier,
                     "temperature": config.temperature_similar
                     if mode == "similar"
                     else config.temperature_outlier,

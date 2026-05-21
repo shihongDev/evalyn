@@ -102,9 +102,7 @@ class StratifiedResult:
 # ---------------------------------------------------------------------------
 
 
-def create_score_bins(
-    scores: dict[str, float], n_bins: int = 5
-) -> list[ScoreBin]:
+def create_score_bins(scores: dict[str, float], n_bins: int = 5) -> list[ScoreBin]:
     """Create equal-width bins spanning [0, 1] and assign items.
 
     Each bin covers a range of width 1/n_bins. The last bin includes 1.0.
@@ -179,9 +177,7 @@ def sample_from_bins(
 # ---------------------------------------------------------------------------
 
 
-def compute_bin_balance(
-    bins: list[ScoreBin], sampled_counts: list[int]
-) -> float:
+def compute_bin_balance(bins: list[ScoreBin], sampled_counts: list[int]) -> float:
     """Compute how uniform the sampled counts are across bins.
 
     Returns 1 - coefficient_of_variation of sampled counts.
@@ -213,9 +209,7 @@ def compute_bin_balance(
 # ---------------------------------------------------------------------------
 
 
-def run_stratified_sampling(
-    scores: dict[str, float], config: StratifiedConfig
-) -> StratifiedResult:
+def run_stratified_sampling(scores: dict[str, float], config: StratifiedConfig) -> StratifiedResult:
     """Full stratified sampling pipeline.
 
     1. Create score bins
@@ -273,9 +267,7 @@ def format_stratified_report(result: StratifiedResult) -> str:
     for b in result.bins:
         sampled = sum(1 for item_id in b.item_ids if item_id in selected_set)
         range_str = f"[{b.low:.2f}, {b.high:.2f})"
-        lines.append(
-            f"  {b.bin_id:<10} {range_str:<15} {b.count:>8} {sampled:>8}"
-        )
+        lines.append(f"  {b.bin_id:<10} {range_str:<15} {b.count:>8} {sampled:>8}")
     lines.append("")
     lines.append("Selected IDs:")
     for item_id in result.selected_ids:

@@ -228,39 +228,49 @@ def build_diversity_report(
     scores: list[DiversityScore] = []
 
     vocab = compute_vocabulary_spread(gen_texts)
-    scores.append(DiversityScore(
-        metric_name="vocabulary_spread",
-        score=vocab,
-        details=f"Type-token ratio across {len(gen_texts)} texts",
-    ))
+    scores.append(
+        DiversityScore(
+            metric_name="vocabulary_spread",
+            score=vocab,
+            details=f"Type-token ratio across {len(gen_texts)} texts",
+        )
+    )
 
     pairwise = compute_pairwise_distance(gen_texts)
-    scores.append(DiversityScore(
-        metric_name="pairwise_distance",
-        score=pairwise,
-        details=f"Average Jaccard distance across {len(gen_texts)} texts",
-    ))
+    scores.append(
+        DiversityScore(
+            metric_name="pairwise_distance",
+            score=pairwise,
+            details=f"Average Jaccard distance across {len(gen_texts)} texts",
+        )
+    )
 
     uniqueness = compute_uniqueness_ratio(gen_texts, seed_texts)
-    scores.append(DiversityScore(
-        metric_name="uniqueness_ratio",
-        score=uniqueness,
-        details=f"Fraction unique vs {len(seed_texts)} seeds (threshold 0.5)",
-    ))
+    scores.append(
+        DiversityScore(
+            metric_name="uniqueness_ratio",
+            score=uniqueness,
+            details=f"Fraction unique vs {len(seed_texts)} seeds (threshold 0.5)",
+        )
+    )
 
     novelty = compute_novelty_score(gen_texts, seed_texts)
-    scores.append(DiversityScore(
-        metric_name="novelty_score",
-        score=novelty,
-        details=f"Fraction novel vs {len(seed_texts)} seeds (threshold 0.3)",
-    ))
+    scores.append(
+        DiversityScore(
+            metric_name="novelty_score",
+            score=novelty,
+            details=f"Fraction novel vs {len(seed_texts)} seeds (threshold 0.3)",
+        )
+    )
 
     length_div = compute_length_diversity(gen_texts)
-    scores.append(DiversityScore(
-        metric_name="length_diversity",
-        score=length_div,
-        details=f"CV of lengths across {len(gen_texts)} texts",
-    ))
+    scores.append(
+        DiversityScore(
+            metric_name="length_diversity",
+            score=length_div,
+            details=f"CV of lengths across {len(gen_texts)} texts",
+        )
+    )
 
     if scores:
         overall = sum(s.score for s in scores) / len(scores)
@@ -299,8 +309,12 @@ def compare_diversity(report_a: DiversityReport, report_b: DiversityReport) -> s
     lines: list[str] = []
     lines.append("Diversity Comparison")
     lines.append("=" * 50)
-    lines.append(f"  Report A: {report_a.total_items} items, overall={report_a.overall_diversity:.4f}")
-    lines.append(f"  Report B: {report_b.total_items} items, overall={report_b.overall_diversity:.4f}")
+    lines.append(
+        f"  Report A: {report_a.total_items} items, overall={report_a.overall_diversity:.4f}"
+    )
+    lines.append(
+        f"  Report B: {report_b.total_items} items, overall={report_b.overall_diversity:.4f}"
+    )
     lines.append("")
 
     # Build lookup for B
@@ -311,7 +325,9 @@ def compare_diversity(report_a: DiversityReport, report_b: DiversityReport) -> s
         if sb_score is not None:
             diff = sb_score - sa.score
             direction = "higher" if diff > 0 else "lower" if diff < 0 else "same"
-            lines.append(f"  {sa.metric_name}: A={sa.score:.4f}  B={sb_score:.4f}  ({direction}, delta={diff:+.4f})")
+            lines.append(
+                f"  {sa.metric_name}: A={sa.score:.4f}  B={sb_score:.4f}  ({direction}, delta={diff:+.4f})"
+            )
         else:
             lines.append(f"  {sa.metric_name}: A={sa.score:.4f}  B=N/A")
 

@@ -81,7 +81,7 @@ class LangChainInstrumentor(Instrumentor):
                 generations = getattr(response, "generations", None)
                 if generations:
                     for gen_list in generations:
-                        for gen in (gen_list if isinstance(gen_list, list) else [gen_list]):
+                        for gen in gen_list if isinstance(gen_list, list) else [gen_list]:
                             text = getattr(gen, "text", "")
                             if text:
                                 content = str(text)[:500]

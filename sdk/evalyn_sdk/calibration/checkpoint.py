@@ -123,8 +123,7 @@ class CheckpointManager:
         return {
             "config": self.config.as_dict(),
             "checkpoints": {
-                mid: [c.as_dict() for c in clist]
-                for mid, clist in self._checkpoints.items()
+                mid: [c.as_dict() for c in clist] for mid, clist in self._checkpoints.items()
             },
         }
 

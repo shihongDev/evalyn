@@ -166,7 +166,7 @@ def import_from_yaml_string(content: str) -> PortableRubric:
         sections.append(current)
 
     # Section 0: header fields
-    header = _parse_section(sections[0]) if len(sections) > 0 else {}
+    header = _parse_section(sections[0]) if sections else {}
 
     # Section 1: prompt (multiline block)
     prompt_lines: list[str] = []
@@ -279,9 +279,7 @@ def merge_rubrics(
         elif strategy == "skip":
             actions.append(f"skipped {rubric.metric_id} (already exists)")
         elif strategy == "overwrite":
-            merged = [
-                r for r in merged if r.metric_id != rubric.metric_id
-            ]
+            merged = [r for r in merged if r.metric_id != rubric.metric_id]
             merged.append(rubric)
             actions.append(f"overwrote {rubric.metric_id}")
         elif strategy == "rename":

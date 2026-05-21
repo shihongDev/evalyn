@@ -148,10 +148,7 @@ def compute_signal_strength(
     mean_m = sum(metric_scores) / n
     mean_o = sum(overall_scores) / n
 
-    cov = sum(
-        (m - mean_m) * (o - mean_o)
-        for m, o in zip(metric_scores, overall_scores)
-    ) / n
+    cov = sum((m - mean_m) * (o - mean_o) for m, o in zip(metric_scores, overall_scores)) / n
 
     std_m = math.sqrt(sum((m - mean_m) ** 2 for m in metric_scores) / n)
     std_o = math.sqrt(sum((o - mean_o) ** 2 for o in overall_scores) / n)
@@ -171,7 +168,7 @@ def detect_redundant_metrics(
     pairs: list[tuple[str, str]] = []
 
     for i, a in enumerate(ids):
-        for b in ids[i + 1:]:
+        for b in ids[i + 1 :]:
             scores_a = metric_scores[a]
             scores_b = metric_scores[b]
             if len(scores_a) != len(scores_b) or len(scores_a) < 2:
@@ -241,31 +238,35 @@ def generate_budget_recommendations(
     total_cost = sum(p.avg_cost_per_item for p in profiles)
 
     for p in profiles:
-        savings_pct = (
-            (p.avg_cost_per_item / total_cost * 100) if total_cost > 0 else 0.0
-        )
+        savings_pct = (p.avg_cost_per_item / total_cost * 100) if total_cost > 0 else 0.0
 
         if p.metric_id in replace_ids:
-            recs.append(BudgetRecommendation(
-                metric_id=p.metric_id,
-                action="replace",
-                reason="redundant with higher-signal metric",
-                estimated_savings_pct=savings_pct,
-            ))
+            recs.append(
+                BudgetRecommendation(
+                    metric_id=p.metric_id,
+                    action="replace",
+                    reason="redundant with higher-signal metric",
+                    estimated_savings_pct=savings_pct,
+                )
+            )
         elif p.signal_strength < LOW_SIGNAL_THRESHOLD and p.metric_id not in redundant_ids:
-            recs.append(BudgetRecommendation(
-                metric_id=p.metric_id,
-                action="drop",
-                reason="low signal strength",
-                estimated_savings_pct=savings_pct,
-            ))
+            recs.append(
+                BudgetRecommendation(
+                    metric_id=p.metric_id,
+                    action="drop",
+                    reason="low signal strength",
+                    estimated_savings_pct=savings_pct,
+                )
+            )
         else:
-            recs.append(BudgetRecommendation(
-                metric_id=p.metric_id,
-                action="keep",
-                reason="adequate signal",
-                estimated_savings_pct=0.0,
-            ))
+            recs.append(
+                BudgetRecommendation(
+                    metric_id=p.metric_id,
+                    action="keep",
+                    reason="adequate signal",
+                    estimated_savings_pct=0.0,
+                )
+            )
 
     return recs
 
@@ -289,9 +290,7 @@ def build_budget_report(
     recs = generate_budget_recommendations(profiles, redundant_pairs)
     total_cost = sum(p.avg_cost_per_item for p in profiles)
     drop_cost = sum(
-        p.avg_cost_per_item
-        for p, r in zip(profiles, recs)
-        if r.action in ("drop", "replace")
+        p.avg_cost_per_item for p, r in zip(profiles, recs) if r.action in ("drop", "replace")
     )
     # Match recommendations to profiles by metric_id for accurate calculation
     rec_map = {r.metric_id: r for r in recs}

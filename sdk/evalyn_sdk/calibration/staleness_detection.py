@@ -111,9 +111,7 @@ class StalenessReport:
         if self.alerts:
             lines.append("  Alerts:")
             for alert in self.alerts:
-                lines.append(
-                    f"    [{alert.severity.upper()}] {alert.metric_id}: {alert.reason}"
-                )
+                lines.append(f"    [{alert.severity.upper()}] {alert.metric_id}: {alert.reason}")
         else:
             lines.append("  No alerts.")
         return "\n".join(lines)
@@ -124,9 +122,7 @@ class StalenessReport:
 # ---------------------------------------------------------------------------
 
 
-def compute_dataset_drift(
-    old_hash: str, new_hash: str, old_items: int, new_items: int
-) -> float:
+def compute_dataset_drift(old_hash: str, new_hash: str, old_items: int, new_items: int) -> float:
     """Simple drift metric based on hash comparison and item count change.
 
     If hashes are the same, drift is 0.0.
@@ -212,9 +208,7 @@ def check_all_staleness(
         current_hash, current_items = current_datasets.get(
             meta.metric_id, (meta.dataset_hash, meta.num_items)
         )
-        alerts = check_staleness(
-            meta, current_hash, current_items, max_age_days=max_age_days
-        )
+        alerts = check_staleness(meta, current_hash, current_items, max_age_days=max_age_days)
         if alerts:
             all_alerts.extend(alerts)
             if meta.metric_id not in stale:

@@ -61,10 +61,7 @@ class ContributionReport:
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> ContributionReport:
-        contributions = [
-            MetricContribution.from_dict(c)
-            for c in data.get("contributions", [])
-        ]
+        contributions = [MetricContribution.from_dict(c) for c in data.get("contributions", [])]
         return cls(
             contributions=contributions,
             most_positive=data.get("most_positive", ""),
@@ -85,9 +82,7 @@ class ContributionReport:
             key=lambda x: abs(x.contribution_score),
             reverse=True,
         ):
-            sign = "+" if c.direction == "positive" else (
-                "-" if c.direction == "negative" else " "
-            )
+            sign = "+" if c.direction == "positive" else ("-" if c.direction == "negative" else " ")
             lines.append(
                 f"  {sign} {c.metric_id}: {c.contribution_score:.3f} "
                 f"({c.items_influenced} items influenced)"
@@ -110,9 +105,7 @@ def _overall_without_metric(
     If no remaining metrics, default to pass.
     """
     metrics = item.get("metrics", {})
-    remaining = {
-        mid: mdata for mid, mdata in metrics.items() if mid != exclude_metric
-    }
+    remaining = {mid: mdata for mid, mdata in metrics.items() if mid != exclude_metric}
     if not remaining:
         return True
     passed_count = sum(1 for mdata in remaining.values() if mdata.get("passed", False))
@@ -227,11 +220,7 @@ def identify_bottleneck_metrics(
 
     Returns metric IDs where contribution_score <= -threshold.
     """
-    return [
-        c.metric_id
-        for c in report.contributions
-        if c.contribution_score <= -threshold
-    ]
+    return [c.metric_id for c in report.contributions if c.contribution_score <= -threshold]
 
 
 def render_contribution_chart(

@@ -89,12 +89,14 @@ def convert_evalyn_to_openai(
         metrics = results_by_id.get(item_id, {})
 
         messages = [{"role": "user", "content": input_text}]
-        samples.append(OpenAIEvalSample(
-            input_messages=messages,
-            ideal=expected,
-            output=output_text,
-            metrics=metrics,
-        ))
+        samples.append(
+            OpenAIEvalSample(
+                input_messages=messages,
+                ideal=expected,
+                output=output_text,
+                metrics=metrics,
+            )
+        )
 
     return OpenAIEvalSet(
         eval_name="evalyn_export",

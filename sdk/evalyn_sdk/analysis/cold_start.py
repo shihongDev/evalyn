@@ -17,9 +17,9 @@ class ColdStartResult:
 
     metric_id: str
     cold_start_detected: bool
-    cold_mean: float       # mean of first K items
-    warm_mean: float       # mean of remaining items
-    delta: float           # warm_mean - cold_mean
+    cold_mean: float  # mean of first K items
+    warm_mean: float  # mean of remaining items
+    delta: float  # warm_mean - cold_mean
     p_value_approx: float  # approximate significance
     cold_count: int
     warm_count: int
@@ -100,16 +100,18 @@ def detect_cold_start(
     for metric_id, scores in sorted(scores_by_metric.items()):
         if len(scores) < cold_window + 3:
             # Not enough data for meaningful comparison
-            results.append(ColdStartResult(
-                metric_id=metric_id,
-                cold_start_detected=False,
-                cold_mean=_mean(scores[:cold_window]) if scores else 0.0,
-                warm_mean=_mean(scores[cold_window:]) if len(scores) > cold_window else 0.0,
-                delta=0.0,
-                p_value_approx=1.0,
-                cold_count=min(cold_window, len(scores)),
-                warm_count=max(0, len(scores) - cold_window),
-            ))
+            results.append(
+                ColdStartResult(
+                    metric_id=metric_id,
+                    cold_start_detected=False,
+                    cold_mean=_mean(scores[:cold_window]) if scores else 0.0,
+                    warm_mean=_mean(scores[cold_window:]) if len(scores) > cold_window else 0.0,
+                    delta=0.0,
+                    p_value_approx=1.0,
+                    cold_count=min(cold_window, len(scores)),
+                    warm_count=max(0, len(scores) - cold_window),
+                )
+            )
             continue
 
         cold = scores[:cold_window]
@@ -124,16 +126,18 @@ def detect_cold_start(
 
         detected = p_value < significance_threshold and abs(delta) > 0.05
 
-        results.append(ColdStartResult(
-            metric_id=metric_id,
-            cold_start_detected=detected,
-            cold_mean=cold_mean,
-            warm_mean=warm_mean,
-            delta=delta,
-            p_value_approx=p_value,
-            cold_count=len(cold),
-            warm_count=len(warm),
-        ))
+        results.append(
+            ColdStartResult(
+                metric_id=metric_id,
+                cold_start_detected=detected,
+                cold_mean=cold_mean,
+                warm_mean=warm_mean,
+                delta=delta,
+                p_value_approx=p_value,
+                cold_count=len(cold),
+                warm_count=len(warm),
+            )
+        )
 
     return ColdStartReport(results=results)
 
@@ -158,7 +162,7 @@ def _welch_t_test_p(a: list[float], b: list[float]) -> float:
     ma, mb = _mean(a), _mean(b)
     sa, sb = _std(a), _std(b)
 
-    se = math.sqrt(sa ** 2 / na + sb ** 2 / nb) if (sa > 0 or sb > 0) else 0
+    se = math.sqrt(sa**2 / na + sb**2 / nb) if (sa > 0 or sb > 0) else 0
     if se == 0:
         return 1.0 if ma == mb else 0.0
 
@@ -167,5 +171,6 @@ def _welch_t_test_p(a: list[float], b: list[float]) -> float:
     # Approximate p-value using normal distribution (good for df > 30)
     # For small df, this is conservative (actual p would be larger)
     from .stats import _normal_cdf
+
     p = 2 * (1 - _normal_cdf(t))
     return max(0.0, min(1.0, p))

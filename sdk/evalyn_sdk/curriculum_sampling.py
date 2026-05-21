@@ -112,9 +112,7 @@ class CurriculumResult:
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> CurriculumResult:
         return cls(
-            batches=[
-                CurriculumBatch.from_dict(b) for b in data.get("batches", [])
-            ],
+            batches=[CurriculumBatch.from_dict(b) for b in data.get("batches", [])],
             total_items=data.get("total_items", 0),
             items_evaluated=data.get("items_evaluated", 0),
             stopped_early=data.get("stopped_early", False),
@@ -163,9 +161,7 @@ def estimate_difficulty_by_complexity(
     def _features(text: str) -> tuple[int, float, int]:
         words = text.split()
         word_count = len(words)
-        avg_word_len = (
-            sum(len(w) for w in words) / word_count if word_count > 0 else 0.0
-        )
+        avg_word_len = sum(len(w) for w in words) / word_count if word_count > 0 else 0.0
         sentence_count = max(len(re.split(r"[.!?]+", text)) - 1, 1)
         return word_count, avg_word_len, sentence_count
 
@@ -188,9 +184,7 @@ def estimate_difficulty_by_complexity(
         norm_awl = _normalize(awl, avg_lens)
         norm_sc = _normalize(sc, sent_counts)
         difficulty = (norm_wc + norm_awl + norm_sc) / 3.0
-        results.append(
-            DifficultyEstimate(item_id=k, difficulty=difficulty, source="complexity")
-        )
+        results.append(DifficultyEstimate(item_id=k, difficulty=difficulty, source="complexity"))
     return results
 
 
@@ -212,9 +206,7 @@ def estimate_difficulty_by_scores(
             difficulty = 1.0 - (s - min_score) / span
         else:
             difficulty = 0.0
-        results.append(
-            DifficultyEstimate(item_id=k, difficulty=difficulty, source="score")
-        )
+        results.append(DifficultyEstimate(item_id=k, difficulty=difficulty, source="score"))
     return results
 
 

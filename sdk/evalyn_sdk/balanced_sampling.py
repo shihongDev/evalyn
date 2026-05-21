@@ -89,18 +89,14 @@ class BalanceResult:
     def from_dict(cls, data: dict[str, Any]) -> BalanceResult:
         return cls(
             selected_ids=data.get("selected_ids", []),
-            category_stats=[
-                CategoryStats.from_dict(s) for s in data.get("category_stats", [])
-            ],
+            category_stats=[CategoryStats.from_dict(s) for s in data.get("category_stats", [])],
             total_pool=data.get("total_pool", 0),
             total_selected=data.get("total_selected", 0),
             balance_score=data.get("balance_score", 0.0),
         )
 
 
-def compute_category_counts(
-    items: list[dict[str, Any]], field_name: str
-) -> dict[str, list[str]]:
+def compute_category_counts(items: list[dict[str, Any]], field_name: str) -> dict[str, list[str]]:
     """Group item IDs by category field value.
 
     Each item dict must have an "id" key and a key matching field_name.
@@ -236,9 +232,7 @@ def proportional_sample(
 
     # Second pass: distribute remaining budget proportionally
     if remaining_budget > 0:
-        proportions = {
-            cat: len(groups[cat]) / pool_size for cat in non_empty
-        }
+        proportions = {cat: len(groups[cat]) / pool_size for cat in non_empty}
         # Distribute remaining
         fractional: dict[str, float] = {}
         for cat in non_empty:
@@ -247,13 +241,9 @@ def proportional_sample(
         # Floor allocation + remainder distribution
         for cat in non_empty:
             allocation[cat] += int(fractional[cat])
-        leftover = remaining_budget - sum(
-            int(fractional[cat]) for cat in non_empty
-        )
+        leftover = remaining_budget - sum(int(fractional[cat]) for cat in non_empty)
         # Give leftover to categories with highest fractional parts
-        remainders = [
-            (fractional[cat] - int(fractional[cat]), cat) for cat in non_empty
-        ]
+        remainders = [(fractional[cat] - int(fractional[cat]), cat) for cat in non_empty]
         remainders.sort(key=lambda x: x[0], reverse=True)
         for i in range(leftover):
             allocation[remainders[i][1]] += 1
@@ -270,9 +260,7 @@ def proportional_sample(
     return selected
 
 
-def run_balanced_sampling(
-    items: list[dict[str, Any]], config: BalanceConfig
-) -> BalanceResult:
+def run_balanced_sampling(items: list[dict[str, Any]], config: BalanceConfig) -> BalanceResult:
     """Full balanced sampling pipeline.
 
     1. Group items by the balance field

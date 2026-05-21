@@ -127,11 +127,13 @@ class Eval:
             if isinstance(d, DatasetItem):
                 items.append(d)
             elif isinstance(d, dict):
-                items.append(DatasetItem(
-                    id=d.get("id", f"item-{i}"),
-                    input=d.get("input", {}),
-                    output=d.get("output"),
-                ))
+                items.append(
+                    DatasetItem(
+                        id=d.get("id", f"item-{i}"),
+                        input=d.get("input", {}),
+                        output=d.get("output"),
+                    )
+                )
             else:
                 items.append(DatasetItem(id=f"item-{i}", input={}, output=str(d)))
 

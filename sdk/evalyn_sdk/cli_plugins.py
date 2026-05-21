@@ -102,13 +102,15 @@ def discover_entry_points(group: str = "evalyn.commands") -> list[PluginInfo]:
             except Exception:
                 pass
 
-            plugins.append(PluginInfo(
-                name=ep.name,
-                module_path=ep.value,
-                description="",
-                version=version,
-                enabled=True,
-            ))
+            plugins.append(
+                PluginInfo(
+                    name=ep.name,
+                    module_path=ep.value,
+                    description="",
+                    version=version,
+                    enabled=True,
+                )
+            )
     except Exception:
         return []
 

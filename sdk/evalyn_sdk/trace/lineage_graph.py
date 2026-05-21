@@ -101,9 +101,7 @@ class LineageGraph:
 
     def format_text(self) -> str:
         lines: list[str] = []
-        lines.append(
-            f"Lineage graph: {len(self.nodes)} nodes, {len(self.edges)} edges"
-        )
+        lines.append(f"Lineage graph: {len(self.nodes)} nodes, {len(self.edges)} edges")
         root_ids = [n.trace_id for n in self.roots]
         leaf_ids = [n.trace_id for n in self.leaves]
         lines.append(f"  roots: {root_ids}")
@@ -207,9 +205,9 @@ def find_lineage_chain(graph: LineageGraph, trace_id: str) -> list[str]:
 def render_lineage_mermaid(graph: LineageGraph) -> str:
     """Render the lineage graph as a Mermaid diagram."""
     lines: list[str] = ["graph TD"]
-    for tid, _node in graph.nodes.items():
+    for tid in graph.nodes:
         label = tid[:8]
-        lines.append(f"    {tid}[\"{label}\"]")
+        lines.append(f'    {tid}["{label}"]')
     for edge in graph.edges:
         conf = f"{edge.overlap_confidence:.0%}"
         lines.append(f"    {edge.source_trace_id} -->|{conf}| {edge.target_trace_id}")

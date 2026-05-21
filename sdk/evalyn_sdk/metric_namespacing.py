@@ -81,9 +81,7 @@ class NamespaceRegistry:
         else:
             self._namespaces[name] = Namespace(name=name, description=description)
 
-    def add_metric(
-        self, namespace: str, metric_id: str, description: str = ""
-    ) -> NamespacedMetric:
+    def add_metric(self, namespace: str, metric_id: str, description: str = "") -> NamespacedMetric:
         """Register a metric under a namespace. Creates the namespace if needed."""
         if namespace not in self._namespaces:
             self.register_namespace(namespace)
@@ -106,9 +104,7 @@ class NamespaceRegistry:
         key = f"{ns_name}/{metric_id}"
         return self._metrics.get(key)
 
-    def search(
-        self, query: str, namespace: str | None = None
-    ) -> list[NamespacedMetric]:
+    def search(self, query: str, namespace: str | None = None) -> list[NamespacedMetric]:
         """Search metrics by metric_id substring, optionally filtered by namespace."""
         results: list[NamespacedMetric] = []
         for m in self._metrics.values():

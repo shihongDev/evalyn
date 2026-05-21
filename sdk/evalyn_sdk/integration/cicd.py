@@ -147,9 +147,7 @@ def generate_github_action_yaml(
     ]
 
     if config.fail_on_regression:
-        lines.append(
-            f"          evalyn compare --threshold {config.regression_threshold}"
-        )
+        lines.append(f"          evalyn compare --threshold {config.regression_threshold}")
 
     return "\n".join(lines) + "\n"
 

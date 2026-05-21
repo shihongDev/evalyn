@@ -37,11 +37,15 @@ ESSENTIAL = {"metric_id"}
 import argparse
 import json
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from ..utils.command_common import load_eval_run_for_command
 from ..utils.config import load_config, resolve_dataset_path
 from ..utils.errors import fatal_error
 from ..utils.rich import banner, footer, section
+
+if TYPE_CHECKING:
+    from ...models import DatasetItem, EvalRun, MetricResult
 
 
 def _get_eval_run(args: argparse.Namespace) -> EvalRun:
@@ -71,9 +75,7 @@ def _get_eval_run_and_metrics(
 
     metric_results = [r for r in run.metric_results if r.metric_id == args.metric_id]
     if not metric_results:
-        fatal_error(
-            f"No metric results found for metric_id={args.metric_id} in run {run.id}"
-        )
+        fatal_error(f"No metric results found for metric_id={args.metric_id} in run {run.id}")
 
     return run, metric_results
 
@@ -94,9 +96,7 @@ def _load_dataset_context(
 
     if resolved_dataset:
         dataset_dir = Path(resolved_dataset)
-        dataset_file = (
-            dataset_dir / "dataset.jsonl" if dataset_dir.is_dir() else dataset_dir
-        )
+        dataset_file = dataset_dir / "dataset.jsonl" if dataset_dir.is_dir() else dataset_dir
         if dataset_file.exists():
             dataset_items = load_dataset(dataset_file)
             if dataset_dir.is_file():
@@ -175,9 +175,7 @@ def cmd_cluster_misalignments(args: argparse.Namespace) -> None:
     cache_dir = dataset_dir / "calibrations" / args.metric_id if dataset_dir else None
     clusterer = ReasonClusterer(model=args.model, cache_dir=cache_dir)
     compute_embeddings = args.format == "html"
-    result = clusterer.cluster_reasons(
-        disagreements, compute_embeddings=compute_embeddings
-    )
+    result = clusterer.cluster_reasons(disagreements, compute_embeddings=compute_embeddings)
 
     # Output
     default_html_path = (
@@ -290,9 +288,7 @@ def cmd_cluster_failures(args: argparse.Namespace) -> None:
                 import sentence_transformers  # noqa: F401
                 import umap  # noqa: F401
             except ImportError:
-                print(
-                    "  Note: Scatter plot requires: pip install evalyn-sdk[clustering]"
-                )
+                print("  Note: Scatter plot requires: pip install evalyn-sdk[clustering]")
 
         # Determine output path
         if args.output and len(metric_ids) == 1:

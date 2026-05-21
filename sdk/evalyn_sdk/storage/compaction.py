@@ -111,9 +111,7 @@ def estimate_compaction_savings(db_path: str) -> CompactionStats:
     )
 
 
-def compact_database(
-    db_path: str, config: CompactionConfig | None = None
-) -> CompactionStats:
+def compact_database(db_path: str, config: CompactionConfig | None = None) -> CompactionStats:
     """Run compaction on a database file.
 
     Measures before/after file size. The actual VACUUM, REINDEX, ANALYZE

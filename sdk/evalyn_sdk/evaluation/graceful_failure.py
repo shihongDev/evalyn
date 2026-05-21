@@ -82,9 +82,7 @@ class GracefulReport:
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> GracefulReport:
-        failures = [
-            ItemFailure(**f) for f in data.get("failures", [])
-        ]
+        failures = [ItemFailure(**f) for f in data.get("failures", [])]
         return cls(
             total_items=data.get("total_items", 0),
             succeeded=data.get("succeeded", 0),

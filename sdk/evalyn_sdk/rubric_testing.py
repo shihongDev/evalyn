@@ -218,9 +218,7 @@ def run_rubric_test_suite(
     )
 
 
-def compare_rubric_versions(
-    suite_a: RubricTestSuite, suite_b: RubricTestSuite
-) -> dict[str, Any]:
+def compare_rubric_versions(suite_a: RubricTestSuite, suite_b: RubricTestSuite) -> dict[str, Any]:
     """Compare two rubric test suites showing consistency changes and score drift.
 
     Returns a dict with:
@@ -255,7 +253,13 @@ def compare_rubric_versions(
         items.append(entry)
 
     consistency_change = suite_b.overall_consistency - suite_a.overall_consistency
-    direction = "improved" if consistency_change > 0 else "degraded" if consistency_change < 0 else "unchanged"
+    direction = (
+        "improved"
+        if consistency_change > 0
+        else "degraded"
+        if consistency_change < 0
+        else "unchanged"
+    )
 
     return {
         "rubric_a": suite_a.rubric_id,

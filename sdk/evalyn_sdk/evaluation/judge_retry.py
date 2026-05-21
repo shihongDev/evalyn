@@ -31,9 +31,7 @@ class RetryConfig:
     def from_dict(cls, data: dict[str, Any]) -> RetryConfig:
         return cls(
             max_retries=data.get("max_retries", 2),
-            retry_prompt_suffix=data.get(
-                "retry_prompt_suffix", "Please respond with valid JSON."
-            ),
+            retry_prompt_suffix=data.get("retry_prompt_suffix", "Please respond with valid JSON."),
             backoff_ms=data.get("backoff_ms", 0.0),
         )
 
@@ -142,15 +140,17 @@ class RetryStats:
         }
 
     def format_text(self) -> str:
-        return "\n".join([
-            f"Total calls: {self.total_calls}",
-            f"Total retries: {self.total_retries}",
-            f"Success on first: {self.success_on_first}",
-            f"Success on retry: {self.success_on_retry}",
-            f"Total failures: {self.total_failures}",
-            f"Retry rate: {self.retry_rate:.1%}",
-            f"First attempt success rate: {self.first_attempt_success_rate:.1%}",
-        ])
+        return "\n".join(
+            [
+                f"Total calls: {self.total_calls}",
+                f"Total retries: {self.total_retries}",
+                f"Success on first: {self.success_on_first}",
+                f"Success on retry: {self.success_on_retry}",
+                f"Total failures: {self.total_failures}",
+                f"Retry rate: {self.retry_rate:.1%}",
+                f"First attempt success rate: {self.first_attempt_success_rate:.1%}",
+            ]
+        )
 
 
 # ---------------------------------------------------------------------------

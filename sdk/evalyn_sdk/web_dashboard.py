@@ -114,13 +114,9 @@ def generate_metrics_panel(metrics: dict[str, float]) -> DashboardPanel:
     )
 
 
-def generate_table_panel(
-    title: str, headers: list[str], rows: list[list[str]]
-) -> DashboardPanel:
+def generate_table_panel(title: str, headers: list[str], rows: list[list[str]]) -> DashboardPanel:
     """Generate an HTML table panel. All content is html.escaped."""
-    header_cells = "".join(
-        f"<th>{html.escape(h)}</th>" for h in headers
-    )
+    header_cells = "".join(f"<th>{html.escape(h)}</th>" for h in headers)
     body_rows: list[str] = []
     for row in rows:
         cells = "".join(f"<td>{html.escape(str(c))}</td>" for c in row)
@@ -225,12 +221,9 @@ def render_dashboard(dashboard: Dashboard) -> str:
     refresh_meta = ""
     refresh_js = ""
     if config.refresh_interval > 0:
-        refresh_meta = (
-            f'<meta http-equiv="refresh" content="{config.refresh_interval}">'
-        )
+        refresh_meta = f'<meta http-equiv="refresh" content="{config.refresh_interval}">'
         refresh_js = (
-            f"setTimeout(function(){{location.reload();}}, "
-            f"{config.refresh_interval * 1000});"
+            f"setTimeout(function(){{location.reload();}}, {config.refresh_interval * 1000});"
         )
 
     escaped_title = html.escape(config.title)
@@ -303,7 +296,7 @@ svg {{ max-width: 100%; }}
 <body>
 <h1>{escaped_title}</h1>
 <div class="dashboard-grid">
-{''.join(panels_html)}
+{"".join(panels_html)}
 </div>
 <script>{refresh_js}</script>
 </body>
@@ -331,9 +324,7 @@ def build_eval_dashboard(
     # Info panel
     info_rows = [[str(k), str(v)] for k, v in run_info.items()]
     if info_rows:
-        panels.append(
-            generate_table_panel("Run Info", ["Property", "Value"], info_rows)
-        )
+        panels.append(generate_table_panel("Run Info", ["Property", "Value"], info_rows))
 
     # Metrics panel
     if metrics:
@@ -347,8 +338,7 @@ def build_eval_dashboard(
     if failed_items:
         headers = ["ID", "Reason"]
         rows = [
-            [str(item.get("id", "?")), str(item.get("reason", "unknown"))]
-            for item in failed_items
+            [str(item.get("id", "?")), str(item.get("reason", "unknown"))] for item in failed_items
         ]
         panels.append(generate_table_panel("Failed Items", headers, rows))
 

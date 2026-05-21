@@ -127,9 +127,7 @@ class TestGenReport:
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> TestGenReport:
         return cls(
-            test_cases=[
-                GeneratedTestCase.from_dict(tc) for tc in data.get("test_cases", [])
-            ],
+            test_cases=[GeneratedTestCase.from_dict(tc) for tc in data.get("test_cases", [])],
             total_behaviors=data.get("total_behaviors", 0),
             total_tests=data.get("total_tests", 0),
             coverage=dict(data.get("coverage", {})),
@@ -302,9 +300,7 @@ def generate_test_suite(
         # Negative variants
         if config.include_negatives:
             neg_count = max(1, config.variants_per_behavior // 2)
-            behavior_cases.extend(
-                generate_negative_variants(spec, n=neg_count, rng=rng)
-            )
+            behavior_cases.extend(generate_negative_variants(spec, n=neg_count, rng=rng))
 
         # Edge cases
         if config.include_edge_cases:
@@ -340,8 +336,6 @@ def format_test_report(report: TestGenReport) -> str:
         input_preview = tc.input_text[:60]
         if len(tc.input_text) > 60:
             input_preview += "..."
-        lines.append(
-            f"  [{tc.test_id}] ({tc.variant}/{tc.difficulty}) {input_preview}"
-        )
+        lines.append(f"  [{tc.test_id}] ({tc.variant}/{tc.difficulty}) {input_preview}")
 
     return "\n".join(lines)

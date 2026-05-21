@@ -141,13 +141,9 @@ def generate_parallel(
     start = time.monotonic()
 
     with ThreadPoolExecutor(max_workers=config.workers) as executor:
-        future_to_batch = {
-            executor.submit(generate_fn, bs): bs for bs in batches
-        }
+        future_to_batch = {executor.submit(generate_fn, bs): bs for bs in batches}
         try:
-            for future in as_completed(
-                future_to_batch, timeout=config.timeout_seconds
-            ):
+            for future in as_completed(future_to_batch, timeout=config.timeout_seconds):
                 batch_size = future_to_batch[future]
                 try:
                     result = future.result()
@@ -160,8 +156,7 @@ def generate_parallel(
                 if not future.done():
                     failed += batch_size
             errors.append(
-                f"Timeout after {config.timeout_seconds}s with "
-                f"{len(all_items)} items collected"
+                f"Timeout after {config.timeout_seconds}s with {len(all_items)} items collected"
             )
 
     elapsed = time.monotonic() - start
@@ -252,9 +247,7 @@ def merge_results(results: list[ParallelResult]) -> ParallelResult:
         items_per_second=round(ips, 2),
     )
 
-    return ParallelResult(
-        items=all_items, progress=progress, errors=all_errors
-    )
+    return ParallelResult(items=all_items, progress=progress, errors=all_errors)
 
 
 # ---------------------------------------------------------------------------

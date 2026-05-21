@@ -132,9 +132,7 @@ class SensitivityReport:
         ]
         for r in self.results:
             marker = "SENSITIVE" if r.is_sensitive else "robust"
-            lines.append(
-                f"  [{r.perturbation.method}] delta={r.delta:+.4f} ({marker})"
-            )
+            lines.append(f"  [{r.perturbation.method}] delta={r.delta:+.4f} ({marker})")
         return "\n".join(lines)
 
 

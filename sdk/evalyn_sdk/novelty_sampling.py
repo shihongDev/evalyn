@@ -79,9 +79,7 @@ class NoveltyResult:
     def from_dict(cls, data: dict[str, Any]) -> NoveltyResult:
         return cls(
             selected_ids=data.get("selected_ids", []),
-            scores=[
-                NoveltyScore.from_dict(s) for s in data.get("scores", [])
-            ],
+            scores=[NoveltyScore.from_dict(s) for s in data.get("scores", [])],
             mean_novelty=data.get("mean_novelty", 0.0),
             total_unlabeled=data.get("total_unlabeled", 0),
             total_labeled=data.get("total_labeled", 0),
@@ -108,9 +106,7 @@ def _jaccard_similarity(set_a: set[str], set_b: set[str]) -> float:
     return len(set_a & set_b) / union
 
 
-def compute_novelty(
-    text: str, labeled_texts: list[str]
-) -> tuple[float, int]:
+def compute_novelty(text: str, labeled_texts: list[str]) -> tuple[float, int]:
     """Compute novelty of text relative to a set of labeled texts.
 
     Novelty = 1 - max(Jaccard similarity to any labeled item).
@@ -134,9 +130,7 @@ def compute_novelty(
     return (1.0 - max_sim, nearest_idx)
 
 
-def score_all_items(
-    unlabeled: dict[str, str], labeled: dict[str, str]
-) -> list[NoveltyScore]:
+def score_all_items(unlabeled: dict[str, str], labeled: dict[str, str]) -> list[NoveltyScore]:
     """Score all unlabeled items by novelty relative to the labeled set.
 
     Returns a list of NoveltyScore sorted by novelty descending.
@@ -182,9 +176,7 @@ def run_novelty_sampling(
     selected_scores = [s for s in scores if s.item_id in set(selected)]
     mean_novelty = 0.0
     if selected_scores:
-        mean_novelty = sum(s.novelty for s in selected_scores) / len(
-            selected_scores
-        )
+        mean_novelty = sum(s.novelty for s in selected_scores) / len(selected_scores)
 
     return NoveltyResult(
         selected_ids=selected,
@@ -243,10 +235,7 @@ def format_novelty_report(result: NoveltyResult) -> str:
     shown = [s for s in result.scores if s.item_id in selected_set]
     shown.sort(key=lambda s: (-s.novelty, s.item_id))
     for s in shown:
-        row = (
-            f"{s.item_id:<25} {s.novelty:>10.4f} "
-            f"{s.nearest_labeled_id:<25}"
-        )
+        row = f"{s.item_id:<25} {s.novelty:>10.4f} {s.nearest_labeled_id:<25}"
         lines.append(row)
 
     lines.append("-" * 60)

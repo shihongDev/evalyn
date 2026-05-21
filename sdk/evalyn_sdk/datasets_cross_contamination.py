@@ -213,15 +213,9 @@ def suggest_decontamination(result: ContaminationCheckResult) -> list[str]:
         return ["No decontamination needed - splits are clean."]
 
     suggestions: list[str] = []
-    suggestions.append(
-        f"Found {result.leaked_count} leaked item(s) across splits."
-    )
-    suggestions.append(
-        "Remove duplicates from all splits except the training set."
-    )
-    suggestions.append(
-        "Re-run the contamination check after decontamination to verify."
-    )
+    suggestions.append(f"Found {result.leaked_count} leaked item(s) across splits.")
+    suggestions.append("Remove duplicates from all splits except the training set.")
+    suggestions.append("Re-run the contamination check after decontamination to verify.")
 
     split_set: set = set()
     for lk in result.leaks:
@@ -233,8 +227,6 @@ def suggest_decontamination(result: ContaminationCheckResult) -> list[str]:
             "Priority: remove leaked items from the test split to preserve evaluation integrity."
         )
     if "calibration" in split_set:
-        suggestions.append(
-            "Also remove leaked items from the calibration split."
-        )
+        suggestions.append("Also remove leaked items from the calibration split.")
 
     return suggestions

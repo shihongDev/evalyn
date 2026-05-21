@@ -83,8 +83,7 @@ class CalibrationDiagnostic:
     def format_text(self) -> str:
         lines = [f"Calibration Diagnostic: {self.metric_id}"]
         lines.append(
-            f"  Score: {self.before_score:.4f} -> {self.after_score:.4f}"
-            f" (delta {self.delta:+.4f})"
+            f"  Score: {self.before_score:.4f} -> {self.after_score:.4f} (delta {self.delta:+.4f})"
         )
         if self.improved_items:
             lines.append(f"  Improved items: {len(self.improved_items)}")

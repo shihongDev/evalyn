@@ -37,9 +37,7 @@ async def _json_object_body(request: Request) -> dict:
 
 
 @router.post("/threads/purge-old")
-async def purge_old_threads(
-    request: Request, max_age_s: int = 86400
-) -> JSONResponse:
+async def purge_old_threads(request: Request, max_age_s: int = 86400) -> JSONResponse:
     """Drop closed threads whose newest event is older than
     ``max_age_s`` (default 24h).
 
@@ -49,9 +47,7 @@ async def purge_old_threads(
     wired to a cron-like task or invoked manually from an admin tool.
     """
     if max_age_s < 0:
-        raise HTTPException(
-            status_code=400, detail="max_age_s must be >= 0"
-        )
+        raise HTTPException(status_code=400, detail="max_age_s must be >= 0")
     runtime = getattr(request.app.state, "agent_runtime", None)
     if runtime is None:
         raise HTTPException(status_code=503, detail="agent runtime not configured")
@@ -121,14 +117,10 @@ async def get_thread_messages(request: Request, thread_id: str) -> JSONResponse:
     """
     runtime = getattr(request.app.state, "agent_runtime", None)
     if runtime is None:
-        raise HTTPException(
-            status_code=503, detail="agent runtime not configured"
-        )
+        raise HTTPException(status_code=503, detail="agent runtime not configured")
     messages = runtime.thread_messages(thread_id)
     if messages is None:
-        raise HTTPException(
-            status_code=404, detail=f"unknown thread: {thread_id}"
-        )
+        raise HTTPException(status_code=404, detail=f"unknown thread: {thread_id}")
     return JSONResponse({"id": thread_id, "messages": messages})
 
 
@@ -228,14 +220,10 @@ async def confirm(request: Request, thread_id: str) -> JSONResponse:
     # the user clicks "Approve once" / "Approve - session" with edited args.
     args_override = body.get("args_override")
     if args_override is not None and not isinstance(args_override, dict):
-        raise HTTPException(
-            status_code=400, detail="args_override must be a json object"
-        )
+        raise HTTPException(status_code=400, detail="args_override must be a json object")
     auto_approve_session = body.get("auto_approve_session", False)
     if not isinstance(auto_approve_session, bool):
-        raise HTTPException(
-            status_code=400, detail="auto_approve_session must be a boolean"
-        )
+        raise HTTPException(status_code=400, detail="auto_approve_session must be a boolean")
 
     runtime = getattr(request.app.state, "agent_runtime", None)
     if runtime is None:
@@ -256,9 +244,7 @@ async def confirm(request: Request, thread_id: str) -> JSONResponse:
         # silently approving the wrong call.
         raise HTTPException(
             status_code=409,
-            detail=(
-                "tool_call_id does not match the currently pending confirmation"
-            ),
+            detail=("tool_call_id does not match the currently pending confirmation"),
         )
     # Audit log: user-driven approve/reject decisions on
     # destructive tool calls. Once-per-tool-confirmation so the

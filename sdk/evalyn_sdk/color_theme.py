@@ -99,24 +99,24 @@ DEFAULT_THEME = Theme(
 DARK_THEME = Theme(
     name="dark",
     colors={
-        "success": "\033[92m",   # bright green
-        "error": "\033[91m",     # bright red
-        "warning": "\033[93m",   # bright yellow
-        "info": "\033[94m",      # bright blue
+        "success": "\033[92m",  # bright green
+        "error": "\033[91m",  # bright red
+        "warning": "\033[93m",  # bright yellow
+        "info": "\033[94m",  # bright blue
         "header": "\033[1;97m",  # bold bright white
-        "muted": "\033[90m",     # dark gray
+        "muted": "\033[90m",  # dark gray
     },
 )
 
 LIGHT_THEME = Theme(
     name="light",
     colors={
-        "success": "\033[32m",   # standard green
-        "error": "\033[31m",     # standard red
-        "warning": "\033[33m",   # standard yellow
-        "info": "\033[34m",      # standard blue
+        "success": "\033[32m",  # standard green
+        "error": "\033[31m",  # standard red
+        "warning": "\033[33m",  # standard yellow
+        "info": "\033[34m",  # standard blue
         "header": "\033[1;30m",  # bold black
-        "muted": "\033[37m",     # light gray
+        "muted": "\033[37m",  # light gray
     },
 )
 

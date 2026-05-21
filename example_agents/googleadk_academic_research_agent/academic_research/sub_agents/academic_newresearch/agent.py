@@ -14,11 +14,18 @@
 
 """Academic_newresearch_agent for finding new research lines"""
 
+import os
+
 from google.adk import Agent
 
 from . import prompt
 
-MODEL = "gemini-2.5-pro"
+# Override with EVALYN_DEMO_NEWRESEARCH_MODEL or the demo-wide
+# EVALYN_DEMO_MODEL fallback.
+MODEL = os.environ.get(
+    "EVALYN_DEMO_NEWRESEARCH_MODEL",
+    os.environ.get("EVALYN_DEMO_MODEL", "gemini-2.5-pro"),
+)
 
 academic_newresearch_agent = Agent(
     model=MODEL,

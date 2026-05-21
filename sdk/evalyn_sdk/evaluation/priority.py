@@ -59,11 +59,13 @@ def compute_priorities(
         type_bonus = 1.5 if mtype == "objective" else 1.0
         priority_score = fail_rate * type_bonus
 
-        priorities.append(MetricPriority(
-            metric_id=mid,
-            historical_fail_rate=fail_rate,
-            priority_score=priority_score,
-        ))
+        priorities.append(
+            MetricPriority(
+                metric_id=mid,
+                historical_fail_rate=fail_rate,
+                priority_score=priority_score,
+            )
+        )
 
     # Sort highest priority first
     priorities.sort(key=lambda p: p.priority_score, reverse=True)
@@ -109,7 +111,4 @@ def extract_fail_rates_from_run(run) -> dict[str, float]:
         if mr.passed is False:
             counts[mid][0] += 1
 
-    return {
-        mid: failed / total if total > 0 else 0.0
-        for mid, (failed, total) in counts.items()
-    }
+    return {mid: failed / total if total > 0 else 0.0 for mid, (failed, total) in counts.items()}

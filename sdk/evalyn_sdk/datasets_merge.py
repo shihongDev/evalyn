@@ -16,9 +16,9 @@ from .datasets import hash_inputs
 class DatasetDiff:
     """Difference between two datasets."""
 
-    added: list = field(default_factory=list)      # items in B but not A
-    removed: list = field(default_factory=list)     # items in A but not B
-    modified: list = field(default_factory=list)    # items with same ID but different content
+    added: list = field(default_factory=list)  # items in B but not A
+    removed: list = field(default_factory=list)  # items in A but not B
+    modified: list = field(default_factory=list)  # items with same ID but different content
     unchanged: int = 0
 
     @property

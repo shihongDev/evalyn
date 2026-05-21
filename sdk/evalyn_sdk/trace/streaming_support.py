@@ -136,7 +136,10 @@ def add_chunk(
     )
     capture.chunks.append(chunk)
 
-    if idx == 0 or (timestamp_ms > 0 and (capture.first_token_ms == 0.0 or timestamp_ms < capture.first_token_ms)):
+    if idx == 0 or (
+        timestamp_ms > 0
+        and (capture.first_token_ms == 0.0 or timestamp_ms < capture.first_token_ms)
+    ):
         capture.first_token_ms = timestamp_ms
     if timestamp_ms > capture.last_token_ms:
         capture.last_token_ms = timestamp_ms

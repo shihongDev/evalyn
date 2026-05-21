@@ -67,9 +67,7 @@ class CheckpointSummary:
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> CheckpointSummary:
-        checkpoints = [
-            CheckpointInfo.from_dict(c) for c in data.get("checkpoints", [])
-        ]
+        checkpoints = [CheckpointInfo.from_dict(c) for c in data.get("checkpoints", [])]
         return cls(
             checkpoints=checkpoints,
             total_count=data.get("total_count", 0),
@@ -142,9 +140,7 @@ def delete_checkpoint(path: str) -> bool:
         return False
 
 
-def delete_stale_checkpoints(
-    summary: CheckpointSummary, max_age_days: float = 7.0
-) -> int:
+def delete_stale_checkpoints(summary: CheckpointSummary, max_age_days: float = 7.0) -> int:
     """Delete checkpoints older than max_age_days. Returns count deleted."""
     now = _now_utc()
     deleted = 0
@@ -200,8 +196,7 @@ def format_checkpoint_list(summary: CheckpointSummary) -> str:
 
     lines: list[str] = []
     lines.append(
-        f"Checkpoints: {summary.total_count} "
-        f"(total size: {_format_size(summary.total_size_bytes)})"
+        f"Checkpoints: {summary.total_count} (total size: {_format_size(summary.total_size_bytes)})"
     )
     lines.append("")
     header = f"{'Path':<40} {'Progress':>10} {'Age':>12} {'Size':>10}"
@@ -217,9 +212,7 @@ def format_checkpoint_list(summary: CheckpointSummary) -> str:
         path_display = info.path
         if len(path_display) > 40:
             path_display = "..." + path_display[-37:]
-        lines.append(
-            f"{path_display:<40} {progress_str:>10} {age_str:>12} {size_str:>10}"
-        )
+        lines.append(f"{path_display:<40} {progress_str:>10} {age_str:>12} {size_str:>10}")
 
     return "\n".join(lines)
 

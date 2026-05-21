@@ -4,6 +4,7 @@ Dark mode theme support for HTML evaluation dashboards.
 Provides light, dark, and auto (prefers-color-scheme) themes via CSS
 custom properties that can be injected into any HTML report.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -17,6 +18,7 @@ from typing import Any
 @dataclass
 class ThemeColors:
     """Complete color palette for a dashboard theme."""
+
     bg_primary: str
     bg_secondary: str
     text_primary: str
@@ -58,6 +60,7 @@ class ThemeColors:
 @dataclass
 class ThemeConfig:
     """Theme configuration: mode plus optional custom overrides."""
+
     mode: str = "light"  # "light", "dark", or "auto"
     custom_colors: ThemeColors | None = None
 
@@ -81,13 +84,27 @@ class ThemeConfig:
 # ---------------------------------------------------------------------------
 
 LIGHT_THEME = ThemeColors(
-    "#FFFBF7", "#FBF7F3", "#1A1A1A", "#555555",
-    "#D4A27F", "#6B8E8E", "#D4A27F", "#C97B63", "#E8E0D8",
+    "#FFFBF7",
+    "#FBF7F3",
+    "#1A1A1A",
+    "#555555",
+    "#D4A27F",
+    "#6B8E8E",
+    "#D4A27F",
+    "#C97B63",
+    "#E8E0D8",
 )
 
 DARK_THEME = ThemeColors(
-    "#1A1A2E", "#16213E", "#ECF0F1", "#BDC3C7",
-    "#E94560", "#2ECC71", "#F39C12", "#E74C3C", "#2C3E50",
+    "#1A1A2E",
+    "#16213E",
+    "#ECF0F1",
+    "#BDC3C7",
+    "#E94560",
+    "#2ECC71",
+    "#F39C12",
+    "#E74C3C",
+    "#2C3E50",
 )
 
 
@@ -153,18 +170,13 @@ def generate_theme_css(config: ThemeConfig) -> str:
 
     # Body defaults that consume the variables
     css_parts.append(
-        "body {\n"
-        "  background-color: var(--bg-primary);\n"
-        "  color: var(--text-primary);\n"
-        "}\n"
+        "body {\n  background-color: var(--bg-primary);\n  color: var(--text-primary);\n}\n"
     )
 
     if config.mode == "auto":
         dark_vars = generate_css_variables(DARK_THEME)
         css_parts.append(
-            f"@media (prefers-color-scheme: dark) {{\n"
-            f"  :root {{\n{dark_vars}  }}\n"
-            f"}}\n"
+            f"@media (prefers-color-scheme: dark) {{\n  :root {{\n{dark_vars}  }}\n}}\n"
         )
 
     return "\n".join(css_parts)

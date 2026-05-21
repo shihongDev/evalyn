@@ -161,15 +161,13 @@ def format_eval_for_langsmith(scores: list[EvalScore]) -> list[dict[str, Any]]:
 # ---------------------------------------------------------------------------
 
 
-def export_eval_results(
-    scores: list[EvalScore], config: EvalExportConfig
-) -> EvalExportResult:
+def export_eval_results(scores: list[EvalScore], config: EvalExportConfig) -> EvalExportResult:
     """Export evaluation scores in the specified platform format.
 
     This is a simulated export - no actual HTTP calls are made.
     The function validates, batches, and formats the scores.
     """
-    valid, issues = validate_scores(scores)
+    valid, _issues = validate_scores(scores)
     if not valid:
         return EvalExportResult(
             total_scores=len(scores),
@@ -202,9 +200,7 @@ def export_eval_results(
     )
 
 
-def batch_scores(
-    scores: list[EvalScore], batch_size: int = 100
-) -> list[list[EvalScore]]:
+def batch_scores(scores: list[EvalScore], batch_size: int = 100) -> list[list[EvalScore]]:
     """Split scores into batches of the given size."""
     if batch_size <= 0:
         batch_size = len(scores) or 1

@@ -162,10 +162,7 @@ def detect_behavior_change(
     threshold: float = 0.05,
 ) -> bool:
     """Return True if any score changed by more than *threshold*."""
-    for old, new in zip(old_scores, new_scores):
-        if abs(old - new) > threshold:
-            return True
-    return False
+    return any(abs(old - new) > threshold for old, new in zip(old_scores, new_scores))
 
 
 def build_snapshot_report(results: list[SnapshotTestResult]) -> dict[str, Any]:

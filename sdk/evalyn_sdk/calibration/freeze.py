@@ -81,9 +81,7 @@ class CalibrationFreezeManager:
     ) -> FreezeRecord:
         """Lock a metric's calibration. Raises ValueError if already frozen."""
         if metric_id in self._frozen:
-            raise ValueError(
-                f"Metric '{metric_id}' is already frozen"
-            )
+            raise ValueError(f"Metric '{metric_id}' is already frozen")
         record = FreezeRecord(
             metric_id=metric_id,
             frozen_at=datetime.now(timezone.utc),
@@ -121,20 +119,18 @@ class CalibrationFreezeManager:
 
         Returns (can_calibrate, reason). False if frozen.
         """
-        if metric_id in self._frozen:
-            record = self._frozen[metric_id]
-            reason = f"Metric '{metric_id}' is frozen"
-            if record.reason:
-                reason += f": {record.reason}"
-            return False, reason
-        return True, ""
+        record = self._frozen.get(metric_id)
+        if record is None:
+            return True, ""
+        reason = f"Metric '{metric_id}' is frozen"
+        if record.reason:
+            reason += f": {record.reason}"
+        return False, reason
 
     def as_dict(self) -> dict[str, Any]:
         """Serialize the manager state."""
         return {
-            "frozen": {
-                mid: rec.as_dict() for mid, rec in self._frozen.items()
-            },
+            "frozen": {mid: rec.as_dict() for mid, rec in self._frozen.items()},
         }
 
     @classmethod

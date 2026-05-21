@@ -276,9 +276,7 @@ def evaluate_topic_drift(turns: list[Turn]) -> float:
     return 1.0 - overlap
 
 
-def evaluate_conversation(
-    conversation_id: str, turns: list[Turn]
-) -> MultiTurnReport:
+def evaluate_conversation(conversation_id: str, turns: list[Turn]) -> MultiTurnReport:
     """Full multi-turn conversation evaluation."""
     turn_scores: list[TurnScore] = []
     for i, turn in enumerate(turns):

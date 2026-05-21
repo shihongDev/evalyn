@@ -224,11 +224,7 @@ class CredentialStore:
             providers["ollama"] = {}
         out_providers: dict[str, dict[str, Any]] = {}
         for name, rec in providers.items():
-            is_set = (
-                bool(rec.get("api_key"))
-                or bool(rec.get("base_url"))
-                or name == "ollama"
-            )
+            is_set = bool(rec.get("api_key")) or bool(rec.get("base_url")) or name == "ollama"
             entry: dict[str, Any] = {
                 "is_set": is_set,
                 "model": rec.get("model"),
@@ -341,9 +337,7 @@ class CredentialStore:
             "messages": [
                 {
                     "role": "user",
-                    "content": (
-                        "Call the echo tool with text=hello to verify tool calling works."
-                    ),
+                    "content": ("Call the echo tool with text=hello to verify tool calling works."),
                 }
             ],
             "stream": False,
@@ -376,9 +370,7 @@ class CredentialStore:
         # for models that do not accept the `tools` field, which the old
         # blanket-catch was masking as ok=True.
         try:
-            probe = httpx.post(
-                base_url + "/api/chat", json=probe_payload, timeout=15.0
-            )
+            probe = httpx.post(base_url + "/api/chat", json=probe_payload, timeout=15.0)
         except httpx.RequestError as exc:
             logger.debug("ollama tool-probe network failure: %s", exc)
             return {"ok": True}

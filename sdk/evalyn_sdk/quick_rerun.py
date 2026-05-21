@@ -168,9 +168,7 @@ def merge_args(original_args: list[str], overrides: list[str]) -> list[str]:
     return result
 
 
-def build_rerun_request(
-    history_path: str, overrides: list[str]
-) -> RerunRequest | None:
+def build_rerun_request(history_path: str, overrides: list[str]) -> RerunRequest | None:
     """Build a rerun request from the last command and given overrides.
 
     Returns None if no previous command exists.

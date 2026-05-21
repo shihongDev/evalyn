@@ -85,9 +85,7 @@ class DriftResult:
     def from_dict(cls, data: dict[str, Any]) -> DriftResult:
         return cls(
             selected_ids=data.get("selected_ids", []),
-            drift_scores=[
-                DriftScore.from_dict(s) for s in data.get("drift_scores", [])
-            ],
+            drift_scores=[DriftScore.from_dict(s) for s in data.get("drift_scores", [])],
             mean_drift=data.get("mean_drift", 0.0),
             max_drift=data.get("max_drift", 0.0),
             total_pool=data.get("total_pool", 0),
@@ -112,9 +110,7 @@ def compute_text_drift(old_text: str, new_text: str) -> float:
     return 1.0 - len(intersection) / len(union)
 
 
-def compute_dataset_drift(
-    old_items: dict[str, str], new_items: dict[str, str]
-) -> list[DriftScore]:
+def compute_dataset_drift(old_items: dict[str, str], new_items: dict[str, str]) -> list[DriftScore]:
     """Compute drift for all items present in both old and new versions.
 
     Items only in one version are ignored (use identify_new_items /
@@ -135,23 +131,17 @@ def compute_dataset_drift(
     return scores
 
 
-def identify_new_items(
-    old_items: dict[str, str], new_items: dict[str, str]
-) -> list[str]:
+def identify_new_items(old_items: dict[str, str], new_items: dict[str, str]) -> list[str]:
     """Return sorted list of item IDs present in new but not in old."""
     return sorted(set(new_items.keys()) - set(old_items.keys()))
 
 
-def identify_removed_items(
-    old_items: dict[str, str], new_items: dict[str, str]
-) -> list[str]:
+def identify_removed_items(old_items: dict[str, str], new_items: dict[str, str]) -> list[str]:
     """Return sorted list of item IDs present in old but not in new."""
     return sorted(set(old_items.keys()) - set(new_items.keys()))
 
 
-def sample_by_drift(
-    drift_scores: list[DriftScore], config: DriftConfig
-) -> list[str]:
+def sample_by_drift(drift_scores: list[DriftScore], config: DriftConfig) -> list[str]:
     """Select top-N items by drift magnitude above min_drift threshold.
 
     Filters to items with drift >= min_drift, sorts descending by magnitude,

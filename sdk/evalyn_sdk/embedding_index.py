@@ -94,9 +94,7 @@ class EmbeddingIndex:
         """Return the number of entries in the index."""
         return len(self._entries)
 
-    def nearest_neighbors(
-        self, query_text: str, k: int = 5
-    ) -> list[tuple[str, float]]:
+    def nearest_neighbors(self, query_text: str, k: int = 5) -> list[tuple[str, float]]:
         """Find k nearest neighbors by Jaccard similarity.
 
         Returns a list of (item_id, similarity) tuples sorted by
@@ -110,9 +108,7 @@ class EmbeddingIndex:
         scored.sort(key=lambda x: (-x[1], x[0]))
         return scored[:k]
 
-    def find_duplicates(
-        self, threshold: float = 0.95
-    ) -> list[tuple[str, str, float]]:
+    def find_duplicates(self, threshold: float = 0.95) -> list[tuple[str, str, float]]:
         """Find pairs of entries with Jaccard similarity >= threshold.
 
         Returns a list of (item_id_a, item_id_b, similarity) tuples

@@ -110,7 +110,7 @@ def _get_span_value(span: Span, field_name: str) -> Any:
     and attributes.<key> for nested access.
     """
     if field_name.startswith("attributes."):
-        attr_key = field_name[len("attributes."):]
+        attr_key = field_name[len("attributes.") :]
         return span.attributes.get(attr_key)
 
     direct = {

@@ -152,9 +152,7 @@ class StorageReport:
 # ---------------------------------------------------------------------------
 
 
-def create_snapshot(
-    tables: list[dict[str, Any]], total_size_bytes: int = 0
-) -> StorageSnapshot:
+def create_snapshot(tables: list[dict[str, Any]], total_size_bytes: int = 0) -> StorageSnapshot:
     """Create a snapshot from table info dicts.
 
     Each dict should have "name", "row_count", "size_bytes".
@@ -215,9 +213,7 @@ def build_storage_report(
 ) -> StorageReport:
     """Build full report with growth analysis and recommendations."""
     if not snapshots:
-        empty = StorageSnapshot(
-            timestamp=datetime.now(timezone.utc).isoformat()
-        )
+        empty = StorageSnapshot(timestamp=datetime.now(timezone.utc).isoformat())
         return StorageReport(current=empty)
 
     current = snapshots[-1]
@@ -275,11 +271,7 @@ def suggest_recommendations(report: StorageReport) -> list[str]:
             if ts.table_name == report.largest_table:
                 table_pct = 0.0
                 if report.current.total_size_bytes > 0:
-                    table_pct = (
-                        ts.estimated_size_bytes
-                        / report.current.total_size_bytes
-                        * 100
-                    )
+                    table_pct = ts.estimated_size_bytes / report.current.total_size_bytes * 100
                 if table_pct > 80:
                     recs.append(
                         f"Table '{report.largest_table}' dominates storage"

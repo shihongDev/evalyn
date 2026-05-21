@@ -64,10 +64,7 @@ class ToolSchema:
         return cls(
             tool_name=data["tool_name"],
             description=data["description"],
-            parameters=[
-                ToolParameter.from_dict(p)
-                for p in data.get("parameters", [])
-            ],
+            parameters=[ToolParameter.from_dict(p) for p in data.get("parameters", [])],
         )
 
 
@@ -133,7 +130,11 @@ class SimulatedToolInput:
 # ---------------------------------------------------------------------------
 
 _SAMPLE_STRINGS = [
-    "example", "test input", "hello world", "sample data", "query text",
+    "example",
+    "test input",
+    "hello world",
+    "sample data",
+    "query text",
 ]
 _SAMPLE_INTS = [1, 5, 10, 42, 100]
 _SAMPLE_FLOATS = [0.5, 1.0, 3.14, 9.99, 0.01]
@@ -155,9 +156,7 @@ _MULTI_TOOL_TEMPLATES = [
 ]
 
 
-def _sample_value(
-    param_type: str, rng: random.Random
-) -> Any:
+def _sample_value(param_type: str, rng: random.Random) -> Any:
     """Generate a sample value for a parameter type."""
     if param_type == "string":
         return rng.choice(_SAMPLE_STRINGS)
@@ -177,9 +176,7 @@ def _sample_value(
 # ---------------------------------------------------------------------------
 
 
-def generate_tool_query(
-    schema: ToolSchema, rng: random.Random | None = None
-) -> SimulatedToolInput:
+def generate_tool_query(schema: ToolSchema, rng: random.Random | None = None) -> SimulatedToolInput:
     """Generate a natural-language query that would require this tool.
 
     Uses the tool description and parameter names to craft the query.
@@ -188,9 +185,7 @@ def generate_tool_query(
         rng = random.Random()
 
     template = rng.choice(_QUERY_TEMPLATES)
-    base_query = template.format(
-        tool=schema.tool_name, description=schema.description
-    )
+    base_query = template.format(tool=schema.tool_name, description=schema.description)
 
     # Build expected params from required parameters
     expected_params: dict[str, Any] = {}
@@ -231,7 +226,7 @@ def compute_tool_coverage(
 ) -> ToolCoverageResult:
     """Check which tools are exercised by the input suite."""
     all_tools = {s.tool_name for s in schemas}
-    per_tool_counts: dict[str, int] = {name: 0 for name in all_tools}
+    per_tool_counts: dict[str, int] = dict.fromkeys(all_tools, 0)
 
     for inp in inputs:
         # A target_tool may refer to a comma-separated list for multi-tool

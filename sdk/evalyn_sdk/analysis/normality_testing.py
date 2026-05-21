@@ -139,8 +139,8 @@ def compute_skewness(values: list[float]) -> float:
     m3 = sum((x - mean) ** 3 for x in values) / n
     # Adjusted for sample: G1 = (n / ((n-1)(n-2))) * n * m3 / std^3
     # Simplification: G1 = (n^2 / ((n-1)(n-2))) * (m3 / std^3)
-    adjustment = (n / ((n - 1) * (n - 2)))
-    g1 = adjustment * n * m3 / (std ** 3)
+    adjustment = n / ((n - 1) * (n - 2))
+    g1 = adjustment * n * m3 / (std**3)
     return g1
 
 
@@ -158,7 +158,7 @@ def compute_kurtosis(values: list[float]) -> float:
         return 0.0
     m4 = sum((x - mean) ** 4 for x in values) / n
     # Population excess kurtosis
-    kurt_pop = (m4 / (m2 ** 2)) - 3.0
+    kurt_pop = (m4 / (m2**2)) - 3.0
     # Sample correction
     # G2 = ((n-1) / ((n-2)(n-3))) * ((n+1)*kurt_pop + 6)
     g2 = ((n - 1) / ((n - 2) * (n - 3))) * ((n + 1) * kurt_pop + 6.0)
@@ -181,7 +181,7 @@ def jarque_bera_test(values: list[float]) -> tuple[float, float]:
         return (0.0, 1.0)
     s = compute_skewness(values)
     k = compute_kurtosis(values)
-    jb = (n / 6.0) * (s ** 2 + (k ** 2) / 4.0)
+    jb = (n / 6.0) * (s**2 + (k**2) / 4.0)
     p_value = 1.0 - _chi2_cdf_2(jb)
     return (jb, p_value)
 
@@ -248,9 +248,7 @@ def suggest_transformations(result: NormalityResult) -> list[str]:
     elif skew < -0.5:
         suggestions.append("reflect and square root transform for moderate left skew")
     if abs_skew <= 0.5 and abs(kurt) > 2.0:
-        suggestions.append(
-            "Box-Cox transform for high kurtosis with low skew"
-        )
+        suggestions.append("Box-Cox transform for high kurtosis with low skew")
     if not suggestions:
         suggestions.append("consider non-parametric methods")
     return suggestions

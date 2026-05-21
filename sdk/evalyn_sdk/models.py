@@ -368,6 +368,7 @@ class MetricSpec:
             return cached
         import hashlib
         import json
+
         identity = {
             "id": self.id,
             "type": self.type,
@@ -561,7 +562,9 @@ class CompositeMetric(Metric):
     ):
         valid_aggregations = {"weighted_average", "min", "max", "all_pass"}
         if aggregation not in valid_aggregations:
-            raise ValueError(f"aggregation must be one of {valid_aggregations}, got {aggregation!r}")
+            raise ValueError(
+                f"aggregation must be one of {valid_aggregations}, got {aggregation!r}"
+            )
 
         self.children = children
         self.aggregation = aggregation
@@ -571,7 +574,8 @@ class CompositeMetric(Metric):
             id=metric_id,
             name=f"Composite: {metric_id}",
             type="objective",
-            description=description or f"Composite metric ({aggregation}) of {len(children)} children",
+            description=description
+            or f"Composite metric ({aggregation}) of {len(children)} children",
         )
 
         def composite_handler(call: FunctionCall, item: DatasetItem) -> MetricResult:
@@ -644,9 +648,7 @@ class MetricRegistry:
     def list(self) -> builtins.list[Metric]:
         return list(self._metrics.values())
 
-    def apply_all(
-        self, call: FunctionCall, item: DatasetItem
-    ) -> builtins.list[MetricResult]:
+    def apply_all(self, call: FunctionCall, item: DatasetItem) -> builtins.list[MetricResult]:
         return [metric.evaluate(call, item) for metric in self._metrics.values()]
 
 
@@ -802,9 +804,7 @@ class EvalRun:
             id=data["id"],
             dataset_name=data["dataset_name"],
             created_at=_parse_datetime(data.get("created_at")) or now_utc(),
-            metric_results=[
-                MetricResult.from_dict(r) for r in data.get("metric_results", [])
-            ],
+            metric_results=[MetricResult.from_dict(r) for r in data.get("metric_results", [])],
             metrics=[MetricSpec.from_dict(m) for m in data.get("metrics", [])],
             judge_configs=[JudgeConfig.from_dict(j) for j in data.get("judge_configs", [])],
             summary=data.get("summary", {}),
@@ -865,9 +865,7 @@ class AnnotationItem:
     id: str
     input: dict[str, Any]
     output: Any
-    eval_results: dict[str, dict[str, Any]] = field(
-        default_factory=dict
-    )  # metric_id -> result
+    eval_results: dict[str, dict[str, Any]] = field(default_factory=dict)  # metric_id -> result
     human_label: HumanLabel | None = None
     metadata: dict[str, Any] = field(default_factory=dict)
 
@@ -889,9 +887,7 @@ class AnnotationItem:
             input=data.get("input", {}),
             output=data.get("output"),
             eval_results=data.get("eval_results", {}),
-            human_label=HumanLabel.from_dict(human_label_data)
-            if human_label_data
-            else None,
+            human_label=HumanLabel.from_dict(human_label_data) if human_label_data else None,
             metadata=data.get("metadata", {}),
         )
 
@@ -942,9 +938,7 @@ class Annotation:
     annotator: str
     source: str = "human"
     confidence: int | None = None  # 1-5 scale
-    metric_labels: dict[str, MetricLabel] = field(
-        default_factory=dict
-    )  # metric_id -> MetricLabel
+    metric_labels: dict[str, MetricLabel] = field(default_factory=dict)  # metric_id -> MetricLabel
     created_at: datetime = field(default_factory=now_utc)
 
     def as_dict(self) -> dict[str, Any]:
@@ -964,9 +958,7 @@ class Annotation:
     def from_dict(cls, data: dict[str, Any]) -> Annotation:
         metric_labels_raw = data.get("metric_labels", {})
         metric_labels = {
-            k: MetricLabel.from_dict(v)
-            for k, v in metric_labels_raw.items()
-            if isinstance(v, dict)
+            k: MetricLabel.from_dict(v) for k, v in metric_labels_raw.items() if isinstance(v, dict)
         }
         return cls(
             id=data["id"],

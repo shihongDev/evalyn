@@ -98,9 +98,7 @@ class EvalRunner:
         self.metrics: list[Metric] = list(metrics)
         already_wrapped = getattr(target_fn, "_evalyn_instrumented", False)
         self.target_fn = (
-            target_fn
-            if not instrument or already_wrapped
-            else self.tracer.instrument(target_fn)
+            target_fn if not instrument or already_wrapped else self.tracer.instrument(target_fn)
         )
         self.cache_enabled = cache_enabled
         self._cache: dict[str, str] = {}  # cache key -> call id
@@ -322,9 +320,7 @@ class EvalRunner:
         """Check if using only OutcomeBuilder (default backward-compatible mode)."""
         from .units import OutcomeBuilder
 
-        return len(self.unit_builders) == 1 and isinstance(
-            self.unit_builders[0], OutcomeBuilder
-        )
+        return len(self.unit_builders) == 1 and isinstance(self.unit_builders[0], OutcomeBuilder)
 
     def _run_unit_evaluation(
         self,
@@ -362,9 +358,7 @@ class EvalRunner:
 
         return results
 
-    def run_dataset(
-        self, dataset: Iterable[DatasetItem], use_synthetic: bool = True
-    ) -> EvalRun:
+    def run_dataset(self, dataset: Iterable[DatasetItem], use_synthetic: bool = True) -> EvalRun:
         """
         Run evaluation on a dataset.
 
@@ -434,9 +428,7 @@ class EvalRunner:
             # compute for 100 items x 73 metrics (27ms overhead vs 1ms work).
             # Force sequential when all metrics are objective.
             effective_workers = self.max_workers
-            if effective_workers > 1 and all(
-                m.spec.type == "objective" for m in self.metrics
-            ):
+            if effective_workers > 1 and all(m.spec.type == "objective" for m in self.metrics):
                 effective_workers = 1
 
             strategy = create_strategy(
@@ -459,12 +451,14 @@ class EvalRunner:
             if self.max_workers > 1:
                 logger.warning(
                     "Unit-based evaluation does not support parallel execution; "
-                    "running sequentially (max_workers=%d ignored)", self.max_workers,
+                    "running sequentially (max_workers=%d ignored)",
+                    self.max_workers,
                 )
             if self.checkpoint_path:
                 logger.warning(
                     "Unit-based evaluation does not support checkpointing; "
-                    "checkpoint_path=%s ignored", self.checkpoint_path,
+                    "checkpoint_path=%s ignored",
+                    self.checkpoint_path,
                 )
             new_results = self._run_unit_evaluation(
                 prepared=prepared,
@@ -496,20 +490,28 @@ class EvalRunner:
 
     @staticmethod
     def _summarize(results: list[MetricResult], failures: list[str]) -> dict:
+        # Additive stats: `min_score`, `max_score`, `median_score` were
+        # previously not exposed, forcing analysts to recompute them
+        # from raw results in CODE_AUDIT EXT-034. Existing consumers
+        # continue to read `count`, `avg_score`, and `pass_rate`
+        # unchanged; new fields are optional.
+        from statistics import median
+
         by_metric: defaultdict[str, list[MetricResult]] = defaultdict(list)
         for res in results:
             by_metric[res.metric_id].append(res)
 
-        summary = {"metrics": {}, "failed_items": failures}
+        summary: dict = {"metrics": {}, "failed_items": failures}
         for metric_id, metric_results in by_metric.items():
             scores = [r.score for r in metric_results if r.score is not None]
             passes = [r.passed for r in metric_results if r.passed is not None]
             summary["metrics"][metric_id] = {
                 "count": len(metric_results),
                 "avg_score": (sum(scores) / len(scores)) if scores else None,
-                "pass_rate": (sum(1 for p in passes if p) / len(passes))
-                if passes
-                else None,
+                "min_score": min(scores) if scores else None,
+                "max_score": max(scores) if scores else None,
+                "median_score": median(scores) if scores else None,
+                "pass_rate": (sum(1 for p in passes if p) / len(passes)) if passes else None,
             }
         return summary
 
@@ -529,9 +531,7 @@ class EvalRunner:
         # Track costs by model and metric
         cost_by_model: dict[str, float] = defaultdict(float)
         cost_by_metric: dict[str, float] = defaultdict(float)
-        tokens_by_metric: dict[str, dict[str, int]] = defaultdict(
-            lambda: {"input": 0, "output": 0}
-        )
+        tokens_by_metric: dict[str, dict[str, int]] = defaultdict(lambda: {"input": 0, "output": 0})
 
         for r in results:
             input_tok = r.input_tokens or 0
@@ -598,9 +598,7 @@ def save_eval_run_json(
     runs_dir = dataset_dir / runs_subdir
 
     # Create folder with timestamp for sorting
-    timestamp = (
-        run.created_at.strftime("%Y%m%d-%H%M%S") if run.created_at else "unknown"
-    )
+    timestamp = run.created_at.strftime("%Y%m%d-%H%M%S") if run.created_at else "unknown"
     folder_name = f"{timestamp}_{run.id[:8]}"
     run_folder = runs_dir / folder_name
     run_folder.mkdir(parents=True, exist_ok=True)
@@ -630,9 +628,7 @@ def load_eval_run_json(path: str | Path) -> EvalRun:
     return EvalRun.from_dict(data)
 
 
-def list_eval_runs_json(
-    dataset_dir: str | Path, runs_subdir: str = "eval_runs"
-) -> list[EvalRun]:
+def list_eval_runs_json(dataset_dir: str | Path, runs_subdir: str = "eval_runs") -> list[EvalRun]:
     """List all eval runs from folders in a dataset directory."""
     dataset_dir = Path(dataset_dir)
     runs_dir = dataset_dir / runs_subdir

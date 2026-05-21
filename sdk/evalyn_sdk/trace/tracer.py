@@ -13,8 +13,8 @@ from ..models import FunctionCall, Span, TraceEvent, now_utc
 from ..storage.base import StorageBackend
 from . import context as span_context
 
-_current_session: contextvars.ContextVar[dict[str, Any] | None] = (
-    contextvars.ContextVar("evalyn_session", default=None)
+_current_session: contextvars.ContextVar[dict[str, Any] | None] = contextvars.ContextVar(
+    "evalyn_session", default=None
 )
 _active_call: contextvars.ContextVar[FunctionCall | None] = contextvars.ContextVar(
     "evalyn_active_call", default=None
@@ -25,25 +25,41 @@ _root_span: contextvars.ContextVar[Span | None] = contextvars.ContextVar(
 )
 
 
-def _safe_value(value: Any) -> Any:
+def _safe_value(value: Any, _memo: dict[int, Any] | None = None) -> Any:
     """Convert values to something JSON serializable; fallback to repr.
 
     Uses type checks instead of trial serialization to avoid double-encoding
-    cost on large payloads.
+    cost on large payloads. Memoizes by id(value) so shared sub-objects
+    (and self-referential cycles) are only walked once per call.
     """
     if value is None or isinstance(value, (str, int, float, bool)):
         return value
+    if _memo is None:
+        _memo = {}
+    vid = id(value)
+    cached = _memo.get(vid)
+    if cached is not None:
+        return cached
     if isinstance(value, (list, tuple)):
-        return [_safe_value(v) for v in value]
+        result: list[Any] = []
+        _memo[vid] = result
+        for v in value:
+            result.append(_safe_value(v, _memo))
+        return result
     if isinstance(value, dict):
-        return {str(k): _safe_value(v) for k, v in value.items()}
+        result_dict: dict[str, Any] = {}
+        _memo[vid] = result_dict
+        for k, v in value.items():
+            result_dict[str(k)] = _safe_value(v, _memo)
+        return result_dict
     return repr(value)
 
 
 def _normalize_inputs(args: tuple[Any, ...], kwargs: dict[str, Any]) -> dict[str, Any]:
+    memo: dict[int, Any] = {}
     return {
-        "args": [_safe_value(a) for a in args],
-        "kwargs": {k: _safe_value(v) for k, v in kwargs.items()},
+        "args": [_safe_value(a, memo) for a in args],
+        "kwargs": {k: _safe_value(v, memo) for k, v in kwargs.items()},
     }
 
 
@@ -56,9 +72,7 @@ def _span_attr_value(value: Any) -> Any:
 
 
 @contextmanager
-def eval_session(
-    session_id: str | None = None, metadata: dict[str, Any] | None = None
-):
+def eval_session(session_id: str | None = None, metadata: dict[str, Any] | None = None):
     """Context manager to group calls under a shared session id."""
     session_payload = {
         "id": session_id or str(uuid.uuid4()),
@@ -97,9 +111,7 @@ class EvalTracer:
         call = _active_call.get()
         if call is None:
             return
-        call.trace.append(
-            TraceEvent(kind=kind, timestamp=now_utc(), detail=detail or {})
-        )
+        call.trace.append(TraceEvent(kind=kind, timestamp=now_utc(), detail=detail or {}))
 
     def start_call(
         self,
@@ -225,9 +237,7 @@ class EvalTracer:
                 call = None
                 token = None
                 inputs = _normalize_inputs(args, kwargs)
-                call, token = tracer.start_call(
-                    function_name, inputs, metadata=metadata
-                )
+                call, token = tracer.start_call(function_name, inputs, metadata=metadata)
                 span_cm = tracer._otel_span_cm(function_name)
                 with span_cm as span:
                     if span:
@@ -238,9 +248,7 @@ class EvalTracer:
                         result = await func(*args, **kwargs)
                         tracer.finish_call(call, token, output=result)
                         if span:
-                            span.set_attribute(
-                                "evalyn.duration_ms", call.duration_ms or 0.0
-                            )
+                            span.set_attribute("evalyn.duration_ms", call.duration_ms or 0.0)
                         return result
                     except Exception as exc:  # pragma: no cover - re-raises
                         if call and token:
@@ -269,9 +277,7 @@ class EvalTracer:
                     result = func(*args, **kwargs)
                     tracer.finish_call(call, token, output=result)
                     if span:
-                        span.set_attribute(
-                            "evalyn.duration_ms", call.duration_ms or 0.0
-                        )
+                        span.set_attribute("evalyn.duration_ms", call.duration_ms or 0.0)
                     return result
                 except Exception as exc:  # pragma: no cover - re-raises
                     if call and token:
@@ -285,6 +291,13 @@ class EvalTracer:
         return sync_wrapper
 
     def _get_function_meta(self, func: Callable[..., Any]) -> dict[str, Any]:
+        """Fast-path metadata for the hot wrap path.
+
+        Only collects cheap fields (module, qualname, signature). Source,
+        docstring, and file path are filled in lazily by
+        ``_hydrate_function_meta`` the first time a consumer (e.g. metric
+        suggester) needs them.
+        """
         cached = self._function_meta_cache.get(id(func))
         if cached:
             return cached
@@ -292,13 +305,27 @@ class EvalTracer:
         meta: dict[str, Any] = {
             "module": getattr(func, "__module__", None),
             "qualname": getattr(func, "__qualname__", None),
-            "doc": inspect.getdoc(func),
         }
         try:
             meta["signature"] = str(inspect.signature(func))
         except (TypeError, ValueError):
             meta["signature"] = None
 
+        # Mark deferred-source fields as not-yet-read. Hydrated on demand.
+        meta["_hydrated"] = False
+
+        self._function_meta_cache[id(func)] = meta
+        return meta
+
+    def _hydrate_function_meta(self, func: Callable[..., Any]) -> dict[str, Any]:
+        """Fill in deferred source-reading fields. Idempotent."""
+        meta = self._function_meta_cache.get(id(func))
+        if meta is None:
+            meta = self._get_function_meta(func)
+        if meta.get("_hydrated"):
+            return meta
+
+        meta["doc"] = inspect.getdoc(func)
         try:
             source = inspect.getsource(func)
             meta["source"] = source
@@ -306,13 +333,12 @@ class EvalTracer:
         except (OSError, TypeError):
             meta["source"] = None
             meta["source_hash"] = None
-
         try:
             meta["file_path"] = inspect.getsourcefile(func)
         except TypeError:
             meta["file_path"] = None
 
-        self._function_meta_cache[id(func)] = meta
+        meta["_hydrated"] = True
         return meta
 
     def _otel_span_cm(self, name: str):

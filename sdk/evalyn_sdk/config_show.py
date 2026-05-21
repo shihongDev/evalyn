@@ -112,7 +112,7 @@ def get_env_overrides(prefix: str = "EVALYN_") -> dict[str, str]:
     result: dict[str, str] = {}
     for key, value in os.environ.items():
         if key.startswith(prefix):
-            stripped = key[len(prefix):].lower()
+            stripped = key[len(prefix) :].lower()
             if stripped:
                 result[stripped] = value
     return result
@@ -157,7 +157,7 @@ def format_config_show(config: MergedConfig) -> str:
     for entry in config.entries:
         src_label = highlight_source(entry.source)
         lines.append(
-            f"{entry.key:<{key_width}}  {str(entry.value):<{val_width}}  {src_label:<{src_width}}"
+            f"{entry.key:<{key_width}}  {entry.value!s:<{val_width}}  {src_label:<{src_width}}"
         )
 
     lines.append("")

@@ -118,9 +118,7 @@ def anonymize_span(span: Span, config: AnonymizationConfig) -> Span:
             is_output and config.anonymize_outputs
         )
         if should_anonymize:
-            anon_value, count = _anonymize_value(
-                value, config.salt, config.preserve_structure
-            )
+            anon_value, count = _anonymize_value(value, config.salt, config.preserve_structure)
             new_attrs[key] = anon_value
             fields_anonymized += count
         else:

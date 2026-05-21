@@ -142,7 +142,7 @@ def render_panel(panel: TUIPanel, width: int, height: int) -> str:
     if panel.title:
         title_display = f" {panel.title} "
         if len(title_display) > inner_w:
-            title_display = title_display[: inner_w]
+            title_display = title_display[:inner_w]
         left_pad = (inner_w - len(title_display)) // 2
         right_pad = inner_w - len(title_display) - left_pad
         top = "+" + border_char * left_pad + title_display + border_char * right_pad + "+"

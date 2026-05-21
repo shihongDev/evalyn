@@ -111,9 +111,7 @@ def build_flame_graph(spans: list[Span]) -> FlameGraph:
     def _build_node(span_id: str, depth: int) -> FlameNode:
         info = span_info[span_id]
         s = info["span"]
-        child_nodes = [
-            _build_node(cid, depth + 1) for cid in children_map[span_id]
-        ]
+        child_nodes = [_build_node(cid, depth + 1) for cid in children_map[span_id]]
         return FlameNode(
             span_id=s.id,
             span_name=s.name,
@@ -178,9 +176,7 @@ def render_ascii(graph: FlameGraph, width: int = 80) -> str:
     return "\n".join(lines)
 
 
-def render_svg(
-    graph: FlameGraph, width: int = 1200, row_height: int = 24
-) -> str:
+def render_svg(graph: FlameGraph, width: int = 1200, row_height: int = 24) -> str:
     """Render a flame graph as an SVG string.
 
     Each span is a colored rectangle. Width is proportional to duration.
@@ -209,13 +205,13 @@ def render_svg(
         dur_text = html_escape(f"{node.duration_ms:.1f}ms")
 
         rects.append(
-            f'  <g>'
+            f"  <g>"
             f'<rect x="{x:.1f}" y="{y}" width="{w:.1f}" height="{row_height - 2}" '
             f'fill="{color}" rx="2" />'
             f'<text x="{x + 3:.1f}" y="{y + row_height - 6}" '
             f'font-size="11" fill="#fff" clip-path="url(#clip)">'
-            f'{name} ({dur_text})</text>'
-            f'</g>'
+            f"{name} ({dur_text})</text>"
+            f"</g>"
         )
 
         for child in node.children:
@@ -228,7 +224,7 @@ def render_svg(
 
     svg_parts = [
         f'<svg xmlns="http://www.w3.org/2000/svg" width="{width}" height="{height}">',
-        '  <style>text { font-family: monospace; }</style>',
+        "  <style>text { font-family: monospace; }</style>",
     ]
     svg_parts.extend(rects)
     svg_parts.append("</svg>")

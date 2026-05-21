@@ -115,9 +115,9 @@ class DependencyGraph:
         for nid, node in self.nodes.items():
             label = f"{node.span_name} ({node.span_type})"
             if node.is_bottleneck:
-                lines.append(f"    {nid}[[\"{label}\"]]")
+                lines.append(f'    {nid}[["{label}"]]')
             else:
-                lines.append(f"    {nid}[\"{label}\"]")
+                lines.append(f'    {nid}["{label}"]')
         for e in self.edges:
             pct = int(e.overlap_ratio * 100)
             lines.append(f"    {e.source_id} -->|{pct}%| {e.target_id}")
@@ -185,32 +185,34 @@ def build_dependency_graph(
                 continue
             ratio = _overlap_ratio(src_output, tgt_input)
             if ratio >= min_overlap:
-                graph.edges.append(DependencyEdge(
-                    source_id=src_id,
-                    target_id=tgt_id,
-                    overlap_ratio=ratio,
-                ))
+                graph.edges.append(
+                    DependencyEdge(
+                        source_id=src_id,
+                        target_id=tgt_id,
+                        overlap_ratio=ratio,
+                    )
+                )
                 graph.nodes[src_id].downstream.append(tgt_id)
                 graph.nodes[tgt_id].upstream.append(src_id)
 
     # Also add parent-child structural edges (weaker signal)
-    existing_pairs: set[tuple[str, str]] = {
-        (e.source_id, e.target_id) for e in graph.edges
-    }
+    existing_pairs: set[tuple[str, str]] = {(e.source_id, e.target_id) for e in graph.edges}
     for s in spans:
         if s.parent_id and s.parent_id in graph.nodes:
             pair = (s.parent_id, s.id)
             if pair not in existing_pairs:
-                graph.edges.append(DependencyEdge(
-                    source_id=s.parent_id,
-                    target_id=s.id,
-                    overlap_ratio=0.0,  # structural, not content-based
-                ))
+                graph.edges.append(
+                    DependencyEdge(
+                        source_id=s.parent_id,
+                        target_id=s.id,
+                        overlap_ratio=0.0,  # structural, not content-based
+                    )
+                )
                 graph.nodes[s.parent_id].downstream.append(s.id)
                 graph.nodes[s.id].upstream.append(s.parent_id)
 
     # Mark bottlenecks
-    for _nid, node in graph.nodes.items():
+    for node in graph.nodes.values():
         if len(node.downstream) >= bottleneck_threshold:
             node.is_bottleneck = True
 

@@ -1,9 +1,12 @@
 from __future__ import annotations
 
 from collections.abc import Callable
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from ..models import Metric
+
+if TYPE_CHECKING:
+    from ..judges.llm_judge import LLMJudge
 from .objective import (
     OBJECTIVE_REGISTRY,
     # Character/Format
@@ -328,9 +331,7 @@ def _apply_unit_types(metric: Metric, config: dict[str, Any] | None) -> Metric:
     return metric
 
 
-def build_objective_metric(
-    metric_id: str, config: dict[str, Any] | None = None
-) -> Metric:
+def build_objective_metric(metric_id: str, config: dict[str, Any] | None = None) -> Metric:
     cfg = config or {}
     builders: dict[str, Callable[[dict[str, Any]], Metric]] = {
         # Efficiency
@@ -355,18 +356,14 @@ def build_objective_metric(
         "regex_match": lambda c: regex_match_metric(pattern=c.get("pattern")),
         "csv_valid": lambda c: csv_valid_metric(dialect=str(c.get("dialect", "excel"))),
         "xml_valid": lambda c: xml_valid_metric(),
-        "json_schema_keys": lambda c: json_schema_keys_metric(
-            required_keys=c.get("required_keys")
-        ),
+        "json_schema_keys": lambda c: json_schema_keys_metric(required_keys=c.get("required_keys")),
         "json_types_match": lambda c: json_types_match_metric(schema=c.get("schema")),
         "json_path_present": lambda c: json_path_present_metric(paths=c.get("paths")),
         "regex_capture_count": lambda c: regex_capture_count_metric(
             pattern=c.get("pattern"),
             min_count=int(c.get("min_count", 1)),
         ),
-        "syntax_valid": lambda c: syntax_valid_metric(
-            language=str(c.get("language", "python"))
-        ),
+        "syntax_valid": lambda c: syntax_valid_metric(language=str(c.get("language", "python"))),
         "code_complexity": lambda c: code_complexity_metric(
             max_lines=c.get("max_lines"),
             max_depth=c.get("max_depth"),
@@ -379,12 +376,8 @@ def build_objective_metric(
         "jaccard_similarity": lambda c: jaccard_similarity_metric(),
         # Numeric
         "numeric_mae": lambda c: numeric_mae_metric(output_field=c.get("output_field")),
-        "numeric_rmse": lambda c: numeric_rmse_metric(
-            output_field=c.get("output_field")
-        ),
-        "numeric_rel_error": lambda c: numeric_rel_error_metric(
-            output_field=c.get("output_field")
-        ),
+        "numeric_rmse": lambda c: numeric_rmse_metric(output_field=c.get("output_field")),
+        "numeric_rel_error": lambda c: numeric_rel_error_metric(output_field=c.get("output_field")),
         "numeric_within_tolerance": lambda c: numeric_within_tolerance_metric(
             output_field=c.get("output_field"),
             tolerance=float(c.get("tolerance", 0.0)),
@@ -401,15 +394,11 @@ def build_objective_metric(
             min_count=c.get("min_count"),
             max_count=c.get("max_count"),
         ),
-        "avg_sentence_length": lambda c: avg_sentence_length_metric(
-            max_avg=c.get("max_avg")
-        ),
+        "avg_sentence_length": lambda c: avg_sentence_length_metric(max_avg=c.get("max_avg")),
         # Diversity
         "distinct_1": lambda c: distinct_1_metric(min_ratio=c.get("min_ratio")),
         "distinct_2": lambda c: distinct_2_metric(min_ratio=c.get("min_ratio")),
-        "vocabulary_richness": lambda c: vocabulary_richness_metric(
-            min_ratio=c.get("min_ratio")
-        ),
+        "vocabulary_richness": lambda c: vocabulary_richness_metric(min_ratio=c.get("min_ratio")),
         # Trace-based
         "tool_call_count": lambda c: tool_call_count_metric(),
         "llm_call_count": lambda c: llm_call_count_metric(
@@ -431,9 +420,7 @@ def build_objective_metric(
             pattern=str(c.get("pattern", r"https?://")),
             min_count=int(c.get("min_count", 1)),
         ),
-        "citation_count": lambda c: citation_count_metric(
-            min_count=int(c.get("min_count", 0))
-        ),
+        "citation_count": lambda c: citation_count_metric(min_count=int(c.get("min_count", 0))),
         "markdown_link_count": lambda c: markdown_link_count_metric(
             min_count=int(c.get("min_count", 0))
         ),
@@ -471,9 +458,7 @@ def build_objective_metric(
             n=int(c.get("n", 3)),
             max_ratio=c.get("max_ratio"),
         ),
-        "duplicate_line_ratio": lambda c: duplicate_line_ratio_metric(
-            max_ratio=c.get("max_ratio")
-        ),
+        "duplicate_line_ratio": lambda c: duplicate_line_ratio_metric(max_ratio=c.get("max_ratio")),
         # Uncertainty/Confidence
         "hedging_count": lambda c: hedging_count_metric(max_count=c.get("max_count")),
         "question_count": lambda c: question_count_metric(
@@ -490,13 +475,9 @@ def build_objective_metric(
         "import_count": lambda c: import_count_metric(max_count=c.get("max_count")),
         # Character/Format
         "ascii_ratio": lambda c: ascii_ratio_metric(min_ratio=c.get("min_ratio")),
-        "uppercase_ratio": lambda c: uppercase_ratio_metric(
-            max_ratio=c.get("max_ratio")
-        ),
+        "uppercase_ratio": lambda c: uppercase_ratio_metric(max_ratio=c.get("max_ratio")),
         "numeric_density": lambda c: numeric_density_metric(),
-        "whitespace_ratio": lambda c: whitespace_ratio_metric(
-            max_ratio=c.get("max_ratio")
-        ),
+        "whitespace_ratio": lambda c: whitespace_ratio_metric(max_ratio=c.get("max_ratio")),
         # Match variants
         "prefix_match": lambda c: prefix_match_metric(prefix=c.get("prefix")),
         "suffix_match": lambda c: suffix_match_metric(suffix=c.get("suffix")),
@@ -612,6 +593,7 @@ def build_subjective_metric(
         model = cfg.get("model", DEFAULT_MODELS_BY_PROVIDER.get(provider, DEFAULT_EVAL_MODEL))
         temperature = float(cfg.get("temperature", 0.0))
         from ..judges import LLMJudge as _LLMJudge
+
         # Pass rubric to LLMJudge (it handles appending rubric to prompt
         # in _build_evaluation_prompt). Do NOT bake rubric into prompt here
         # to avoid sending the rubric twice in every API call.
@@ -627,10 +609,7 @@ def build_subjective_metric(
 
     # Use provided description, or template description, or config description
     final_description = (
-        description
-        or cfg.get("description")
-        or tpl_description
-        or "LLM judge subjective score"
+        description or cfg.get("description") or tpl_description or "LLM judge subjective score"
     )
 
     base_metric = judge.as_metric(
@@ -644,12 +623,8 @@ def build_subjective_metric(
         "consistency": lambda: _wrap_with_consistency_confidence(
             base_metric, judge, confidence_samples, threshold_f
         ),
-        "logprobs": lambda: _wrap_with_logprobs_confidence(
-            base_metric, judge, threshold_f
-        ),
-        "deepconf": lambda: _wrap_with_deepconf_confidence(
-            base_metric, judge, threshold_f
-        ),
+        "logprobs": lambda: _wrap_with_logprobs_confidence(base_metric, judge, threshold_f),
+        "deepconf": lambda: _wrap_with_deepconf_confidence(base_metric, judge, threshold_f),
     }
     wrapper = confidence_wrappers.get(confidence_method)
     metric = wrapper() if wrapper else base_metric

@@ -308,8 +308,9 @@ class JobManager:
 
         # Reaper: wait for both capture tasks AND process exit, then emit
         # exit event. Spawned as a fire-and-forget task so spawn() returns
-        # immediately.
-        asyncio.create_task(
+        # immediately. Store a strong reference so the event loop can't
+        # garbage-collect it mid-flight (RUF006).
+        job._reaper_task = asyncio.create_task(
             self._reap(job),
             name=f"job-{job_id}-reap",
         )
@@ -380,9 +381,7 @@ class JobManager:
         """
         job = self._jobs.get(job_id)
         if job is not None and not job.is_done:
-            raise ValueError(
-                f"job {job_id} is {job.state}; cancel before purge"
-            )
+            raise ValueError(f"job {job_id} is {job.state}; cancel before purge")
         removed = False
         if job is not None:
             del self._jobs[job_id]
@@ -392,9 +391,7 @@ class JobManager:
                 if self._persistence.delete(job_id):
                     removed = True
             except Exception as exc:  # noqa: BLE001 - never crash the caller
-                logger.warning(
-                    "JobPersistence delete(%s) raised: %s", job_id, exc
-                )
+                logger.warning("JobPersistence delete(%s) raised: %s", job_id, exc)
         return removed
 
     def recent(self, n: int = 100) -> list[Job]:
@@ -416,15 +413,11 @@ class JobManager:
         if job is None:
             return []
         return [
-            (e["type"], e["line"], e["ts"])
-            for e in job.events
-            if e["type"] in ("stdout", "stderr")
+            (e["type"], e["line"], e["ts"]) for e in job.events if e["type"] in ("stdout", "stderr")
         ]
 
     @asynccontextmanager
-    async def subscribe(
-        self, job_id: str, since: int | None = None
-    ) -> AsyncIterator[_EventStream]:
+    async def subscribe(self, job_id: str, since: int | None = None) -> AsyncIterator[_EventStream]:
         """Subscribe to a job's event stream.
 
         Yields an async-iterable stream that receives every event with
@@ -453,13 +446,8 @@ class JobManager:
         stream._begin_replay()
         job._subscribers.add(stream)
         snapshot_id = job._next_event_id - 1
-        needs_truncated_marker = (
-            job._truncated_dropped > 0 and cursor < job._truncated_horizon - 1
-        )
-        replay_events = [
-            evt for evt in job.events
-            if cursor < evt["event_id"] <= snapshot_id
-        ]
+        needs_truncated_marker = job._truncated_dropped > 0 and cursor < job._truncated_horizon - 1
+        replay_events = [evt for evt in job.events if cursor < evt["event_id"] <= snapshot_id]
 
         try:
             if needs_truncated_marker:
@@ -691,9 +679,7 @@ def _validate_cmd(cmd) -> None:
         raise ValueError("cmd must be a non-empty list")
     for i, part in enumerate(cmd):
         if not isinstance(part, str):
-            raise TypeError(
-                f"cmd[{i}] must be str, got {type(part).__name__}"
-            )
+            raise TypeError(f"cmd[{i}] must be str, got {type(part).__name__}")
 
 
 __all__ = ["Job", "JobManager", "JobState", "EventType"]

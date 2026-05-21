@@ -286,14 +286,11 @@ def check_offline_compatibility(
 
         if needs_internet:
             online.append(mid)
-            warnings.append(
-                f"Metric '{mid}' requires internet access and cannot run offline."
-            )
+            warnings.append(f"Metric '{mid}' requires internet access and cannot run offline.")
         elif (needs_llm or needs_embeddings) and config.allow_local_models:
             offline.append(mid)
             warnings.append(
-                f"Metric '{mid}' will use local model provider "
-                f"'{config.local_model_provider}'."
+                f"Metric '{mid}' will use local model provider '{config.local_model_provider}'."
             )
         else:
             online.append(mid)
@@ -388,13 +385,10 @@ def validate_offline_run(
             cap = METRIC_CAPABILITIES.get(mid)
             if cap is not None:
                 errors.append(
-                    f"Metric '{mid}' cannot run offline "
-                    f"(requires: {', '.join(cap.requires)})."
+                    f"Metric '{mid}' cannot run offline (requires: {', '.join(cap.requires)})."
                 )
             else:
-                errors.append(
-                    f"Metric '{mid}' has unknown offline capability."
-                )
+                errors.append(f"Metric '{mid}' has unknown offline capability.")
         return False, errors
 
     return True, errors

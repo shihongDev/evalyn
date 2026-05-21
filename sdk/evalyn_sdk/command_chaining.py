@@ -216,7 +216,6 @@ def format_chain_result(result: ChainResult) -> str:
             lines.append(f"  Output: {output_preview}")
     lines.append("")
     lines.append(
-        f"Summary: {result.succeeded}/{result.total_steps} succeeded, "
-        f"{result.failed} failed"
+        f"Summary: {result.succeeded}/{result.total_steps} succeeded, {result.failed} failed"
     )
     return "\n".join(lines)

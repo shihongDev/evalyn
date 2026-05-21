@@ -110,8 +110,8 @@ SYSTEM_PROMPT = (
     "\n"
     "You also have a special `start_tour` tool that triggers a guided UI "
     "walk-through in the dashboard. Use start_tour ONLY when the user "
-    "explicitly asks to be SHOWN how to do something (phrases like \"show me "
-    "how to...\", \"walk me through...\", \"how do I... [UI action]\"). Do not "
+    'explicitly asks to be SHOWN how to do something (phrases like "show me '
+    'how to...", "walk me through...", "how do I... [UI action]"). Do not '
     "call start_tour proactively, do not call it as a substitute for "
     "answering a content question, and call at most one tour per turn.\n"
     "\n"
@@ -619,9 +619,7 @@ class AnthropicProvider(BaseProvider):
                 args = {}
             yield ProviderEvent(
                 kind="tool_call",
-                tool_call=ProviderToolCall(
-                    id=buf["id"], name=buf["name"], arguments=args
-                ),
+                tool_call=ProviderToolCall(id=buf["id"], name=buf["name"], arguments=args),
             )
 
         yield ProviderEvent(kind="finish")
@@ -679,40 +677,42 @@ class OllamaProvider(BaseProvider):
 
         url = f"{self.base_url}/api/chat"
         try:
-            async with self._httpx_client() as client:
-                async with client.stream("POST", url, json=payload) as response:
-                    response.raise_for_status()
-                    async for raw_line in response.aiter_lines():
-                        if not raw_line:
-                            continue
-                        try:
-                            chunk = json.loads(raw_line)
-                        except json.JSONDecodeError:
-                            continue
-                        message = chunk.get("message") or {}
-                        content = message.get("content") or ""
-                        if content:
-                            yield ProviderEvent(kind="text_delta", text=content)
-                        for tc in message.get("tool_calls") or []:
-                            fn = tc.get("function") or {}
-                            args = fn.get("arguments")
-                            if isinstance(args, str):
-                                try:
-                                    args = json.loads(args)
-                                except json.JSONDecodeError:
-                                    args = {}
-                            if not isinstance(args, dict):
+            async with (
+                self._httpx_client() as client,
+                client.stream("POST", url, json=payload) as response,
+            ):
+                response.raise_for_status()
+                async for raw_line in response.aiter_lines():
+                    if not raw_line:
+                        continue
+                    try:
+                        chunk = json.loads(raw_line)
+                    except json.JSONDecodeError:
+                        continue
+                    message = chunk.get("message") or {}
+                    content = message.get("content") or ""
+                    if content:
+                        yield ProviderEvent(kind="text_delta", text=content)
+                    for tc in message.get("tool_calls") or []:
+                        fn = tc.get("function") or {}
+                        args = fn.get("arguments")
+                        if isinstance(args, str):
+                            try:
+                                args = json.loads(args)
+                            except json.JSONDecodeError:
                                 args = {}
-                            yield ProviderEvent(
-                                kind="tool_call",
-                                tool_call=ProviderToolCall(
-                                    id=tc.get("id") or uuid.uuid4().hex,
-                                    name=fn.get("name") or "",
-                                    arguments=args,
-                                ),
-                            )
-                        if chunk.get("done"):
-                            break
+                        if not isinstance(args, dict):
+                            args = {}
+                        yield ProviderEvent(
+                            kind="tool_call",
+                            tool_call=ProviderToolCall(
+                                id=tc.get("id") or uuid.uuid4().hex,
+                                name=fn.get("name") or "",
+                                arguments=args,
+                            ),
+                        )
+                    if chunk.get("done"):
+                        break
         except Exception as exc:  # noqa: BLE001
             yield ProviderEvent(kind="error", message=str(exc))
             return
@@ -971,9 +971,7 @@ class AgentRuntime:
             "message_count": len(thread.messages),
             "event_count": len(thread.events),
             "closed": thread.closed,
-            "has_pending_confirmation": (
-                thread.pending_tool_call_id is not None
-            ),
+            "has_pending_confirmation": (thread.pending_tool_call_id is not None),
             "last_event_at": last_event_at,
         }
 
@@ -1008,11 +1006,7 @@ class AgentRuntime:
         thread = self._threads.get(thread_id)
         if thread is None:
             return None
-        return [
-            dict(m)
-            for m in thread.messages
-            if m.get("role") != "system"
-        ]
+        return [dict(m) for m in thread.messages if m.get("role") != "system"]
 
     def thread_counts(self) -> dict[str, int]:
         """Return ``{total, open}`` thread counts.
@@ -1118,8 +1112,7 @@ class AgentRuntime:
             pending = thread.pending_tool_call_id
             if pending is None or pending != tool_call_id:
                 logger.warning(
-                    "agent.confirm: stale tool_call_id %s (pending %s) "
-                    "on thread %s; refusing",
+                    "agent.confirm: stale tool_call_id %s (pending %s) on thread %s; refusing",
                     tool_call_id,
                     pending,
                     thread_id,
@@ -1188,8 +1181,7 @@ class AgentRuntime:
         thread.subscribers.add(stream)
         snapshot_id = thread._next_event_id - 1
         replay_events = [
-            evt for evt in thread.events
-            if cursor < evt.get("event_id", 0) <= snapshot_id
+            evt for evt in thread.events if cursor < evt.get("event_id", 0) <= snapshot_id
         ]
         for evt in replay_events:
             stream._replay_put(evt)
@@ -1347,9 +1339,7 @@ class AgentRuntime:
                     thread.messages.append(
                         {
                             "role": "user",
-                            "content": (
-                                f"Tool `{tc.name}` result:\n{stdout}"
-                            ),
+                            "content": (f"Tool `{tc.name}` result:\n{stdout}"),
                         }
                     )
                 else:
@@ -1417,10 +1407,7 @@ class AgentRuntime:
             )
             return True, _frontend_tool_result(tc.name, tc.arguments), 0
 
-        if (
-            tc.name not in self.allowlist
-            and tc.name not in thread.session_auto_approved
-        ):
+        if tc.name not in self.allowlist and tc.name not in thread.session_auto_approved:
             # Reset the confirm gate for this turn and wait. Track the
             # tool_call_id so `AgentRuntime.confirm` can reject stale
             # confirmations from the UI (KNOWN_ISSUES #4 + #5). Also stash
@@ -1442,9 +1429,7 @@ class AgentRuntime:
                 },
             )
             try:
-                await asyncio.wait_for(
-                    thread.confirm_event.wait(), timeout=self.confirm_timeout
-                )
+                await asyncio.wait_for(thread.confirm_event.wait(), timeout=self.confirm_timeout)
             except asyncio.TimeoutError:
                 return False, "user did not confirm (timeout)", -1
             finally:
@@ -1473,8 +1458,7 @@ class AgentRuntime:
         if len(stdout) > self.tool_output_cap:
             head = stdout[: self.tool_output_cap]
             stdout = (
-                head
-                + f"\n[truncated; original length {len(stdout)} bytes,"
+                head + f"\n[truncated; original length {len(stdout)} bytes,"
                 f" cap {self.tool_output_cap}]"
             )
         return exit_code == 0, stdout, exit_code
@@ -1484,9 +1468,7 @@ class AgentRuntime:
         if self._tool_runner is not None:
             return await self._tool_runner(argv)
         if self._job_manager is None:
-            raise RuntimeError(
-                "AgentRuntime needs either tool_runner or job_manager to run tools"
-            )
+            raise RuntimeError("AgentRuntime needs either tool_runner or job_manager to run tools")
         job_id = await self._job_manager.spawn(argv)
         job = await self._job_manager.wait(job_id)
         # Combine stdout + stderr lines in order. The dashboard's terminal
@@ -1521,9 +1503,7 @@ class AgentRuntime:
 # ---------------------------------------------------------------------------
 
 
-def build_provider(
-    name: str, record: dict[str, Any] | None
-) -> BaseProvider | None:
+def build_provider(name: str, record: dict[str, Any] | None) -> BaseProvider | None:
     """Construct a provider from a credential record.
 
     Returns ``None`` when the record is missing required fields. The

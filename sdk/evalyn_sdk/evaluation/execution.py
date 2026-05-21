@@ -64,7 +64,6 @@ class ExecutionStrategy(ABC):
         Returns:
             List of MetricResult from evaluation
         """
-        pass
 
 
 class SequentialStrategy(ExecutionStrategy):
@@ -101,10 +100,7 @@ class SequentialStrategy(ExecutionStrategy):
                 completed_items.add(item.id)
                 items_since_checkpoint += 1
 
-                if (
-                    self._checkpoint
-                    and items_since_checkpoint >= self._checkpoint_interval
-                ):
+                if self._checkpoint and items_since_checkpoint >= self._checkpoint_interval:
                     self._checkpoint(results, completed_items, run_id)
                     items_since_checkpoint = 0
 
@@ -173,7 +169,9 @@ class ParallelStrategy(ExecutionStrategy):
                     if progress_callback:
                         with progress_lock:
                             current = next(eval_counter)
-                            progress_callback(current, total_evals, metric.spec.id, metric.spec.type)
+                            progress_callback(
+                                current, total_evals, metric.spec.id, metric.spec.type
+                            )
 
         # Phase 2: subjective metrics - parallel via thread pool
         if not subjective_metrics:
@@ -189,11 +187,7 @@ class ParallelStrategy(ExecutionStrategy):
                 self._checkpoint(results, completed_items, run_id)
             return results
 
-        tasks = [
-            (metric, call, item)
-            for item, call in prepared
-            for metric in subjective_metrics
-        ]
+        tasks = [(metric, call, item) for item, call in prepared for metric in subjective_metrics]
 
         try:
             with ThreadPoolExecutor(max_workers=self._max_workers) as executor:
@@ -278,9 +272,7 @@ def create_strategy(
     """
     if max_workers <= 1:
         return SequentialStrategy(evaluate_fn, checkpoint_fn, checkpoint_interval)
-    return ParallelStrategy(
-        evaluate_fn, checkpoint_fn, checkpoint_interval, max_workers
-    )
+    return ParallelStrategy(evaluate_fn, checkpoint_fn, checkpoint_interval, max_workers)
 
 
 __all__ = [

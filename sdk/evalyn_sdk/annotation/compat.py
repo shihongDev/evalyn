@@ -194,10 +194,7 @@ def _from_cli_annotation_item(rec: dict) -> CanonicalAnnotation:
     return CanonicalAnnotation(
         item_id=str(rec.get("id") or ""),
         labels=labels,
-        annotator=str(
-            human_label.get("annotator") if isinstance(human_label, dict) else ""
-        )
-        or "",
+        annotator=str(human_label.get("annotator") if isinstance(human_label, dict) else "") or "",
         created_at_iso=None,
         session_id=None,
         rationale=human_label.get("notes") if isinstance(human_label, dict) else None,
@@ -233,8 +230,7 @@ def _from_dashboard(rec: dict) -> CanonicalAnnotation:
     confs = [
         entry.get("confidence")
         for entry in rec.get("labels") or []
-        if isinstance(entry, dict)
-        and isinstance(entry.get("confidence"), (int, float))
+        if isinstance(entry, dict) and isinstance(entry.get("confidence"), (int, float))
     ]
     if confs:
         confidence = float(sum(confs) / len(confs))

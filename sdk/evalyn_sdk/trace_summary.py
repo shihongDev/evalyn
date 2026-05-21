@@ -4,6 +4,7 @@ Trace summary generation: LLM prompt construction and heuristic summarization.
 Provides dataclasses for configuration and output, prompt building for LLM-based
 summarization, and pure-heuristic fallback summarization without LLM calls.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -153,7 +154,9 @@ def _collect_errors(spans: list[dict]) -> list[str]:
     return errors
 
 
-def _collect_slow_spans(spans: list[dict], threshold_ms: float = SLOW_SPAN_THRESHOLD_MS) -> list[str]:
+def _collect_slow_spans(
+    spans: list[dict], threshold_ms: float = SLOW_SPAN_THRESHOLD_MS
+) -> list[str]:
     """Identify spans slower than threshold."""
     slow: list[str] = []
     for span in spans:
@@ -175,7 +178,7 @@ def build_summary_prompt(trace_data: dict, config: TraceSummaryConfig) -> str:
     Includes span types, tool calls, latencies, and errors based on config.
     The prompt instructs the LLM to generate a natural language summary.
     """
-    spans = _get_spans(trace_data)[:config.max_spans]
+    spans = _get_spans(trace_data)[: config.max_spans]
     trace_id = trace_data.get("trace_id", trace_data.get("id", "unknown"))
     type_counts = _count_by_type(spans)
     errors = _collect_errors(spans)
@@ -287,7 +290,7 @@ def build_heuristic_summary(trace_data: dict, config: TraceSummaryConfig) -> Tra
     Counts spans by type, identifies errors, computes total latency,
     lists tool calls. Returns a TraceSummary with template-generated text.
     """
-    spans = _get_spans(trace_data)[:config.max_spans]
+    spans = _get_spans(trace_data)[: config.max_spans]
     trace_id = trace_data.get("trace_id", trace_data.get("id", "unknown"))
     type_counts = _count_by_type(spans)
     errors = _collect_errors(spans)

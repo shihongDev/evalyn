@@ -77,9 +77,7 @@ class PlanEvalResult:
         return "\n".join(lines)
 
 
-def evaluate_completeness(
-    plan_steps: list[PlanStep], required_topics: list[str]
-) -> float:
+def evaluate_completeness(plan_steps: list[PlanStep], required_topics: list[str]) -> float:
     """Fraction of required_topics mentioned in plan step descriptions.
 
     Uses case-insensitive substring match.
@@ -126,9 +124,7 @@ def evaluate_efficiency(plan_steps: list[PlanStep], max_steps: int = 20) -> floa
     return 1.0 - (n - half) / (double - half)
 
 
-def evaluate_replanning(
-    original_plan: list[PlanStep], revised_plan: list[PlanStep]
-) -> float:
+def evaluate_replanning(original_plan: list[PlanStep], revised_plan: list[PlanStep]) -> float:
     """Measure how well a revised plan preserves completed steps.
 
     Score = fraction of original steps still present in revised plan

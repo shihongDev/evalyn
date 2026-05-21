@@ -114,10 +114,12 @@ def export_flat_records(analysis: RunAnalysis) -> list[dict[str, Any]]:
         item = analysis.item_stats[item_id]
         for mid in sorted(item.metric_results.keys()):
             mr = item.metric_results[mid]
-            records.append({
-                "item_id": item_id,
-                "metric_id": mid,
-                "score": mr.get("score"),
-                "passed": mr.get("passed"),
-            })
+            records.append(
+                {
+                    "item_id": item_id,
+                    "metric_id": mid,
+                    "score": mr.get("score"),
+                    "passed": mr.get("passed"),
+                }
+            )
     return records

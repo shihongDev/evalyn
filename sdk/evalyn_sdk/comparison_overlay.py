@@ -90,9 +90,7 @@ class OverlayChart:
         )
 
 
-def compute_deltas(
-    run_a: RunOverlayData, run_b: RunOverlayData
-) -> dict[str, float]:
+def compute_deltas(run_a: RunOverlayData, run_b: RunOverlayData) -> dict[str, float]:
     """Compute metric deltas (b - a) for all shared metrics."""
     all_keys = sorted(set(run_a.metrics) | set(run_b.metrics))
     result: dict[str, float] = {}
@@ -144,13 +142,9 @@ def generate_dual_bar_svg(
 
     parts: list[str] = []
     parts.append(
-        f'<svg xmlns="http://www.w3.org/2000/svg" '
-        f'width="{w}" height="{h}" '
-        f'viewBox="0 0 {w} {h}">'
+        f'<svg xmlns="http://www.w3.org/2000/svg" width="{w}" height="{h}" viewBox="0 0 {w} {h}">'
     )
-    parts.append(
-        f'<rect width="{w}" height="{h}" fill="white"/>'
-    )
+    parts.append(f'<rect width="{w}" height="{h}" fill="white"/>')
 
     # Title
     title_text = html.escape(f"{run_a.label} vs {run_b.label}")
@@ -292,8 +286,7 @@ def generate_radar_svg(
 
     parts: list[str] = []
     parts.append(
-        f'<svg xmlns="http://www.w3.org/2000/svg" '
-        f'width="{w}" height="{h}" viewBox="0 0 {w} {h}">'
+        f'<svg xmlns="http://www.w3.org/2000/svg" width="{w}" height="{h}" viewBox="0 0 {w} {h}">'
     )
     parts.append(f'<rect width="{w}" height="{h}" fill="white"/>')
 
@@ -387,9 +380,7 @@ def generate_radar_svg(
     return "\n".join(parts)
 
 
-def generate_delta_table_html(
-    run_a: RunOverlayData, run_b: RunOverlayData
-) -> str:
+def generate_delta_table_html(run_a: RunOverlayData, run_b: RunOverlayData) -> str:
     """Generate HTML table showing metric deltas between two runs."""
     metrics = sorted(set(run_a.metrics) | set(run_b.metrics))
     deltas = compute_deltas(run_a, run_b)

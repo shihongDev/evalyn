@@ -98,7 +98,9 @@ class QualityGateResult:
     def format_text(self) -> str:
         status = "PASSED" if self.passed else "BLOCKED" if self.blocked else "WARNINGS"
         lines = [f"Quality Gate: {status}"]
-        lines.append(f"  Checks: {len(self.checks)}, Errors: {self.errors}, Warnings: {self.warnings}")
+        lines.append(
+            f"  Checks: {len(self.checks)}, Errors: {self.errors}, Warnings: {self.warnings}"
+        )
         for check in self.checks:
             mark = "PASS" if check.passed else "FAIL"
             lines.append(f"  [{mark}] {check.name} ({check.severity}): {check.message}")

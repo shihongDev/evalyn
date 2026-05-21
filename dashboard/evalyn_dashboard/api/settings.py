@@ -149,9 +149,7 @@ async def get_provider(request: Request, provider: str) -> JSONResponse:
     providers = public.get("providers", {})
     record = providers.get(provider)
     if record is None:
-        raise HTTPException(
-            status_code=404, detail=f"unknown provider: {provider}"
-        )
+        raise HTTPException(status_code=404, detail=f"unknown provider: {provider}")
     return JSONResponse(record)
 
 
@@ -169,9 +167,7 @@ async def delete_provider(request: Request, provider: str) -> JSONResponse:
     """
     store = _get_store(request)
     if not store.remove_provider(provider):
-        raise HTTPException(
-            status_code=404, detail=f"unknown provider: {provider}"
-        )
+        raise HTTPException(status_code=404, detail=f"unknown provider: {provider}")
     logger.info("settings provider removed: provider=%s", provider)
     return JSONResponse({"ok": True, "provider": provider})
 

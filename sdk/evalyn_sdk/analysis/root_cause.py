@@ -83,20 +83,14 @@ class RootCauseReport:
             lines.append(f"Primary cause: {self.primary_cause}")
 
         if self.secondary_causes:
-            lines.append(
-                f"Secondary causes: {', '.join(self.secondary_causes)}"
-            )
+            lines.append(f"Secondary causes: {', '.join(self.secondary_causes)}")
 
         for pattern in self.patterns:
             lines.append("")
-            lines.append(
-                f"[{pattern.confidence:.0%}] {pattern.pattern_name}"
-            )
+            lines.append(f"[{pattern.confidence:.0%}] {pattern.pattern_name}")
             lines.append(f"  {pattern.description}")
             if pattern.affected_items:
-                lines.append(
-                    f"  Affected: {len(pattern.affected_items)} items"
-                )
+                lines.append(f"  Affected: {len(pattern.affected_items)} items")
             if pattern.suggested_fix:
                 lines.append(f"  Fix: {pattern.suggested_fix}")
 
@@ -122,6 +116,7 @@ def _get_output_text(failure: dict[str, Any]) -> str:
         return ""
     if isinstance(output, dict):
         import json
+
         return json.dumps(output)
     return str(output)
 
@@ -133,6 +128,7 @@ def _get_input_text(failure: dict[str, Any]) -> str:
         return ""
     if isinstance(inp, dict):
         import json
+
         return json.dumps(inp)
     return str(inp)
 
@@ -213,10 +209,7 @@ def detect_input_complexity_pattern(
         text = _get_input_text(f)
         item_id = f.get("item_id", "")
         sentence_count = text.count(".") + text.count("?") + text.count("!")
-        is_complex = (
-            len(text) >= _COMPLEX_INPUT_CHARS
-            or sentence_count >= _COMPLEX_INPUT_SENTENCES
-        )
+        is_complex = len(text) >= _COMPLEX_INPUT_CHARS or sentence_count >= _COMPLEX_INPUT_SENTENCES
         if is_complex:
             complex_items.append(item_id)
 
@@ -270,9 +263,7 @@ def detect_metric_concentration(
     if ratio >= _CONCENTRATION_THRESHOLD:
         return FailurePattern(
             pattern_name="metric_concentration",
-            description=(
-                f"{top_count}/{total} failures are in metric '{top_metric}'"
-            ),
+            description=(f"{top_count}/{total} failures are in metric '{top_metric}'"),
             affected_items=metric_items[top_metric],
             confidence=ratio,
             suggested_fix=(
@@ -316,8 +307,7 @@ def detect_category_pattern(
         return FailurePattern(
             pattern_name="category_concentration",
             description=(
-                f"{top_count}/{total_with_category} failures are in "
-                f"category '{top_category}'"
+                f"{top_count}/{total_with_category} failures are in category '{top_category}'"
             ),
             affected_items=category_items[top_category],
             confidence=ratio,
@@ -390,9 +380,6 @@ def suggest_fixes(report: RootCauseReport) -> list[str]:
             fixes.append(pattern.suggested_fix)
 
     if not fixes and report.total_failures > 0:
-        fixes.append(
-            "No clear pattern detected. "
-            "Review individual failures for specific issues."
-        )
+        fixes.append("No clear pattern detected. Review individual failures for specific issues.")
 
     return fixes

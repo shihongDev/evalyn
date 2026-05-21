@@ -168,9 +168,7 @@ def _now_iso() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 
-def import_from_phoenix(
-    data: list[dict[str, Any]], config: TraceImportConfig
-) -> TraceImportResult:
+def import_from_phoenix(data: list[dict[str, Any]], config: TraceImportConfig) -> TraceImportResult:
     """Parse Phoenix OTEL format traces.
 
     Expects each item in data to have at minimum a "trace_id" or "context"
@@ -183,9 +181,7 @@ def import_from_phoenix(
 
     for idx, item in enumerate(data):
         try:
-            trace_id = item.get("trace_id") or item.get("context", {}).get(
-                "trace_id", ""
-            )
+            trace_id = item.get("trace_id") or item.get("context", {}).get("trace_id", "")
             if not trace_id:
                 skipped += 1
                 errors.append(f"Item {idx}: missing trace_id")
@@ -278,9 +274,7 @@ def import_from_langfuse(
     )
 
 
-def import_from_generic(
-    data: list[dict[str, Any]], config: TraceImportConfig
-) -> TraceImportResult:
+def import_from_generic(data: list[dict[str, Any]], config: TraceImportConfig) -> TraceImportResult:
     """Generic trace import with minimal mapping.
 
     Expects each item to have "trace_id" and optionally "spans".
@@ -326,9 +320,7 @@ def import_from_generic(
     )
 
 
-def import_traces(
-    data: list[dict[str, Any]], config: TraceImportConfig
-) -> TraceImportResult:
+def import_traces(data: list[dict[str, Any]], config: TraceImportConfig) -> TraceImportResult:
     """Route to the appropriate platform-specific importer.
 
     Args:

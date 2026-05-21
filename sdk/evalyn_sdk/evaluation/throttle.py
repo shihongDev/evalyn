@@ -19,11 +19,11 @@ class ThrottleConfig:
     min_workers: int = 1
     max_workers: int = 8
     initial_workers: int = 2
-    target_latency_ms: float = 2000.0   # target per-call latency
-    high_latency_ms: float = 5000.0     # reduce workers above this
-    low_latency_ms: float = 1000.0      # increase workers below this
-    window_size: int = 10               # rolling window of latencies
-    adjust_interval: int = 5            # adjust every N calls
+    target_latency_ms: float = 2000.0  # target per-call latency
+    high_latency_ms: float = 5000.0  # reduce workers above this
+    low_latency_ms: float = 1000.0  # increase workers below this
+    window_size: int = 10  # rolling window of latencies
+    adjust_interval: int = 5  # adjust every N calls
 
 
 class ThrottleController:
@@ -92,13 +92,17 @@ class ThrottleController:
             )
 
         if self._current_workers != old_workers:
-            self._adjustments.append({
-                "call_count": self._call_count,
-                "avg_latency_ms": round(avg, 1),
-                "old_workers": old_workers,
-                "new_workers": self._current_workers,
-                "reason": "high_latency" if avg > self.config.high_latency_ms else "low_latency",
-            })
+            self._adjustments.append(
+                {
+                    "call_count": self._call_count,
+                    "avg_latency_ms": round(avg, 1),
+                    "old_workers": old_workers,
+                    "new_workers": self._current_workers,
+                    "reason": "high_latency"
+                    if avg > self.config.high_latency_ms
+                    else "low_latency",
+                }
+            )
 
     def summary(self) -> dict[str, Any]:
         return {

@@ -205,9 +205,7 @@ def check_config_file(path: str = "evalyn.yaml") -> DiagnosticCheck:
     )
 
 
-def run_diagnostics(
-    data_dir: str = "data", config_path: str = "evalyn.yaml"
-) -> DiagnosticReport:
+def run_diagnostics(data_dir: str = "data", config_path: str = "evalyn.yaml") -> DiagnosticReport:
     """Run all diagnostic checks."""
     checks = [
         check_python_version(),

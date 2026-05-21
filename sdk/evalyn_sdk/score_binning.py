@@ -242,7 +242,6 @@ def create_custom_binning(
 ) -> BinningConfig:
     """Create a BinningConfig from ``(grade, min_score, max_score)`` tuples."""
     mappings = [
-        GradeMapping(grade=grade, min_score=mn, max_score=mx)
-        for grade, mn, mx in grade_specs
+        GradeMapping(grade=grade, min_score=mn, max_score=mx) for grade, mn, mx in grade_specs
     ]
     return BinningConfig(mappings=mappings)

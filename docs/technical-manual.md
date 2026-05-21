@@ -1507,7 +1507,6 @@ evalyn/
 │       │       ├── config.py         # Config file handling
 │       │       ├── dataset_resolver.py # Dataset path resolution
 │       │       ├── dataset_utils.py  # Dataset loading helpers
-│       │       ├── llm_callers.py    # LLM caller helpers
 │       │       ├── errors.py         # CLI error handling
 │       │       ├── formatters.py     # Output formatters
 │       │       ├── hints.py          # Post-command hints

@@ -132,7 +132,7 @@ def compute_daily_growth(data_points: list[UsageDataPoint]) -> int:
         return 0
 
     slope = (n * sum_xy - sum_x * sum_y) / denominator
-    return int(round(slope))
+    return round(slope)
 
 
 def forecast_size(current_bytes: int, daily_growth: int, days: int) -> int:
@@ -140,9 +140,7 @@ def forecast_size(current_bytes: int, daily_growth: int, days: int) -> int:
     return current_bytes + daily_growth * days
 
 
-def days_until_limit(
-    current_bytes: int, daily_growth: int, limit_bytes: int
-) -> int | None:
+def days_until_limit(current_bytes: int, daily_growth: int, limit_bytes: int) -> int | None:
     """How many days until limit_bytes is reached.
 
     Returns None if daily_growth is zero or negative (will never reach limit).

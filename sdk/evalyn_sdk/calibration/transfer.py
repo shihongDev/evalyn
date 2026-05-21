@@ -91,7 +91,9 @@ class TransferReport:
         lines = [f"Transfer Report: {self.successful}/{self.total} successful"]
         for t in self.transfers:
             status = "ok" if t.validation_score is None or t.validation_score >= 0.5 else "low"
-            score_str = f" (validation: {t.validation_score:.2f})" if t.validation_score is not None else ""
+            score_str = (
+                f" (validation: {t.validation_score:.2f})" if t.validation_score is not None else ""
+            )
             lines.append(
                 f"  {t.source_metric} -> {t.target_metric}: "
                 f"similarity={t.similarity:.2f}{score_str} [{status}]"
@@ -178,11 +180,7 @@ def validate_transfer(
         return 0.0
     if len(test_scores) != len(ground_truth):
         return 0.0
-    correct = sum(
-        1
-        for score, truth in zip(test_scores, ground_truth)
-        if (score >= 0.5) == truth
-    )
+    correct = sum(1 for score, truth in zip(test_scores, ground_truth) if (score >= 0.5) == truth)
     return correct / len(test_scores)
 
 

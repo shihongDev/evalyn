@@ -166,9 +166,7 @@ class TaskQueue:
 # ---------------------------------------------------------------------------
 
 
-def create_task_messages(
-    items: list[str], metrics: list[str]
-) -> list[TaskMessage]:
+def create_task_messages(items: list[str], metrics: list[str]) -> list[TaskMessage]:
     """Create one task per item-metric pair."""
     tasks: list[TaskMessage] = []
     for item_id in items:
@@ -183,9 +181,7 @@ def create_task_messages(
     return tasks
 
 
-def partition_tasks(
-    tasks: list[TaskMessage], num_workers: int
-) -> list[list[TaskMessage]]:
+def partition_tasks(tasks: list[TaskMessage], num_workers: int) -> list[list[TaskMessage]]:
     """Split tasks into worker partitions using round-robin."""
     if num_workers <= 0:
         return []

@@ -103,9 +103,7 @@ class ConcurrencyReport:
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> ConcurrencyReport:
         return cls(
-            groups=[
-                ConcurrencyGroup.from_dict(g) for g in data.get("groups", [])
-            ],
+            groups=[ConcurrencyGroup.from_dict(g) for g in data.get("groups", [])],
             total_calls=data.get("total_calls", 0),
             max_concurrent=data.get("max_concurrent", 0),
             avg_parallelism=data.get("avg_parallelism", 0.0),
@@ -296,8 +294,8 @@ def identify_sequential_bottlenecks(spans: list[Span]) -> list[str]:
         b = sorted_spans[i + 1]
         if a.span_type != b.span_type:
             continue
-        a_start, a_end = _span_to_interval(a)
-        b_start, b_end = _span_to_interval(b)
+        _a_start, a_end = _span_to_interval(a)
+        b_start, _b_end = _span_to_interval(b)
         # Non-overlapping: b starts at or after a ends
         if b_start >= a_end:
             if a.id not in bottleneck_ids:

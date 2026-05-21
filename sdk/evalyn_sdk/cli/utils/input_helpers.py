@@ -43,9 +43,7 @@ def get_bool_input(prompt: str, allow_skip: bool = True) -> bool | None:
         print(f"  Invalid. Use y(es), n(o){', or s(kip)' if allow_skip else ''}")
 
 
-def get_int_input(
-    prompt: str, min_val: int, max_val: int, allow_skip: bool = True
-) -> int | None:
+def get_int_input(prompt: str, min_val: int, max_val: int, allow_skip: bool = True) -> int | None:
     """Get integer input within range from user.
 
     Args:
@@ -57,9 +55,7 @@ def get_int_input(
     Returns:
         Integer within range, or None for skip/cancel
     """
-    suffix = (
-        f" [{min_val}-{max_val}/s]: " if allow_skip else f" [{min_val}-{max_val}]: "
-    )
+    suffix = f" [{min_val}-{max_val}/s]: " if allow_skip else f" [{min_val}-{max_val}]: "
     while True:
         try:
             val = input(f"  {prompt}{suffix}").strip().lower()
@@ -71,13 +67,9 @@ def get_int_input(
             num = int(val)
             if min_val <= num <= max_val:
                 return num
-            print(
-                f"  Invalid. Use {min_val}-{max_val}{' or s(kip)' if allow_skip else ''}"
-            )
+            print(f"  Invalid. Use {min_val}-{max_val}{' or s(kip)' if allow_skip else ''}")
         except ValueError:
-            print(
-                f"  Invalid. Use {min_val}-{max_val}{' or s(kip)' if allow_skip else ''}"
-            )
+            print(f"  Invalid. Use {min_val}-{max_val}{' or s(kip)' if allow_skip else ''}")
 
 
 def get_str_input(prompt: str) -> str:

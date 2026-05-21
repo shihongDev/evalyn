@@ -65,9 +65,7 @@ class SnapshotConfig:
         return cls(
             snapshot_dir=d.get("snapshot_dir", ".evalyn_snapshots"),
             max_snapshots=d.get("max_snapshots", 10),
-            auto_snapshot_before_calibration=d.get(
-                "auto_snapshot_before_calibration", True
-            ),
+            auto_snapshot_before_calibration=d.get("auto_snapshot_before_calibration", True),
         )
 
 
@@ -92,9 +90,7 @@ class SnapshotReport:
 
     @classmethod
     def from_dict(cls, d: dict[str, Any]) -> SnapshotReport:
-        snapshots = [
-            Snapshot.from_dict(s) for s in d.get("snapshots", [])
-        ]
+        snapshots = [Snapshot.from_dict(s) for s in d.get("snapshots", [])]
         return cls(
             snapshots=snapshots,
             total_snapshots=d.get("total_snapshots", 0),
@@ -127,8 +123,7 @@ def generate_snapshot_id(description: str = "") -> str:
     if description:
         # Sanitize: lowercase, replace spaces with underscores, keep alphanumeric and underscores
         suffix = "".join(
-            c if c.isalnum() or c == "_" else "_"
-            for c in description.lower().replace(" ", "_")
+            c if c.isalnum() or c == "_" else "_" for c in description.lower().replace(" ", "_")
         )
         # Trim to reasonable length
         suffix = suffix[:30].rstrip("_")
@@ -163,9 +158,7 @@ def list_snapshots(config: SnapshotConfig) -> list[Snapshot]:
     return []
 
 
-def find_snapshot(
-    snapshots: list[Snapshot], snapshot_id: str
-) -> Snapshot | None:
+def find_snapshot(snapshots: list[Snapshot], snapshot_id: str) -> Snapshot | None:
     """Find a snapshot by ID. Returns None if not found."""
     for snap in snapshots:
         if snap.snapshot_id == snapshot_id:
@@ -178,9 +171,7 @@ def cleanup_snapshots(
 ) -> tuple[list[Snapshot], list[Snapshot]]:
     """Split snapshots into (keep, remove). Keep the newest max_keep."""
     # Sort by created_at descending (newest first)
-    sorted_snaps = sorted(
-        snapshots, key=lambda s: s.created_at, reverse=True
-    )
+    sorted_snaps = sorted(snapshots, key=lambda s: s.created_at, reverse=True)
     keep = sorted_snaps[:max_keep]
     remove = sorted_snaps[max_keep:]
     return keep, remove

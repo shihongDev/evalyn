@@ -83,9 +83,7 @@ class AttributionReport:
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> AttributionReport:
-        attributions = [
-            ChangeAttribution.from_dict(a) for a in data.get("attributions", [])
-        ]
+        attributions = [ChangeAttribution.from_dict(a) for a in data.get("attributions", [])]
         return cls(
             attributions=attributions,
             dominant_factor=data.get("dominant_factor", ""),
@@ -114,9 +112,7 @@ class AttributionReport:
         for a in self.attributions:
             lines.append(f"{a.metric_id:<30} {a.delta:>+8.3f} {a.primary_factor:<15}")
             for f in a.factors:
-                lines.append(
-                    f"  - {f.factor} (confidence: {f.confidence:.2f}) {f.evidence}"
-                )
+                lines.append(f"  - {f.factor} (confidence: {f.confidence:.2f}) {f.evidence}")
         return "\n".join(lines)
 
 
@@ -175,9 +171,7 @@ def _edit_distance_ratio(a: str, b: str) -> float:
 def detect_prompt_change(prompt_a: str, prompt_b: str) -> ChangeFactor:
     """Detect if the prompt changed. Confidence based on edit distance ratio."""
     if prompt_a == prompt_b:
-        return ChangeFactor(
-            factor="prompt", confidence=0.0, evidence="No prompt change detected"
-        )
+        return ChangeFactor(factor="prompt", confidence=0.0, evidence="No prompt change detected")
     ratio = _edit_distance_ratio(prompt_a, prompt_b)
     confidence = min(0.5 + ratio * 0.5, 1.0)
     return ChangeFactor(
@@ -187,9 +181,7 @@ def detect_prompt_change(prompt_a: str, prompt_b: str) -> ChangeFactor:
     )
 
 
-def detect_config_change(
-    config_a: dict[str, Any], config_b: dict[str, Any]
-) -> ChangeFactor:
+def detect_config_change(config_a: dict[str, Any], config_b: dict[str, Any]) -> ChangeFactor:
     """Detect if any config values differ between runs."""
     all_keys = set(config_a.keys()) | set(config_b.keys())
     changed_keys = []
@@ -197,9 +189,7 @@ def detect_config_change(
         if config_a.get(key) != config_b.get(key):
             changed_keys.append(key)
     if not changed_keys:
-        return ChangeFactor(
-            factor="config", confidence=0.0, evidence="No config change detected"
-        )
+        return ChangeFactor(factor="config", confidence=0.0, evidence="No config change detected")
     confidence = min(0.6 + len(changed_keys) * 0.1, 1.0)
     return ChangeFactor(
         factor="config",
@@ -213,9 +203,7 @@ def detect_config_change(
 # ---------------------------------------------------------------------------
 
 
-def attribute_change(
-    metric_id: str, delta: float, context: dict[str, Any]
-) -> ChangeAttribution:
+def attribute_change(metric_id: str, delta: float, context: dict[str, Any]) -> ChangeAttribution:
     """Determine which factor most likely caused a metric change.
 
     Context keys:
@@ -264,7 +252,11 @@ def attribute_change(
     else:
         primary_factor = "unknown"
         factors.append(
-            ChangeFactor(factor="unknown", confidence=1.0, evidence="No changes detected in any tracked factor")
+            ChangeFactor(
+                factor="unknown",
+                confidence=1.0,
+                evidence="No changes detected in any tracked factor",
+            )
         )
 
     return ChangeAttribution(

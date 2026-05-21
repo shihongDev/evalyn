@@ -91,9 +91,7 @@ class RegularizationReport:
 # ---------------------------------------------------------------------------
 
 
-def compute_length_penalty(
-    text: str, config: RegularizationConfig
-) -> LengthPenalty:
+def compute_length_penalty(text: str, config: RegularizationConfig) -> LengthPenalty:
     """Compute length penalty for a single prompt.
 
     Methods:
@@ -130,9 +128,7 @@ def compute_length_penalty(
     )
 
 
-def apply_regularization(
-    accuracy: float, text: str, config: RegularizationConfig
-) -> float:
+def apply_regularization(accuracy: float, text: str, config: RegularizationConfig) -> float:
     """Apply length regularization to an accuracy score.
 
     Returns accuracy - penalty, clamped to [0, 1].
@@ -175,9 +171,7 @@ def evaluate_prompt_lengths(
     )
 
 
-def suggest_compression(
-    text: str, max_length: int = 1000
-) -> dict[str, Any]:
+def suggest_compression(text: str, max_length: int = 1000) -> dict[str, Any]:
     """Analyze a prompt for compression opportunities.
 
     Returns a dict with current_length, over_budget, excess_chars, suggestion.

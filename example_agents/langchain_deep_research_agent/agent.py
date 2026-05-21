@@ -24,9 +24,7 @@ from graph import graph
 # =============================================================================
 if os.getenv("OTEL_CONSOLE", "").lower() in {"1", "true", "yes"}:
     tracer = get_default_tracer()
-    tracer.attach_otel_tracer(
-        configure_otel(service_name="example-agent", exporter="console")
-    )
+    tracer.attach_otel_tracer(configure_otel(service_name="example-agent", exporter="console"))
 # =============================================================================
 
 
@@ -40,11 +38,18 @@ def run_agent(
     question: str,
     initial_queries: int = 3,
     max_loops: int = 2,
-    reasoning_model: str = "gemini-2.5-flash-lite",
+    reasoning_model: str | None = None,
 ) -> str:
     """
     Main LLM-facing entrypoint for the research agent. Wrapped with @eval so calls are traced/stored.
     """
+    # Resolve the reasoning model with env-var override so demos can be
+    # retargeted to a cheaper / faster model without code edits.
+    if reasoning_model is None:
+        reasoning_model = os.environ.get(
+            "EVALYN_DEMO_REASONING_MODEL",
+            os.environ.get("EVALYN_DEMO_MODEL", "gemini-2.5-flash-lite"),
+        )
     state = {
         "messages": [HumanMessage(content=question)],
         "initial_search_query_count": initial_queries,
@@ -74,8 +79,8 @@ def main() -> None:
     )
     parser.add_argument(
         "--reasoning-model",
-        default="gemini-2.5-flash-lite",
-        help="Model for the final answer",
+        default=None,
+        help="Model for the final answer (defaults to EVALYN_DEMO_REASONING_MODEL or EVALYN_DEMO_MODEL env var, else gemini-2.5-flash-lite)",
     )
     args = parser.parse_args()
 

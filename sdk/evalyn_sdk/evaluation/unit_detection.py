@@ -131,6 +131,7 @@ def analyze_trace_pattern(spans: list[Span]) -> TracePattern:
     has_multi_turn = False
     if llm_depths:
         from collections import Counter
+
         depth_counts = Counter(llm_depths)
         has_multi_turn = any(count >= 2 for count in depth_counts.values())
 
@@ -202,7 +203,7 @@ def detect_unit_types_batch(traces: list[list[Span]]) -> dict[str, int]:
 
     Returns a dict mapping unit type names to counts.
     """
-    counts: dict[str, int] = {ut: 0 for ut in UNIT_TYPES}
+    counts: dict[str, int] = dict.fromkeys(UNIT_TYPES, 0)
     for spans in traces:
         result = detect_unit_type(spans)
         counts[result.recommended_unit_type] = counts.get(result.recommended_unit_type, 0) + 1

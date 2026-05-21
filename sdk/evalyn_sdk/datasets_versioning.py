@@ -101,7 +101,9 @@ def create_snapshot(
     shutil.copy2(dataset_file, snapshot_path)
 
     # Count items
-    item_count = sum(1 for line in dataset_file.read_text(encoding="utf-8").splitlines() if line.strip())
+    item_count = sum(
+        1 for line in dataset_file.read_text(encoding="utf-8").splitlines() if line.strip()
+    )
 
     # Record in changelog
     version = DatasetVersion(

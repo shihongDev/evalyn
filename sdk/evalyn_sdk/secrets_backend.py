@@ -212,9 +212,7 @@ def create_default_manager() -> SecretsManager:
     return mgr
 
 
-def format_secrets_status(
-    manager: SecretsManager, refs: list[SecretReference]
-) -> str:
+def format_secrets_status(manager: SecretsManager, refs: list[SecretReference]) -> str:
     """Resolve each reference and format a human-readable status report.
 
     Values are masked - only the last 4 characters are shown.

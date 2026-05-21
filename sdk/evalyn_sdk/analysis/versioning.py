@@ -94,27 +94,33 @@ def compare_metric_versions(
 
         if bh and ch:
             if bh != ch:
-                changes.append(MetricVersionChange(
-                    metric_id=metric_id,
-                    baseline_hash=bh,
-                    current_hash=ch,
-                    change_type="modified",
-                ))
+                changes.append(
+                    MetricVersionChange(
+                        metric_id=metric_id,
+                        baseline_hash=bh,
+                        current_hash=ch,
+                        change_type="modified",
+                    )
+                )
             else:
                 unchanged.append(metric_id)
         elif bh and not ch:
-            changes.append(MetricVersionChange(
-                metric_id=metric_id,
-                baseline_hash=bh,
-                current_hash=None,
-                change_type="removed",
-            ))
+            changes.append(
+                MetricVersionChange(
+                    metric_id=metric_id,
+                    baseline_hash=bh,
+                    current_hash=None,
+                    change_type="removed",
+                )
+            )
         elif ch and not bh:
-            changes.append(MetricVersionChange(
-                metric_id=metric_id,
-                baseline_hash=None,
-                current_hash=ch,
-                change_type="added",
-            ))
+            changes.append(
+                MetricVersionChange(
+                    metric_id=metric_id,
+                    baseline_hash=None,
+                    current_hash=ch,
+                    change_type="added",
+                )
+            )
 
     return VersionComparisonReport(changes=changes, unchanged_metrics=unchanged)

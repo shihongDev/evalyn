@@ -27,9 +27,7 @@ def check_llm_api_keys(quiet: bool = False) -> tuple[str | None, str | None]:
         if not gemini_key and not openai_key:
             print()
             print("Warning: No API key found for LLM judges.")
-            print(
-                "   Set GEMINI_API_KEY or OPENAI_API_KEY to enable subjective metrics."
-            )
+            print("   Set GEMINI_API_KEY or OPENAI_API_KEY to enable subjective metrics.")
             print("   Continuing anyway, but LLM judge scores will fail.")
         elif gemini_key and len(gemini_key) < 10:
             print()
@@ -45,8 +43,4 @@ def extract_project_id(metadata: dict) -> str | None:
     """
     if not isinstance(metadata, dict):
         return None
-    return (
-        metadata.get("project_id")
-        or metadata.get("project")
-        or metadata.get("project_name")
-    )
+    return metadata.get("project_id") or metadata.get("project") or metadata.get("project_name")

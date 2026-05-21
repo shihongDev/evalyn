@@ -94,7 +94,9 @@ def validate_template(
         "variables": variables,
         "unresolved": unresolved,
         "builtin": [v for v in variables if v.split(".")[0] in BUILTIN_VARS],
-        "custom": [v for v in variables if v.split(".")[0] not in BUILTIN_VARS and v not in unresolved],
+        "custom": [
+            v for v in variables if v.split(".")[0] not in BUILTIN_VARS and v not in unresolved
+        ],
     }
 
 
@@ -117,7 +119,7 @@ def _resolve_variable(
 
         # metadata.* variables
         if var_name.startswith("metadata."):
-            key = var_name[len("metadata."):]
+            key = var_name[len("metadata.") :]
             meta = getattr(item, "metadata", {}) or {}
             return _to_str(meta.get(key))
 
@@ -135,6 +137,7 @@ def _to_str(value: Any) -> str:
     if isinstance(value, str):
         return value
     import json
+
     try:
         return json.dumps(value, ensure_ascii=False)
     except Exception:

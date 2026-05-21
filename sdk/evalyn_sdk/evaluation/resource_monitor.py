@@ -16,9 +16,9 @@ from typing import Any
 class ResourceSnapshot:
     """A point-in-time resource measurement."""
 
-    timestamp: float       # time.time()
-    memory_mb: float       # RSS in megabytes
-    memory_pct: float      # memory percentage (0-100)
+    timestamp: float  # time.time()
+    memory_mb: float  # RSS in megabytes
+    memory_pct: float  # memory percentage (0-100)
     items_evaluated: int
 
     def as_dict(self) -> dict[str, Any]:
@@ -98,12 +98,14 @@ class ResourceMonitor:
         if not self.enabled:
             return
         self._start_memory = _get_memory_mb()
-        self._snapshots = [ResourceSnapshot(
-            timestamp=time.time(),
-            memory_mb=self._start_memory,
-            memory_pct=_get_memory_pct(),
-            items_evaluated=0,
-        )]
+        self._snapshots = [
+            ResourceSnapshot(
+                timestamp=time.time(),
+                memory_mb=self._start_memory,
+                memory_pct=_get_memory_pct(),
+                items_evaluated=0,
+            )
+        ]
 
     def checkpoint(self, items_evaluated: int = 0) -> None:
         """Record a resource checkpoint.
@@ -117,12 +119,14 @@ class ResourceMonitor:
         mem_mb = _get_memory_mb()
         mem_pct = _get_memory_pct()
 
-        self._snapshots.append(ResourceSnapshot(
-            timestamp=time.time(),
-            memory_mb=mem_mb,
-            memory_pct=mem_pct,
-            items_evaluated=items_evaluated,
-        ))
+        self._snapshots.append(
+            ResourceSnapshot(
+                timestamp=time.time(),
+                memory_mb=mem_mb,
+                memory_pct=mem_pct,
+                items_evaluated=items_evaluated,
+            )
+        )
 
         # Check threshold
         if mem_mb > self.warning_threshold_mb:
@@ -156,6 +160,7 @@ def _get_memory_mb() -> float:
     """Get current process RSS memory in MB."""
     try:
         import psutil
+
         return psutil.Process(os.getpid()).memory_info().rss / (1024 * 1024)
     except ImportError:
         pass
@@ -176,6 +181,7 @@ def _get_memory_pct() -> float:
     """Get current memory usage percentage."""
     try:
         import psutil
+
         return psutil.Process(os.getpid()).memory_percent()
     except ImportError:
         return 0.0

@@ -190,8 +190,5 @@ def create_evalyn_pipeline(steps: list[str]) -> Pipeline:
 
     Each step gets a step_id derived from its position (e.g. "step_0").
     """
-    pipeline_steps = [
-        PipelineStep(step_id=f"step_{i}", name=name)
-        for i, name in enumerate(steps)
-    ]
+    pipeline_steps = [PipelineStep(step_id=f"step_{i}", name=name) for i, name in enumerate(steps)]
     return Pipeline(name="evalyn", steps=pipeline_steps)

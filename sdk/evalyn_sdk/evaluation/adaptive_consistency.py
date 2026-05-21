@@ -83,9 +83,7 @@ class AdaptiveReport:
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> AdaptiveReport:
-        results = [
-            AdaptiveSampleResult(**r) for r in data.get("results", [])
-        ]
+        results = [AdaptiveSampleResult(**r) for r in data.get("results", [])]
         return cls(
             results=results,
             total_samples_taken=data.get("total_samples_taken", 0),
@@ -182,11 +180,7 @@ def compute_adaptive_report(
     """Aggregate multiple adaptive sample results into a report."""
     total_taken = sum(r.samples_taken for r in results)
     total_possible = sum(r.samples_max for r in results)
-    savings = (
-        (total_possible - total_taken) / total_possible * 100
-        if total_possible > 0
-        else 0.0
-    )
+    savings = (total_possible - total_taken) / total_possible * 100 if total_possible > 0 else 0.0
     return AdaptiveReport(
         results=results,
         total_samples_taken=total_taken,

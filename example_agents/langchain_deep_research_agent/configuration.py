@@ -4,29 +4,32 @@ from typing import Any, Optional
 
 from langchain_core.runnables import RunnableConfig
 
+# Demo-wide model default. Users can override per stage with the more
+# specific env vars below (e.g. ``EVALYN_DEMO_ANSWER_MODEL``), or override
+# every stage at once via ``EVALYN_DEMO_MODEL``.
+_DEFAULT_MODEL = os.environ.get("EVALYN_DEMO_MODEL", "gemini-2.5-flash-lite")
+
 
 class Configuration(BaseModel):
     """The configuration for the agent."""
 
     query_generator_model: str = Field(
-        default="gemini-2.5-flash-lite",
+        default_factory=lambda: os.environ.get("EVALYN_DEMO_QUERY_MODEL", _DEFAULT_MODEL),
         metadata={
             "description": "The name of the language model to use for the agent's query generation."
         },
     )
 
     reflection_model: str = Field(
-        default="gemini-2.5-flash-lite",
+        default_factory=lambda: os.environ.get("EVALYN_DEMO_REFLECTION_MODEL", _DEFAULT_MODEL),
         metadata={
             "description": "The name of the language model to use for the agent's reflection."
         },
     )
 
     answer_model: str = Field(
-        default="gemini-2.5-flash-lite",
-        metadata={
-            "description": "The name of the language model to use for the agent's answer."
-        },
+        default_factory=lambda: os.environ.get("EVALYN_DEMO_ANSWER_MODEL", _DEFAULT_MODEL),
+        metadata={"description": "The name of the language model to use for the agent's answer."},
     )
 
     number_of_initial_queries: int = Field(
@@ -40,13 +43,9 @@ class Configuration(BaseModel):
     )
 
     @classmethod
-    def from_runnable_config(
-        cls, config: Optional[RunnableConfig] = None
-    ) -> "Configuration":
+    def from_runnable_config(cls, config: Optional[RunnableConfig] = None) -> "Configuration":
         """Create a Configuration instance from a RunnableConfig."""
-        configurable = (
-            config["configurable"] if config and "configurable" in config else {}
-        )
+        configurable = config["configurable"] if config and "configurable" in config else {}
 
         # Get raw values from environment or config
         raw_values: dict[str, Any] = {

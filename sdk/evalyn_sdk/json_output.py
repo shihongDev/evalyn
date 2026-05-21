@@ -98,9 +98,7 @@ class ProgressEvent:
         )
 
 
-def format_json_output(
-    result: CommandResult, config: JSONOutputConfig | None = None
-) -> str:
+def format_json_output(result: CommandResult, config: JSONOutputConfig | None = None) -> str:
     """Format CommandResult as JSON string."""
     if config is None:
         config = JSONOutputConfig()
@@ -138,9 +136,7 @@ def create_success_result(
     )
 
 
-def create_failure_result(
-    command: str, errors: list[str], data: Any = None
-) -> CommandResult:
+def create_failure_result(command: str, errors: list[str], data: Any = None) -> CommandResult:
     """Create a failure result with exit_code=1."""
     return CommandResult(
         command=command,
@@ -166,9 +162,7 @@ def determine_exit_code(result: CommandResult) -> int:
     return result.exit_code
 
 
-def wrap_command_output(
-    command: str, fn: Callable[[], Any], json_mode: bool = False
-) -> tuple:
+def wrap_command_output(command: str, fn: Callable[[], Any], json_mode: bool = False) -> tuple:
     """Execute fn, catch exceptions, return (output_string, exit_code).
 
     If json_mode, format as JSON; otherwise return str(result).

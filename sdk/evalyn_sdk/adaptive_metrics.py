@@ -109,9 +109,7 @@ def has_reference(item: dict, reference_field: str = "expected_output") -> bool:
     return True
 
 
-def select_metric_mode(
-    item: dict, metric_id: str, config: AdaptiveConfig
-) -> MetricMode:
+def select_metric_mode(item: dict, metric_id: str, config: AdaptiveConfig) -> MetricMode:
     """Select reference or no_reference mode for a metric on an item.
 
     If the item has a reference, use "reference" mode with the original metric.
@@ -158,8 +156,10 @@ def adapt_metrics_for_dataset(
     results: dict[str, list[AdaptiveResult]] = {}
     for item in items:
         item_results = adapt_metrics_for_item(item, metric_ids, config)
-        item_id = item_results[0].item_id if item_results else str(
-            item.get("id", item.get("item_id", ""))
+        item_id = (
+            item_results[0].item_id
+            if item_results
+            else str(item.get("id", item.get("item_id", "")))
         )
         results[item_id] = item_results
     return results
@@ -178,7 +178,7 @@ def compute_adaptation_stats(results: dict[str, list[AdaptiveResult]]) -> dict:
     seen_items_ref: set[str] = set()
     seen_items_noref: set[str] = set()
 
-    for _item_id, item_results in results.items():
+    for item_results in results.values():
         for r in item_results:
             if r.mode_used == "reference":
                 seen_items_ref.add(r.item_id)

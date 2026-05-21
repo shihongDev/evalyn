@@ -81,9 +81,7 @@ class BundleRegistry:
         q = query.lower()
         results: list[MetricBundle] = []
         for bundle in self._bundles.values():
-            searchable = " ".join(
-                [bundle.name, bundle.description] + bundle.tags
-            ).lower()
+            searchable = " ".join([bundle.name, bundle.description] + bundle.tags).lower()
             if q in searchable:
                 results.append(bundle)
         return sorted(results, key=lambda b: b.bundle_id)

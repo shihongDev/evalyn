@@ -71,7 +71,7 @@ class EvalResult:
 
 def evaluate(
     dataset: str | Path | list[DatasetItem],
-    metrics: str | Path | list[str] | list = None,
+    metrics: str | Path | list[str] | list | None = None,
     *,
     provider: str = "gemini",
     max_workers: int = 1,
@@ -179,12 +179,14 @@ def _resolve_metrics(metrics, provider: str) -> list:
     if metrics is None:
         # Default: all objective metrics (no LLM cost)
         from .metrics.objective import OBJECTIVE_REGISTRY
+
         specs = [{"id": m["id"], "type": "objective"} for m in OBJECTIVE_REGISTRY[:10]]
         return build_metrics_from_specs(specs)
 
     if isinstance(metrics, (str, Path)):
         # Path to metrics JSON
         import json
+
         path = Path(metrics)
         with open(path, encoding="utf-8") as f:
             specs_data = json.load(f)

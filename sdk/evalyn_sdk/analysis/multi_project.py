@@ -57,19 +57,13 @@ class ProjectComparison:
             "project_a": self.project_a,
             "project_b": self.project_b,
             "pass_rate_delta": (
-                round(self.pass_rate_delta, 4)
-                if self.pass_rate_delta is not None
-                else None
+                round(self.pass_rate_delta, 4) if self.pass_rate_delta is not None else None
             ),
             "cost_delta": round(self.cost_delta, 4),
         }
 
     def format_text(self) -> str:
-        pr_str = (
-            f"{self.pass_rate_delta:+.1%}"
-            if self.pass_rate_delta is not None
-            else "N/A"
-        )
+        pr_str = f"{self.pass_rate_delta:+.1%}" if self.pass_rate_delta is not None else "N/A"
         lines = [
             f"Comparison: {self.project_a} vs {self.project_b}",
             f"  Pass rate delta:  {pr_str}",
@@ -99,12 +93,8 @@ class MultiProjectReport:
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> MultiProjectReport:
-        projects = [
-            ProjectSummary.from_dict(p) for p in data.get("projects", [])
-        ]
-        comparisons = [
-            ProjectComparison(**c) for c in data.get("comparisons", [])
-        ]
+        projects = [ProjectSummary.from_dict(p) for p in data.get("projects", [])]
+        comparisons = [ProjectComparison(**c) for c in data.get("comparisons", [])]
         return cls(
             projects=projects,
             comparisons=comparisons,
@@ -122,15 +112,8 @@ class MultiProjectReport:
         if self.regressions:
             lines.append(f"  Regressions:     {', '.join(self.regressions)}")
         for p in self.projects:
-            pr_str = (
-                f"{p.latest_pass_rate:.1%}"
-                if p.latest_pass_rate is not None
-                else "N/A"
-            )
-            lines.append(
-                f"  - {p.project_name}: pass_rate={pr_str}, "
-                f"cost=${p.total_cost_usd:.4f}"
-            )
+            pr_str = f"{p.latest_pass_rate:.1%}" if p.latest_pass_rate is not None else "N/A"
+            lines.append(f"  - {p.project_name}: pass_rate={pr_str}, cost=${p.total_cost_usd:.4f}")
         return "\n".join(lines)
 
 

@@ -97,9 +97,7 @@ def encrypt_text(text: str, key: str) -> str:
     key_bytes = key.encode("utf-8")
     if not key_bytes:
         return base64.b64encode(text_bytes).decode("utf-8")
-    encrypted = bytes(
-        tb ^ key_bytes[i % len(key_bytes)] for i, tb in enumerate(text_bytes)
-    )
+    encrypted = bytes(tb ^ key_bytes[i % len(key_bytes)] for i, tb in enumerate(text_bytes))
     return base64.b64encode(encrypted).decode("utf-8")
 
 
@@ -109,9 +107,7 @@ def decrypt_text(encrypted: str, key: str) -> str:
     key_bytes = key.encode("utf-8")
     if not key_bytes:
         return encrypted_bytes.decode("utf-8")
-    decrypted = bytes(
-        eb ^ key_bytes[i % len(key_bytes)] for i, eb in enumerate(encrypted_bytes)
-    )
+    decrypted = bytes(eb ^ key_bytes[i % len(key_bytes)] for i, eb in enumerate(encrypted_bytes))
     return decrypted.decode("utf-8")
 
 
@@ -125,9 +121,7 @@ def is_encrypted(value: str) -> bool:
     return isinstance(value, str) and value.startswith("ENC:")
 
 
-def encrypt_dict(
-    data: dict[str, Any], key: str, fields: list[str] | None = None
-) -> dict[str, Any]:
+def encrypt_dict(data: dict[str, Any], key: str, fields: list[str] | None = None) -> dict[str, Any]:
     """Encrypt specified string fields in a dict.
 
     Returns a new dict with encrypted values prefixed with 'ENC:'.

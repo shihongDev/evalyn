@@ -10,8 +10,12 @@ from __future__ import annotations
 import json
 import math
 import random as _random
+from typing import TYPE_CHECKING
 
 from .models import DatasetItem
+
+if TYPE_CHECKING:
+    import numpy
 
 SAMPLING_MODES = ("all", "random", "diverse", "stratified", "clustered")
 
@@ -193,9 +197,7 @@ def sample_stratified(
 
     # Distribute remaining slots round-robin to largest groups
     if remaining > 0:
-        by_size = sorted(
-            allocations, key=lambda x: len(groups[x[0]]), reverse=True
-        )
+        by_size = sorted(allocations, key=lambda x: len(groups[x[0]]), reverse=True)
         new_allocs = dict(allocations)
         for i in range(remaining):
             key = by_size[i % len(by_size)][0]
@@ -234,7 +236,9 @@ def sample_clustered(
         texts = [input_to_text(it) for it in items]
         embeddings = _get_embeddings(texts)
     except ImportError:
-        print("Warning: sentence-transformers/sklearn not installed, falling back to random sampling")
+        print(
+            "Warning: sentence-transformers/sklearn not installed, falling back to random sampling"
+        )
         return sample_random(items, limit)
 
     actual_clusters = min(n_clusters, len(items))

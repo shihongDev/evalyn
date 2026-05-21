@@ -93,11 +93,13 @@ def _active_experiments(runs_newest_first: list[dict]) -> list[dict]:
         status = run_status(r)
         progress = None
         if status == "running":
-            n = len({
-                mr.get("item_id")
-                for mr in r.get("metric_results", [])
-                if mr.get("item_id") is not None
-            })
+            n = len(
+                {
+                    mr.get("item_id")
+                    for mr in r.get("metric_results", [])
+                    if mr.get("item_id") is not None
+                }
+            )
             total = (r.get("summary") or {}).get("total_items") or n
             progress = {"done": n, "total": total}
         out.append(
@@ -234,7 +236,8 @@ def _cost_outlier(runs_newest_first: list[dict]) -> tuple[float, float] | None:
     if curr is None or curr <= 0:
         return None
     prior = [
-        c for c in (total_cost(r) for r in runs_newest_first[1 : 1 + COST_WINDOW])
+        c
+        for c in (total_cost(r) for r in runs_newest_first[1 : 1 + COST_WINDOW])
         if c is not None and c > 0
     ]
     if len(prior) < 2:
@@ -258,16 +261,17 @@ def _attention_calibration_ready(suggestions: list[dict]) -> list[dict]:
     """
     out: list[dict] = []
     for s in suggestions[:CALIBRATION_READY_CAP]:
-        out.append({
-            "severity": "info",
-            "title": f"Calibration ready for `{s['metric_id']}`",
-            "subtitle": (
-                f"{s['verdict_count']} verdicts collected "
-                f"(threshold: {s['threshold']})"
-            ),
-            "cta": "Open Review",
-            "cta_target": "/review",
-        })
+        out.append(
+            {
+                "severity": "info",
+                "title": f"Calibration ready for `{s['metric_id']}`",
+                "subtitle": (
+                    f"{s['verdict_count']} verdicts collected (threshold: {s['threshold']})"
+                ),
+                "cta": "Open Review",
+                "cta_target": "/review",
+            }
+        )
     return out
 
 
@@ -305,72 +309,82 @@ def _attention(
     regression = _quality_regression(latest, runs_by_ds)
     if regression is not None:
         prev_pct, curr_pct, delta = regression
-        out.append({
-            "severity": "fail",
-            "title": f"Quality regression in {latest.get('_dataset', 'unknown')}",
-            "subtitle": (
-                f"{prev_pct:.1f}% → {curr_pct:.1f}% (-{delta:.1f} pts) in last run"
-            ),
-            "cta": "Investigate",
-            "cta_target": f"/experiments/{run_id(latest)}",
-        })
+        out.append(
+            {
+                "severity": "fail",
+                "title": f"Quality regression in {latest.get('_dataset', 'unknown')}",
+                "subtitle": (f"{prev_pct:.1f}% → {curr_pct:.1f}% (-{delta:.1f} pts) in last run"),
+                "cta": "Investigate",
+                "cta_target": f"/experiments/{run_id(latest)}",
+            }
+        )
 
     # 2. Struggling metric
     struggling = _struggling_metric(runs_newest_first)
     if struggling is not None:
         mid, avg, n_seen = struggling
-        out.append({
-            "severity": "warn",
-            "title": f"Metric `{mid}` failing >{int(round((1 - avg) * 100))}% of items",
-            "subtitle": f"Across {n_seen} recent run{'s' if n_seen != 1 else ''}",
-            "cta": "Open metric",
-            "cta_target": "/metrics",
-        })
+        out.append(
+            {
+                "severity": "warn",
+                "title": f"Metric `{mid}` failing >{round((1 - avg) * 100)}% of items",
+                "subtitle": f"Across {n_seen} recent run{'s' if n_seen != 1 else ''}",
+                "cta": "Open metric",
+                "cta_target": "/metrics",
+            }
+        )
 
     # 4. Cost outlier (number 4 in the spec but cheap to compute here)
     cost_outlier = _cost_outlier(runs_newest_first)
     if cost_outlier is not None:
         curr_cost, med_cost = cost_outlier
-        out.append({
-            "severity": "warn",
-            "title": f"Last run cost {fmt_cost(curr_cost)} (2x median)",
-            "subtitle": f"Median {fmt_cost(med_cost)}",
-            "cta": "View run",
-            "cta_target": f"/experiments/{run_id(latest)}",
-        })
+        out.append(
+            {
+                "severity": "warn",
+                "title": f"Last run cost {fmt_cost(curr_cost)} (2x median)",
+                "subtitle": f"Median {fmt_cost(med_cost)}",
+                "cta": "View run",
+                "cta_target": f"/experiments/{run_id(latest)}",
+            }
+        )
 
     # 5. Stale: last run older than STALE_DAYS
     last_dt = parse_iso(latest.get("created_at"))
     if last_dt is not None:
         age = anchor - last_dt
         if age > timedelta(days=STALE_DAYS):
-            out.append({
-                "severity": "info",
-                "title": f"No new evaluations in {age.days} days",
-                "subtitle": f"Last: {last_dt.strftime('%Y-%m-%d')}",
-                "cta": "Run an eval",
-                "cta_target": "/commands",
-            })
+            out.append(
+                {
+                    "severity": "info",
+                    "title": f"No new evaluations in {age.days} days",
+                    "subtitle": f"Last: {last_dt.strftime('%Y-%m-%d')}",
+                    "cta": "Run an eval",
+                    "cta_target": "/commands",
+                }
+            )
 
     # 3. No calibration anywhere (only meaningful when runs exist - which
     #    is the path we're on). Suppressed when calibration-ready items
     #    exist - they're contradictory (calibrations ARE coming).
     if not has_any_calibration() and not cal_ready:
-        out.append({
-            "severity": "info",
-            "title": "Judge has no human calibration",
-            "subtitle": "Verdicts may drift from human judgment",
-            "cta": "Calibrate",
-            "cta_target": "/metrics",
-        })
+        out.append(
+            {
+                "severity": "info",
+                "title": "Judge has no human calibration",
+                "subtitle": "Verdicts may drift from human judgment",
+                "cta": "Calibrate",
+                "cta_target": "/metrics",
+            }
+        )
 
     # 6. Calibration-ready (per-metric).
     out.extend(_attention_calibration_ready(cal_ready))
 
-    out.sort(key=lambda a: (
-        SEVERITY_RANK.get(a["severity"], 99),
-        # Stable: items appended earlier (= more recently fired) keep order.
-    ))
+    out.sort(
+        key=lambda a: (
+            SEVERITY_RANK.get(a["severity"], 99),
+            # Stable: items appended earlier (= more recently fired) keep order.
+        )
+    )
     return out[:ATTENTION_CAP]
 
 
@@ -530,16 +544,10 @@ def _brief(
         only = runs_30d[0]
         pr = run_pass_rate(only)
         pct = f"{pr * 100:.1f}%" if pr is not None else "n/a"
-        body = (
-            f"First run captured: {run_id(only)} at {pct}. "
-            "Run another to start tracking trends."
-        )
+        body = f"First run captured: {run_id(only)} at {pct}. Run another to start tracking trends."
         if calibration_ready_count > 0:
             plural = "s" if calibration_ready_count != 1 else ""
-            body += (
-                f" {calibration_ready_count} rubric calibration{plural} "
-                "ready - go to Review."
-            )
+            body += f" {calibration_ready_count} rubric calibration{plural} ready - go to Review."
         return {
             "generated_at_iso": now_iso,
             "body_md": body,
@@ -549,12 +557,12 @@ def _brief(
     # Sentence 1: 30d window summary.
     pr_latest = run_pass_rate(latest)
     n_runs = len(runs_30d)
-    overall_rates = [
-        run_pass_rate(r) * 100.0 for r in runs_30d if run_pass_rate(r) is not None
-    ]
+    overall_rates = [run_pass_rate(r) * 100.0 for r in runs_30d if run_pass_rate(r) is not None]
     overall_avg = sum(overall_rates) / len(overall_rates) if overall_rates else None
-    pr_pct = f"{overall_avg:.1f}%" if overall_avg is not None else (
-        f"{pr_latest * 100:.1f}%" if pr_latest is not None else "n/a"
+    pr_pct = (
+        f"{overall_avg:.1f}%"
+        if overall_avg is not None
+        else (f"{pr_latest * 100:.1f}%" if pr_latest is not None else "n/a")
     )
     sentences = [
         f"Quality is {pr_pct} over {n_runs} run{'s' if n_runs != 1 else ''} in the last 30 days."
@@ -568,31 +576,23 @@ def _brief(
         ds_drift = _largest_dataset_delta(_runs_by_dataset(runs_newest_first), anchor)
         if ds_drift is not None:
             ds_name, ds_delta = ds_drift
-            mover = (
-                f", mostly from the {ds_name} dataset" if abs(ds_delta) >= 1.0 else ""
-            )
+            mover = f", mostly from the {ds_name} dataset" if abs(ds_delta) >= 1.0 else ""
         else:
             mover = ""
-        sentences.append(
-            f"{arrow} {abs(wow):.1f} pts vs last week{mover}."
-        )
+        sentences.append(f"{arrow} {abs(wow):.1f} pts vs last week{mover}.")
 
     # Sentence 3: worst metric across recent runs.
     struggling = _struggling_metric(runs_newest_first)
     if struggling is not None:
         mid, avg, _ = struggling
-        sentences.append(
-            f"`{mid}` is the largest failure mode at {avg * 100:.1f}% pass."
-        )
+        sentences.append(f"`{mid}` is the largest failure mode at {avg * 100:.1f}% pass.")
 
     # Sentence 4: cost (only when meaningful and within 4-sentence cap).
     if cost is not None and cost.get("total_30d", 0) > 0 and len(sentences) < 4:
         spend = cost["total_30d"]
         proj = cost.get("projected_monthly")
         if proj is not None:
-            sentences.append(
-                f"Spend this month: ${spend:.2f} (projected ${proj:.2f})."
-            )
+            sentences.append(f"Spend this month: ${spend:.2f} (projected ${proj:.2f}).")
         else:
             sentences.append(f"Spend this month: ${spend:.2f}.")
 
@@ -624,19 +624,23 @@ def _brief_actions(attention: list[dict]) -> list[dict]:
     actions: list[dict] = []
     for a in attention:
         if a["severity"] == "fail" and a["cta_target"].startswith("/experiments/"):
-            actions.append({
-                "label": "Open run",
-                "kind": "primary",
-                "intent": a["cta_target"],
-            })
+            actions.append(
+                {
+                    "label": "Open run",
+                    "kind": "primary",
+                    "intent": a["cta_target"],
+                }
+            )
             break
     for a in attention:
         if a["severity"] == "warn" and a["cta_target"] == "/metrics":
-            actions.append({
-                "label": "Open metric",
-                "kind": "secondary",
-                "intent": "/metrics",
-            })
+            actions.append(
+                {
+                    "label": "Open metric",
+                    "kind": "secondary",
+                    "intent": "/metrics",
+                }
+            )
             break
     actions.append({"label": "Open co-pilot", "kind": "bare", "intent": "/copilot"})
     return actions
@@ -693,9 +697,7 @@ async def home() -> JSONResponse:
     cumulative_passes = 0.0
     for idx, r in enumerate(runs_30d, start=1):
         cumulative_passes += run_pass_rate(r) or 0.0
-        timeline.append(
-            {"x": _short_label(r), "y": round(100.0 * cumulative_passes / idx, 2)}
-        )
+        timeline.append({"x": _short_label(r), "y": round(100.0 * cumulative_passes / idx, 2)})
 
     current = run_pass_rate(latest)
     snap["quality"]["timeline"] = timeline

@@ -231,9 +231,7 @@ def render_priority_chart(report: PriorityReport, width: int = 60) -> str:
     return "\n".join(lines)
 
 
-def suggest_improvements(
-    report: PriorityReport, max_suggestions: int = 3
-) -> list[str]:
+def suggest_improvements(report: PriorityReport, max_suggestions: int = 3) -> list[str]:
     """Return top improvement suggestions as human-readable strings."""
     suggestions: list[str] = []
     for r in report.rankings[:max_suggestions]:

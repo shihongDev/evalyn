@@ -89,6 +89,7 @@ class PlatformExportResult:
     spans_exported: int = 0
     format: str = ""
     file_path: str = ""
+    content: str = ""
 
     def as_dict(self) -> dict[str, Any]:
         return {
@@ -96,6 +97,7 @@ class PlatformExportResult:
             "spans_exported": self.spans_exported,
             "format": self.format,
             "file_path": self.file_path,
+            "content": self.content,
         }
 
     def format_text(self) -> str:
@@ -212,6 +214,7 @@ def export_spans(spans: list[Span], config: ExportConfig) -> PlatformExportResul
         spans_exported=len(spans),
         format=fmt,
         file_path="",
+        content=content,
     )
 
 

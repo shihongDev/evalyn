@@ -50,6 +50,7 @@ def _get_pool(url: str, timeout: int) -> Any:
     if _use_urllib3 is None:
         try:
             import urllib3
+
             _use_urllib3 = True
         except ImportError:
             _use_urllib3 = False
@@ -58,6 +59,7 @@ def _get_pool(url: str, timeout: int) -> Any:
         return None
 
     from urllib.parse import urlparse
+
     parsed = urlparse(url)
     key = (parsed.scheme, parsed.netloc)
     pool = _pool_cache.get(key)
@@ -65,15 +67,22 @@ def _get_pool(url: str, timeout: int) -> Any:
         return pool
 
     import urllib3
+
     if parsed.scheme == "https":
         pool = urllib3.HTTPSConnectionPool(
-            parsed.hostname, parsed.port or 443,
-            maxsize=16, timeout=timeout, retries=False,
+            parsed.hostname,
+            parsed.port or 443,
+            maxsize=16,
+            timeout=timeout,
+            retries=False,
         )
     else:
         pool = urllib3.HTTPConnectionPool(
-            parsed.hostname, parsed.port or 80,
-            maxsize=16, timeout=timeout, retries=False,
+            parsed.hostname,
+            parsed.port or 80,
+            maxsize=16,
+            timeout=timeout,
+            retries=False,
         )
     _pool_cache[key] = pool
     return pool
@@ -101,17 +110,28 @@ def _http_post(
     last_error: Exception | None = None
     pool = _get_pool(url, timeout)
 
+    # Pre-compute the path+query once for urllib3 path (one urlparse total
+    # instead of three per attempt).
+    pool_path: str | None = None
+    if pool is not None:
+        from urllib.parse import urlparse
+
+        parsed = urlparse(url)
+        pool_path = parsed.path
+        if parsed.query:
+            pool_path += "?" + parsed.query
+
     for attempt in range(_MAX_RETRIES + 1):
         try:
             if pool is not None:
                 # urllib3 path: connection pooling with keep-alive
-                from urllib.parse import urlparse
-                path = urlparse(url).path
-                if urlparse(url).query:
-                    path += "?" + urlparse(url).query
                 resp = pool.urlopen(
-                    "POST", path, body=data, headers=headers,
-                    timeout=timeout, redirect=False,
+                    "POST",
+                    pool_path,
+                    body=data,
+                    headers=headers,
+                    timeout=timeout,
+                    redirect=False,
                 )
                 if 200 <= resp.status < 300:
                     return json.loads(resp.data.decode("utf-8"))
@@ -129,33 +149,30 @@ def _http_post(
         except urllib.error.HTTPError as e:
             if e.code not in _RETRYABLE_STATUS_CODES or attempt == _MAX_RETRIES:
                 error_body = e.read().decode("utf-8") if e.fp else ""
-                raise RuntimeError(
-                    f"{error_prefix} error ({e.code}): {error_body}"
-                ) from e
+                raise RuntimeError(f"{error_prefix} error ({e.code}): {error_body}") from e
             last_error = e
         except Exception as e:
             if attempt == _MAX_RETRIES:
-                raise RuntimeError(
-                    f"{error_prefix} connection error: {e}"
-                ) from e
+                raise RuntimeError(f"{error_prefix} connection error: {e}") from e
             last_error = e
 
         # Exponential backoff with jitter: 1s, 2s, 4s (plus up to 0.5s jitter)
-        delay = _BASE_DELAY * (2 ** attempt) + random.uniform(0, 0.5)
+        delay = _BASE_DELAY * (2**attempt) + random.uniform(0, 0.5)
         elapsed = time.monotonic() - start
         if elapsed + delay > _MAX_TOTAL_TIMEOUT:
             break
         logger.warning(
             "%s: retrying in %.1fs (attempt %d/%d)",
-            error_prefix, delay, attempt + 1, _MAX_RETRIES,
+            error_prefix,
+            delay,
+            attempt + 1,
+            _MAX_RETRIES,
         )
         time.sleep(delay)
 
     # Exhausted retries or total timeout
     if last_error:
-        raise RuntimeError(
-            f"{error_prefix}: failed after {_MAX_RETRIES} retries"
-        ) from last_error
+        raise RuntimeError(f"{error_prefix}: failed after {_MAX_RETRIES} retries") from last_error
     raise RuntimeError(f"{error_prefix}: unexpected retry loop exit")
 
 
@@ -235,7 +252,9 @@ class GeminiClient:
         return result.text
 
     def generate_with_usage(
-        self, prompt: str, temperature: float | None = None,
+        self,
+        prompt: str,
+        temperature: float | None = None,
         system_instruction: str | None = None,
     ) -> GenerateResult:
         """Call Gemini API and return text with token usage.
@@ -253,15 +272,11 @@ class GeminiClient:
         payload = {
             "contents": [{"parts": [{"text": prompt}]}],
             "generationConfig": {
-                "temperature": temperature
-                if temperature is not None
-                else self.temperature
+                "temperature": temperature if temperature is not None else self.temperature
             },
         }
         if system_instruction:
-            payload["systemInstruction"] = {
-                "parts": [{"text": system_instruction}]
-            }
+            payload["systemInstruction"] = {"parts": [{"text": system_instruction}]}
         headers = {
             "Content-Type": "application/json",
             "x-goog-api-key": self._get_api_key(),
@@ -376,7 +391,10 @@ class OpenAIClient:
         return key
 
     def _call_api(
-        self, prompt: str, temperature: float | None, with_logprobs: bool = False,
+        self,
+        prompt: str,
+        temperature: float | None,
+        with_logprobs: bool = False,
         system_instruction: str | None = None,
     ) -> dict[str, Any]:
         """Make API call and return raw response data."""
@@ -405,7 +423,9 @@ class OpenAIClient:
         return result.text
 
     def generate_with_usage(
-        self, prompt: str, temperature: float | None = None,
+        self,
+        prompt: str,
+        temperature: float | None = None,
         system_instruction: str | None = None,
     ) -> GenerateResult:
         """Call OpenAI API and return text with token usage.
@@ -417,7 +437,9 @@ class OpenAIClient:
                 (50% input token discount on shared prefixes)
         """
         response_data = self._call_api(
-            prompt, temperature, system_instruction=system_instruction,
+            prompt,
+            temperature,
+            system_instruction=system_instruction,
         )
 
         text = ""
@@ -521,9 +543,7 @@ class OllamaClient:
         system_instruction: str | None = None,
     ) -> dict[str, Any]:
         """Make API call and return raw response data."""
-        options = {
-            "temperature": temperature if temperature is not None else self.temperature
-        }
+        options = {"temperature": temperature if temperature is not None else self.temperature}
         if extra_options:
             options.update(extra_options)
 
@@ -545,7 +565,9 @@ class OllamaClient:
         return result.text
 
     def generate_with_usage(
-        self, prompt: str, temperature: float | None = None,
+        self,
+        prompt: str,
+        temperature: float | None = None,
         system_instruction: str | None = None,
     ) -> GenerateResult:
         """Call Ollama API and return text with token usage.
@@ -557,7 +579,9 @@ class OllamaClient:
                 "system" field, separating instructions from evaluation data)
         """
         response_data = self._call_api(
-            prompt, temperature, system_instruction=system_instruction,
+            prompt,
+            temperature,
+            system_instruction=system_instruction,
         )
 
         text = response_data.get("response", "")
@@ -581,9 +605,7 @@ class OllamaClient:
         Note: Ollama support for logprobs varies by model. Falls back to 0.5
         if logprobs not available.
         """
-        response_data = self._call_api(
-            prompt, temperature, extra_options={"num_predict": 512}
-        )
+        response_data = self._call_api(prompt, temperature, extra_options={"num_predict": 512})
 
         text = response_data.get("response", "")
         confidence = 0.5  # Default - Ollama logprobs support is limited
@@ -607,9 +629,7 @@ class OllamaClient:
         This returns an empty list for logprobs. Use generate_with_confidence()
         for Ollama's heuristic-based confidence instead.
         """
-        response_data = self._call_api(
-            prompt, temperature, extra_options={"num_predict": 512}
-        )
+        response_data = self._call_api(prompt, temperature, extra_options={"num_predict": 512})
         text = response_data.get("response", "")
         # Ollama doesn't expose token-level logprobs
         return text, []
@@ -640,7 +660,10 @@ def create_llm_client(
         return OllamaClient(model=model, temperature=temperature)
     else:
         return GeminiClient(
-            model=model, temperature=temperature, api_key=api_key, timeout=timeout,
+            model=model,
+            temperature=temperature,
+            api_key=api_key,
+            timeout=timeout,
         )
 
 

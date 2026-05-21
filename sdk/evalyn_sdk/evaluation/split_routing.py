@@ -14,8 +14,8 @@ from typing import Any
 class RoutingPlan:
     """Plan for splitting metrics between local and API evaluation."""
 
-    local_metrics: list = field(default_factory=list)   # objective - run locally
-    api_metrics: list = field(default_factory=list)      # subjective - send to API
+    local_metrics: list = field(default_factory=list)  # objective - run locally
+    api_metrics: list = field(default_factory=list)  # subjective - send to API
     local_count: int = 0
     api_count: int = 0
 

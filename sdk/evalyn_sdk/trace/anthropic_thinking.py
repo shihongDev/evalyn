@@ -92,11 +92,13 @@ def extract_thinking_blocks(response_data: dict[str, Any]) -> list[ThinkingBlock
         text = item.get("thinking", item.get("text", ""))
         token_count = item.get("token_count", 0)
         duration_ms = item.get("duration_ms", 0.0)
-        blocks.append(ThinkingBlock(
-            text=text,
-            token_count=token_count,
-            duration_ms=duration_ms,
-        ))
+        blocks.append(
+            ThinkingBlock(
+                text=text,
+                token_count=token_count,
+                duration_ms=duration_ms,
+            )
+        )
     return blocks
 
 
@@ -117,9 +119,7 @@ def analyze_thinking(blocks: list[ThinkingBlock]) -> ThinkingAnalysis:
     )
 
 
-def inject_thinking_into_span(
-    span: Span, blocks: list[ThinkingBlock]
-) -> Span:
+def inject_thinking_into_span(span: Span, blocks: list[ThinkingBlock]) -> Span:
     """Add thinking blocks to span attributes under 'anthropic.thinking'.
 
     Returns a new Span - does not mutate the original.
@@ -171,16 +171,8 @@ def compute_thinking_overhead(spans: list[Span]) -> dict[str, Any]:
         # Output tokens from span attributes (common convention)
         total_output_tokens += s.attributes.get("output_tokens", 0)
 
-    avg_per_span = (
-        total_thinking_tokens / spans_with_thinking
-        if spans_with_thinking
-        else 0.0
-    )
-    ratio = (
-        total_thinking_tokens / total_output_tokens
-        if total_output_tokens
-        else 0.0
-    )
+    avg_per_span = total_thinking_tokens / spans_with_thinking if spans_with_thinking else 0.0
+    ratio = total_thinking_tokens / total_output_tokens if total_output_tokens else 0.0
 
     return {
         "total_thinking_tokens": total_thinking_tokens,

@@ -302,9 +302,7 @@ def run_benchmark_suite(
     by_difficulty = {
         d: sum(scores) / len(scores) for d, scores in difficulty_scores.items() if scores
     }
-    by_category = {
-        c: sum(scores) / len(scores) for c, scores in category_scores.items() if scores
-    }
+    by_category = {c: sum(scores) / len(scores) for c, scores in category_scores.items() if scores}
 
     return BenchmarkReport(
         suite_name=suite.name,

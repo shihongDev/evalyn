@@ -24,7 +24,9 @@ class ChangelogEntry:
         return {
             "metric_id": self.metric_id,
             "change_type": self.change_type,
-            "baseline_rate": round(self.baseline_rate, 4) if self.baseline_rate is not None else None,
+            "baseline_rate": round(self.baseline_rate, 4)
+            if self.baseline_rate is not None
+            else None,
             "current_rate": round(self.current_rate, 4) if self.current_rate is not None else None,
             "delta": round(self.delta, 4),
         }
@@ -91,12 +93,16 @@ class Changelog:
             lines.append("")
             lines.append("  Regressions:")
             for e in sorted(self.regressions, key=lambda x: x.delta):
-                lines.append(f"    {e.metric_id}: {e.baseline_rate*100:.0f}% -> {e.current_rate*100:.0f}% ({e.delta*100:+.1f}%)")
+                lines.append(
+                    f"    {e.metric_id}: {e.baseline_rate * 100:.0f}% -> {e.current_rate * 100:.0f}% ({e.delta * 100:+.1f}%)"
+                )
         if self.improvements:
             lines.append("")
             lines.append("  Improvements:")
             for e in sorted(self.improvements, key=lambda x: -x.delta):
-                lines.append(f"    {e.metric_id}: {e.baseline_rate*100:.0f}% -> {e.current_rate*100:.0f}% ({e.delta*100:+.1f}%)")
+                lines.append(
+                    f"    {e.metric_id}: {e.baseline_rate * 100:.0f}% -> {e.current_rate * 100:.0f}% ({e.delta * 100:+.1f}%)"
+                )
         if self.added:
             lines.append("")
             lines.append(f"  New metrics: {', '.join(e.metric_id for e in self.added)}")

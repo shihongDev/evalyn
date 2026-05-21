@@ -74,9 +74,7 @@ def cmd_list_runs(args: argparse.Namespace) -> None:
             entry = {
                 "id": run.id,
                 "dataset_name": run.dataset_name,
-                "created_at": run.created_at.isoformat()
-                if run.created_at
-                else None,
+                "created_at": run.created_at.isoformat() if run.created_at else None,
                 "metrics_count": len(run.metrics),
                 "results_count": _results_count(run),
                 "summary": run.summary,
@@ -99,14 +97,16 @@ def cmd_list_runs(args: argparse.Namespace) -> None:
         short_id = run.id[:8]
         pin_marker = "[*] " if run.pinned else ""
         name_display = run.name or ""
-        rows.append([
-            pin_marker + short_id,
-            run.dataset_name,
-            str(len(run.metrics)),
-            str(_results_count(run)),
-            name_display,
-            trim_timestamp(run.created_at),
-        ])
+        rows.append(
+            [
+                pin_marker + short_id,
+                run.dataset_name,
+                str(len(run.metrics)),
+                str(_results_count(run)),
+                name_display,
+                trim_timestamp(run.created_at),
+            ]
+        )
 
     print(banner("EVAL RUNS"))
     print(rich_table(headers, rows, align=align))
@@ -162,9 +162,7 @@ def cmd_show_run(args: argparse.Namespace) -> None:
             "id": run.id,
             "dataset_name": run.dataset_name,
             "created_at": run.created_at.isoformat() if run.created_at else None,
-            "metrics": [
-                m.as_dict() if hasattr(m, "as_dict") else m for m in run.metrics
-            ],
+            "metrics": [m.as_dict() if hasattr(m, "as_dict") else m for m in run.metrics],
             "summary": run.summary,
             "usage_summary": run.usage_summary,
             "metric_results": [
@@ -188,27 +186,28 @@ def cmd_show_run(args: argparse.Namespace) -> None:
     # Table output mode
     print()
     print(banner("EVAL RUN"))
-    print(kv([
-        ("ID", run.id),
-        ("Dataset", run.dataset_name),
-    ]))
+    print(
+        kv(
+            [
+                ("ID", run.id),
+                ("Dataset", run.dataset_name),
+            ]
+        )
+    )
 
     print()
     print(section("METRICS SUMMARY"))
     for mid, stats in (run.summary or {}).get("metrics", {}).items():
         pr = stats.get("pass_rate")
         si = status_icon(pr is not None and pr >= 0.5) if pr is not None else ""
-        print(
-            f"  {si} {mid:<18} count={stats['count']:<3} "
-            f"avg_score={stats['avg_score']!s:<10} pass_rate={pr!s:<10}"
-        )
+        count = stats.get("count", 0)
+        avg_score = stats.get("avg_score", "N/A")
+        print(f"  {si} {mid:<18} count={count:<3} avg_score={avg_score!s:<10} pass_rate={pr!s:<10}")
     if (run.summary or {}).get("failed_items"):
         print(f"  Failed items: {run.summary['failed_items']}")
 
     # Show token usage and cost summary if available
-    print_token_usage_summary(
-        run.usage_summary, verbose=getattr(args, "verbose", False)
-    )
+    print_token_usage_summary(run.usage_summary, verbose=getattr(args, "verbose", False))
 
     print()
     print(section("METRIC RESULTS"))

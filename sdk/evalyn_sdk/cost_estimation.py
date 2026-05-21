@@ -177,27 +177,27 @@ def estimate_simulation_cost(
         for mode_name, mode_count in modes.items():
             m_input = mode_count * avg_input_tokens
             m_output = mode_count * avg_output_tokens
-            m_cost = (
-                (m_input / 1000) * model.input_cost_per_1k
-                + (m_output / 1000) * model.output_cost_per_1k
-            )
+            m_cost = (m_input / 1000) * model.input_cost_per_1k + (
+                m_output / 1000
+            ) * model.output_cost_per_1k
             total_input += m_input
             total_output += m_output
             total_cost += m_cost
-            breakdown.append({
-                "mode": mode_name,
-                "items": mode_count,
-                "input_tokens": m_input,
-                "output_tokens": m_output,
-                "cost": round(m_cost, 6),
-            })
+            breakdown.append(
+                {
+                    "mode": mode_name,
+                    "items": mode_count,
+                    "input_tokens": m_input,
+                    "output_tokens": m_output,
+                    "cost": round(m_cost, 6),
+                }
+            )
     else:
         total_input = item_count * avg_input_tokens
         total_output = item_count * avg_output_tokens
-        total_cost = (
-            (total_input / 1000) * model.input_cost_per_1k
-            + (total_output / 1000) * model.output_cost_per_1k
-        )
+        total_cost = (total_input / 1000) * model.input_cost_per_1k + (
+            total_output / 1000
+        ) * model.output_cost_per_1k
 
     return CostEstimate(
         total_tokens=total_input + total_output,
@@ -224,7 +224,9 @@ def build_cost_report(
         model = DEFAULT_COST_MODELS["gemini-2.0-flash"]
 
     estimate = estimate_simulation_cost(
-        item_count=item_count, model=model, modes=modes,
+        item_count=item_count,
+        model=model,
+        modes=modes,
     )
     effective_count = sum(modes.values()) if modes else item_count
     return CostReport(

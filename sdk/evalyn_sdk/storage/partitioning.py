@@ -96,9 +96,7 @@ class PartitionReport:
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> PartitionReport:
-        partitions = [
-            Partition.from_dict(p) for p in data.get("partitions", [])
-        ]
+        partitions = [Partition.from_dict(p) for p in data.get("partitions", [])]
         return cls(
             partitions=partitions,
             total_partitions=data.get("total_partitions", 0),

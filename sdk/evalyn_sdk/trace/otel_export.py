@@ -135,17 +135,20 @@ def convert_span_to_otel(span: Span, service_name: str = "evalyn") -> OTelSpan:
     )
 
 
-def convert_spans_to_otel(
-    spans: list[Span], service_name: str = "evalyn"
-) -> list[OTelSpan]:
+def convert_spans_to_otel(spans: list[Span], service_name: str = "evalyn") -> list[OTelSpan]:
     """Batch convert evalyn Spans to OTel format."""
     return [convert_span_to_otel(s, service_name) for s in spans]
 
 
-def format_as_otlp_json(otel_spans: list[OTelSpan]) -> str:
-    """Format as OTLP JSON (resource spans format)."""
+def format_as_otlp_json(otel_spans: list[OTelSpan], *, indent: int | None = None) -> str:
+    """Format as OTLP JSON (resource spans format).
+
+    ``indent`` defaults to ``None`` (compact output) so machine consumers
+    like the OTEL collector do not pay the pretty-print cost on large
+    span sets. Pass ``indent=2`` for human-readable output.
+    """
     if not otel_spans:
-        return json.dumps({"resourceSpans": []}, indent=2)
+        return json.dumps({"resourceSpans": []}, indent=indent)
 
     # Group spans by service_name
     by_service: dict[str, list[OTelSpan]] = {}
@@ -166,8 +169,7 @@ def format_as_otlp_json(otel_spans: list[OTelSpan]) -> str:
                     "endTimeUnixNano": s.start_time_unix_ns + s.duration_ns,
                     "status": {"code": 1 if s.status == "ok" else 2},
                     "attributes": [
-                        {"key": k, "value": {"stringValue": v}}
-                        for k, v in s.tags.items()
+                        {"key": k, "value": {"stringValue": v}} for k, v in s.tags.items()
                     ],
                 }
             )
@@ -185,13 +187,13 @@ def format_as_otlp_json(otel_spans: list[OTelSpan]) -> str:
             }
         )
 
-    return json.dumps({"resourceSpans": resource_spans}, indent=2)
+    return json.dumps({"resourceSpans": resource_spans}, indent=indent)
 
 
-def format_as_jaeger_json(otel_spans: list[OTelSpan]) -> str:
-    """Format as Jaeger-compatible JSON."""
+def format_as_jaeger_json(otel_spans: list[OTelSpan], *, indent: int | None = None) -> str:
+    """Format as Jaeger-compatible JSON. ``indent`` defaults to compact."""
     if not otel_spans:
-        return json.dumps({"data": []}, indent=2)
+        return json.dumps({"data": []}, indent=indent)
 
     # Group by service
     by_service: dict[str, list[OTelSpan]] = {}
@@ -220,10 +222,7 @@ def format_as_jaeger_json(otel_spans: list[OTelSpan]) -> str:
                     ),
                     "startTime": s.start_time_unix_ns // 1000,  # microseconds
                     "duration": s.duration_ns // 1000,
-                    "tags": [
-                        {"key": k, "type": "string", "value": v}
-                        for k, v in s.tags.items()
-                    ],
+                    "tags": [{"key": k, "type": "string", "value": v} for k, v in s.tags.items()],
                 }
             )
         data.append(
@@ -239,13 +238,13 @@ def format_as_jaeger_json(otel_spans: list[OTelSpan]) -> str:
             }
         )
 
-    return json.dumps({"data": data}, indent=2)
+    return json.dumps({"data": data}, indent=indent)
 
 
-def format_as_zipkin_json(otel_spans: list[OTelSpan]) -> str:
-    """Format as Zipkin JSON array."""
+def format_as_zipkin_json(otel_spans: list[OTelSpan], *, indent: int | None = None) -> str:
+    """Format as Zipkin JSON array. ``indent`` defaults to compact."""
     if not otel_spans:
-        return json.dumps([], indent=2)
+        return json.dumps([], indent=indent)
 
     zipkin_spans = []
     for s in otel_spans:
@@ -262,13 +261,21 @@ def format_as_zipkin_json(otel_spans: list[OTelSpan]) -> str:
             span_obj["parentId"] = s.parent_span_id
         zipkin_spans.append(span_obj)
 
-    return json.dumps(zipkin_spans, indent=2)
+    return json.dumps(zipkin_spans, indent=indent)
 
 
 def export_to_file(
-    otel_spans: list[OTelSpan], file_path: str, format: str = "otlp"
+    otel_spans: list[OTelSpan],
+    file_path: str,
+    format: str = "otlp",
+    *,
+    indent: int | None = 2,
 ) -> ExportResult:
-    """Write spans to file in specified format."""
+    """Write spans to file in specified format.
+
+    File output defaults to ``indent=2`` for readability when humans open
+    the file. Pass ``indent=None`` for compact output on hot paths.
+    """
     formatters = {
         "otlp": format_as_otlp_json,
         "jaeger": format_as_jaeger_json,
@@ -284,7 +291,7 @@ def export_to_file(
             endpoint=file_path,
         )
 
-    content = formatter(otel_spans)
+    content = formatter(otel_spans, indent=indent)
     with open(file_path, "w") as f:
         f.write(content)
 

@@ -156,6 +156,7 @@ def compute_dataset_stats(items: list) -> DatasetStats:
 
         # Duplicate detection via input hash
         import hashlib
+
         input_hash = hashlib.sha256(input_text.encode()).hexdigest()[:16]
         if input_hash in seen_hashes:
             stats.duplicate_input_count += 1
@@ -222,7 +223,9 @@ def check_dataset_health(
             )
 
     if stats.reference_coverage == 0:
-        warnings.append("No items have human labels/references (subjective calibration requires labels)")
+        warnings.append(
+            "No items have human labels/references (subjective calibration requires labels)"
+        )
 
     passed = len(errors) == 0
     return HealthCheckResult(passed=passed, warnings=warnings, errors=errors)

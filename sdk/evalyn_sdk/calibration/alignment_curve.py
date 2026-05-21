@@ -74,9 +74,7 @@ class AlignmentCurve:
             f"  Total improvement: {self.total_improvement:.4f}",
         ]
         if self.diminishing_returns_at is not None:
-            lines.append(
-                f"  Diminishing returns at: {self.diminishing_returns_at} annotations"
-            )
+            lines.append(f"  Diminishing returns at: {self.diminishing_returns_at} annotations")
         else:
             lines.append("  Diminishing returns: not reached")
         return "\n".join(lines)
@@ -117,9 +115,7 @@ def build_alignment_curve(
     return AlignmentCurve(points=points, diminishing_returns_at=diminishing_at)
 
 
-def render_ascii_curve(
-    curve: AlignmentCurve, width: int = 60, height: int = 15
-) -> str:
+def render_ascii_curve(curve: AlignmentCurve, width: int = 60, height: int = 15) -> str:
     """Render ASCII plot of alignment vs annotation count.
 
     X axis = annotation count, Y axis = alignment score. Uses '#' for points.
@@ -151,9 +147,7 @@ def render_ascii_curve(
         if score_range == 0:
             y = height // 2
         else:
-            y = int(
-                (1 - (point.alignment_score - min_score) / score_range) * (height - 1)
-            )
+            y = int((1 - (point.alignment_score - min_score) / score_range) * (height - 1))
         y = min(max(y, 0), height - 1)
 
         grid[y][x] = "#"
@@ -188,9 +182,7 @@ def estimate_optimal_annotations(curve: AlignmentCurve) -> int:
     return max(p.num_annotations for p in curve.points)
 
 
-def compute_roi(
-    curve: AlignmentCurve, cost_per_annotation: float = 1.0
-) -> dict[str, Any]:
+def compute_roi(curve: AlignmentCurve, cost_per_annotation: float = 1.0) -> dict[str, Any]:
     """Compute return on investment for annotations.
 
     Returns dict with total_cost, total_improvement, cost_per_point,

@@ -89,13 +89,8 @@ class RAGSpanData:
     def from_dict(cls, data: dict[str, Any]) -> RAGSpanData:
         rc_raw = data.get("retrieval_context")
         return cls(
-            retrieval_context=RetrievalContext.from_dict(rc_raw)
-            if rc_raw
-            else None,
-            memory_ops=[
-                MemoryOperation.from_dict(op)
-                for op in data.get("memory_ops", [])
-            ],
+            retrieval_context=RetrievalContext.from_dict(rc_raw) if rc_raw else None,
+            memory_ops=[MemoryOperation.from_dict(op) for op in data.get("memory_ops", [])],
             augmented_prompt_length=data.get("augmented_prompt_length", 0),
         )
 

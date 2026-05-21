@@ -241,12 +241,14 @@ def create_matched_pairs(
         max_len = max(len_a, len_b, 1)
         similarity = 1.0 - abs(len_a - len_b) / max_len
 
-        pairs.append(ABPair(
-            pair_id=f"pair_{len(pairs)}",
-            item_a=item_a,
-            item_b=item_b,
-            similarity=similarity,
-        ))
+        pairs.append(
+            ABPair(
+                pair_id=f"pair_{len(pairs)}",
+                item_a=item_a,
+                item_b=item_b,
+                similarity=similarity,
+            )
+        )
         used.add(i)
         used.add(i + 1)
 
@@ -266,9 +268,7 @@ def validate_ab_split(
         issues.append("Group B is empty")
 
     if result.balance_score < min_balance:
-        issues.append(
-            f"Balance score {result.balance_score:.4f} below minimum {min_balance}"
-        )
+        issues.append(f"Balance score {result.balance_score:.4f} below minimum {min_balance}")
 
     # Check size ratio
     if result.group_a and result.group_b:

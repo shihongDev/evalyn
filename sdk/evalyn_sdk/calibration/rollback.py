@@ -77,9 +77,7 @@ class CalibrationHistory:
         self, metric_id: str, prompt: str, alignment_score: float
     ) -> CalibrationSnapshot:
         """Add a new snapshot with auto-incremented version."""
-        if metric_id not in self._history:
-            self._history[metric_id] = []
-        existing = self._history[metric_id]
+        existing = self._history.setdefault(metric_id, [])
         version = existing[-1].version + 1 if existing else 1
         snapshot = CalibrationSnapshot(
             metric_id=metric_id,
@@ -137,10 +135,7 @@ class CalibrationHistory:
         should_rollback = delta < -degradation_threshold
 
         if should_rollback:
-            reason = (
-                f"Score dropped by {abs(delta):.4f} "
-                f"(threshold: {degradation_threshold})"
-            )
+            reason = f"Score dropped by {abs(delta):.4f} (threshold: {degradation_threshold})"
         else:
             reason = "Score is stable or improved"
 
@@ -163,7 +158,5 @@ class CalibrationHistory:
     def from_dict(cls, data: dict[str, Any]) -> CalibrationHistory:
         history = cls()
         for metric_id, snapshot_list in data.items():
-            history._history[metric_id] = [
-                CalibrationSnapshot.from_dict(s) for s in snapshot_list
-            ]
+            history._history[metric_id] = [CalibrationSnapshot.from_dict(s) for s in snapshot_list]
         return history

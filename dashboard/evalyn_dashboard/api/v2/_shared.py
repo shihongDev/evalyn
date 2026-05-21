@@ -42,9 +42,9 @@ V2_CACHE_KEYS: tuple[str, ...] = (
     "experiments",
     "experiment",  # prefix matches "experiment:<id>" + items pages
     "datasets",
-    "dataset",     # prefix matches "dataset:<name>"
+    "dataset",  # prefix matches "dataset:<name>"
     "rubrics",
-    "rubric",      # prefix matches "rubric:<id>"
+    "rubric",  # prefix matches "rubric:<id>"
     "reviewQueue",
     "weeklyReport",
 )
@@ -118,6 +118,7 @@ def _clear_caches_for_tests() -> None:
     _clear_reviews_files_snapshots()
     try:
         from . import datasets as _datasets_mod  # noqa: WPS433 - intentional
+
         _datasets_mod._coverage_cache.clear()
         _datasets_mod._meta_cache.clear()
         _datasets_mod._response_cache.clear()
@@ -125,12 +126,20 @@ def _clear_caches_for_tests() -> None:
         pass
     try:
         from . import rubrics as _rubrics_mod  # noqa: WPS433 - intentional
+
         _rubrics_mod._calibration_index_cache.clear()
         _rubrics_mod._saved_rubric_index_cache.clear()
     except ImportError:
         pass
     try:
+        from . import annotation as _annotation_mod  # noqa: WPS433 - intentional
+
+        _annotation_mod._coverage_counter_cache.clear()
+    except ImportError:
+        pass
+    try:
         from . import review as _review_mod  # noqa: WPS433 - intentional
+
         _review_mod._clear_review_caches_for_tests()
     except ImportError:
         pass
@@ -459,8 +468,7 @@ def iter_run_dirs(root: Path | None = None) -> Iterable[Path]:
     """
     roots = [root] if root is not None else dataset_roots()
     for r in roots:
-        for run_dir in _list_run_dirs_for_root(r):
-            yield run_dir
+        yield from _list_run_dirs_for_root(r)
 
 
 def load_run(run_dir: Path) -> dict | None:
@@ -619,9 +627,7 @@ def cost_or_zero(run: dict) -> float:
     return float(c) if c is not None else 0.0
 
 
-def daily_cost_buckets(
-    runs: Iterable[dict], anchor: datetime, days: int
-) -> list[float]:
+def daily_cost_buckets(runs: Iterable[dict], anchor: datetime, days: int) -> list[float]:
     """Bucket per-run cost into ``days`` daily buckets ending at ``anchor``.
 
     Each bucket sums ``cost_or_zero`` for runs whose ``created_at`` falls
@@ -652,7 +658,7 @@ def fmt_duration(seconds: float | None) -> str:
     """Format seconds as ``Xm Ys`` or ``Ys``; ``-`` when missing."""
     if seconds is None:
         return "-"
-    s = int(round(float(seconds)))
+    s = round(float(seconds))
     if s < 60:
         return f"{s}s"
     return f"{s // 60}m {s % 60}s"
@@ -681,10 +687,7 @@ def run_pass_rate(run: dict) -> float | None:
     if pr is not None:
         return float(pr)
     metrics = s.get("metrics") or {}
-    rates = [
-        m.get("pass_rate") if isinstance(m, dict) else None
-        for m in metrics.values()
-    ]
+    rates = [m.get("pass_rate") if isinstance(m, dict) else None for m in metrics.values()]
     rates = [float(x) for x in rates if isinstance(x, (int, float))]
     if rates:
         return sum(rates) / len(rates)
@@ -751,7 +754,7 @@ def cumulative_pass_series(run: dict, n_points: int = 50) -> tuple[list[str], li
     sampled: list[float] = []
     labels: list[str] = []
     for i in range(n_points):
-        idx = min(int(round(i * step)), len(cumulative) - 1)
+        idx = min(round(i * step), len(cumulative) - 1)
         sampled.append(cumulative[idx])
         labels.append(str(idx + 1))
     return labels, sampled
@@ -929,9 +932,7 @@ def _read_verdicts(path: Path, mtime: float | None = None) -> list[dict]:
                 try:
                     out.append(json.loads(line))
                 except json.JSONDecodeError as exc:
-                    logger.warning(
-                        "verdicts jsonl line %d at %s: %s", line_num, path, exc
-                    )
+                    logger.warning("verdicts jsonl line %d at %s: %s", line_num, path, exc)
     except OSError as exc:
         logger.warning("verdicts jsonl read failed at %s: %s", path, exc)
     if mtime is not None and not _caches_disabled():
@@ -963,7 +964,8 @@ def _reviews_files_snapshot_path(root: Path) -> Path:
 
 
 def _load_reviews_files_snapshot(
-    root: Path, mtime: float,
+    root: Path,
+    mtime: float,
 ) -> list[tuple[Path, str]] | None:
     """Read the persisted reviews-files list for ``root`` if mtime matches.
 
@@ -1011,7 +1013,9 @@ def _load_reviews_files_snapshot(
 
 
 def _save_reviews_files_snapshot(
-    root: Path, mtime: float, files: list[tuple[Path, str]],
+    root: Path,
+    mtime: float,
+    files: list[tuple[Path, str]],
 ) -> None:
     """Atomically persist the reviews-files list for ``root`` keyed on mtime.
 
@@ -1023,9 +1027,7 @@ def _save_reviews_files_snapshot(
     try:
         snap_dir.mkdir(parents=True, exist_ok=True)
     except OSError as exc:
-        logger.warning(
-            "reviews_files snapshot mkdir failed at %s: %s", snap_dir, exc
-        )
+        logger.warning("reviews_files snapshot mkdir failed at %s: %s", snap_dir, exc)
         return
     payload = {
         "root": str(root),
@@ -1166,16 +1168,18 @@ def calibration_suggestions(runs: list[dict]) -> list[dict]:
             # Already calibrated since the latest verdict landed.
             continue
         annotations_path = str(ds_dir / "reviews")
-        suggestions.append({
-            "metric_id": metric_id,
-            "dataset": ds_name,
-            "verdict_count": count,
-            "threshold": CALIBRATION_VERDICT_THRESHOLD,
-            "cli_args": {
+        suggestions.append(
+            {
                 "metric_id": metric_id,
-                "annotations": annotations_path,
-            },
-        })
+                "dataset": ds_name,
+                "verdict_count": count,
+                "threshold": CALIBRATION_VERDICT_THRESHOLD,
+                "cli_args": {
+                    "metric_id": metric_id,
+                    "annotations": annotations_path,
+                },
+            }
+        )
     suggestions.sort(key=lambda s: (-s["verdict_count"], s["dataset"], s["metric_id"]))
     return suggestions[:CALIBRATION_SUGGESTIONS_CAP]
 
@@ -1221,9 +1225,7 @@ async def _watcher_loop() -> None:
                 continue
             _LAST_ROOTS_SIG = sig
             _drop_response_caches()
-            await broadcast(
-                {"type": "cache_invalidate", "keys": list(V2_CACHE_KEYS)}
-            )
+            await broadcast({"type": "cache_invalidate", "keys": list(V2_CACHE_KEYS)})
         except asyncio.CancelledError:
             raise
         except Exception as exc:  # noqa: BLE001 - never let the loop die

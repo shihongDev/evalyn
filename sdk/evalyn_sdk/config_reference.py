@@ -296,11 +296,7 @@ def filter_reference(
 
     if search:
         term = search.lower()
-        filtered = [
-            o
-            for o in filtered
-            if term in o.key.lower() or term in o.description.lower()
-        ]
+        filtered = [o for o in filtered if term in o.key.lower() or term in o.description.lower()]
 
     sections = sorted(set(o.section for o in filtered if o.section))
 
@@ -428,10 +424,10 @@ def validate_config(config: dict[str, Any], reference: ConfigReference) -> list[
                 errors.append(
                     f"Wrong type for '{key}': expected {opt.type_name}, got {type(value).__name__}"
                 )
-            elif opt.type_name == "int" and isinstance(value, bool) or opt.type_name == "float" and isinstance(value, bool):
-                errors.append(
-                    f"Wrong type for '{key}': expected {opt.type_name}, got bool"
-                )
+            elif (opt.type_name == "int" and isinstance(value, bool)) or (
+                opt.type_name == "float" and isinstance(value, bool)
+            ):
+                errors.append(f"Wrong type for '{key}': expected {opt.type_name}, got bool")
             elif opt.type_name not in ("bool",) and not isinstance(value, expected_type):
                 # For int, also accept float that is whole number? No, keep strict.
                 # For float, also accept int
@@ -448,8 +444,6 @@ def validate_config(config: dict[str, Any], reference: ConfigReference) -> list[
 
         # Valid values check
         if opt.valid_values and value is not None and value not in opt.valid_values:
-            errors.append(
-                f"Invalid value for '{key}': '{value}' not in {opt.valid_values}"
-            )
+            errors.append(f"Invalid value for '{key}': '{value}' not in {opt.valid_values}")
 
     return errors

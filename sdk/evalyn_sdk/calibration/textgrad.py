@@ -265,17 +265,14 @@ class TextGradOptimizer(BaseOptimizer):
             PromptOptimizationResult with optimized preamble.
         """
         # Build datasets
-        trainset, valset = self.split_train_val(
-            metric_results, annotations, dataset_items
-        )
+        trainset, valset = self.split_train_val(metric_results, annotations, dataset_items)
 
         if len(trainset) < 3 or len(valset) < 2:
             return PromptOptimizationResult(
                 original_rubric=current_rubric,
                 improved_rubric=current_rubric,
                 improvement_reasoning=(
-                    "Not enough data for TextGrad optimization "
-                    "(need at least 5 annotated examples)"
+                    "Not enough data for TextGrad optimization (need at least 5 annotated examples)"
                 ),
                 suggested_additions=[],
                 suggested_removals=[],
@@ -294,9 +291,7 @@ class TextGradOptimizer(BaseOptimizer):
 
         # Score seed preamble on training set
         best_preamble = seed_preamble
-        best_score = self.score_preamble(
-            best_preamble, current_rubric, trainset, accumulator
-        )
+        best_score = self.score_preamble(best_preamble, current_rubric, trainset, accumulator)
         seed_score = best_score
 
         current_preamble_text = seed_preamble
@@ -311,8 +306,11 @@ class TextGradOptimizer(BaseOptimizer):
         for _iteration in pbar:
             # Step 1: Collect failure cases
             failures = self._collect_failures(
-                current_preamble_text, current_rubric, trainset,
-                max_failures=self.config.num_failure_examples, accumulator=accumulator,
+                current_preamble_text,
+                current_rubric,
+                trainset,
+                max_failures=self.config.num_failure_examples,
+                accumulator=accumulator,
             )
 
             if not failures:
@@ -320,14 +318,10 @@ class TextGradOptimizer(BaseOptimizer):
                 break
 
             # Step 2: Critique
-            critique = self._critique(
-                current_preamble_text, failures, accumulator
-            )
+            critique = self._critique(current_preamble_text, failures, accumulator)
 
             # Step 3: Revise
-            revised_preamble = self._revise(
-                current_preamble_text, critique, accumulator
-            )
+            revised_preamble = self._revise(current_preamble_text, critique, accumulator)
 
             # Step 4: Score revised preamble
             revised_score = self.score_preamble(
@@ -352,12 +346,8 @@ class TextGradOptimizer(BaseOptimizer):
                 break
 
         # Validate on held-out data
-        val_score = self.score_preamble(
-            best_preamble, current_rubric, valset, accumulator
-        )
-        seed_val_score = self.score_preamble(
-            seed_preamble, current_rubric, valset, accumulator
-        )
+        val_score = self.score_preamble(best_preamble, current_rubric, valset, accumulator)
+        seed_val_score = self.score_preamble(seed_preamble, current_rubric, valset, accumulator)
 
         # Determine improvement level
         improvement_delta = val_score - seed_val_score

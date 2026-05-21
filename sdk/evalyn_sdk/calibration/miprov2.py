@@ -140,9 +140,7 @@ class MIPROv2Optimizer(BaseOptimizer):
         Returns:
             List of candidate preamble strings
         """
-        rubric_text = (
-            "\n".join([f"- {r}" for r in rubric]) if rubric else "(no rubric defined)"
-        )
+        rubric_text = "\n".join([f"- {r}" for r in rubric]) if rubric else "(no rubric defined)"
 
         fp_count = 0
         fn_count = 0
@@ -293,7 +291,13 @@ class MIPROv2Optimizer(BaseOptimizer):
         """
         scored: list[tuple[str, float]] = []
         for instruction in instructions:
-            f1 = self.score_preamble(instruction, rubric, train_examples, accumulator, max_samples=self.config.eval_samples)
+            f1 = self.score_preamble(
+                instruction,
+                rubric,
+                train_examples,
+                accumulator,
+                max_samples=self.config.eval_samples,
+            )
             scored.append((instruction, f1))
 
         scored.sort(key=lambda x: x[1], reverse=True)
@@ -335,11 +339,13 @@ class MIPROv2Optimizer(BaseOptimizer):
             best_f1 = current_f1
 
             for demo in remaining_demos:
-                candidate_preamble = self._embed_demos(
-                    instruction, selected_demos + [demo]
-                )
+                candidate_preamble = self._embed_demos(instruction, selected_demos + [demo])
                 f1 = self.score_preamble(
-                    candidate_preamble, rubric, train_examples, accumulator, max_samples=self.config.eval_samples
+                    candidate_preamble,
+                    rubric,
+                    train_examples,
+                    accumulator,
+                    max_samples=self.config.eval_samples,
                 )
                 if f1 > best_f1:
                     best_f1 = f1
@@ -369,11 +375,7 @@ class MIPROv2Optimizer(BaseOptimizer):
             return instruction
 
         demo_text = "\n".join(selected_demos)
-        return (
-            instruction
-            + "\n\nHere are examples of correct evaluations:\n"
-            + demo_text
-        )
+        return instruction + "\n\nHere are examples of correct evaluations:\n" + demo_text
 
     # ------------------------------------------------------------------
     # Main optimize entry point
@@ -424,8 +426,7 @@ class MIPROv2Optimizer(BaseOptimizer):
                 original_rubric=current_rubric,
                 improved_rubric=current_rubric,
                 improvement_reasoning=(
-                    "Not enough data for MIPROv2 optimization "
-                    "(need at least 5 annotated examples)"
+                    "Not enough data for MIPROv2 optimization (need at least 5 annotated examples)"
                 ),
                 suggested_additions=[],
                 suggested_removals=[],

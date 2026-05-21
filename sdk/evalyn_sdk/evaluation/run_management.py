@@ -84,9 +84,7 @@ def filter_runs_below_pass_rate(
         if not metrics:
             continue
         pass_rates = [
-            m.get("pass_rate", 0)
-            for m in metrics.values()
-            if m.get("pass_rate") is not None
+            m.get("pass_rate", 0) for m in metrics.values() if m.get("pass_rate") is not None
         ]
         if pass_rates:
             overall = sum(pass_rates) / len(pass_rates)

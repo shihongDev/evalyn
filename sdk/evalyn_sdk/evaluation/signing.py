@@ -27,12 +27,14 @@ def compute_result_hash(metric_results: list) -> str:
     # Build canonical representation
     entries = []
     for r in sorted(metric_results, key=lambda x: (x.metric_id, x.item_id)):
-        entries.append({
-            "metric_id": r.metric_id,
-            "item_id": r.item_id,
-            "score": r.score,
-            "passed": r.passed,
-        })
+        entries.append(
+            {
+                "metric_id": r.metric_id,
+                "item_id": r.item_id,
+                "score": r.score,
+                "passed": r.passed,
+            }
+        )
 
     content = json.dumps(entries, sort_keys=True, default=str)
     return hashlib.sha256(content.encode()).hexdigest()[:32]
@@ -82,7 +84,9 @@ def verify_run(run) -> dict[str, Any]:
 
     return {
         "valid": is_valid,
-        "reason": "Results match stored hash" if is_valid else "Results were modified after signing",
+        "reason": "Results match stored hash"
+        if is_valid
+        else "Results were modified after signing",
         "stored_hash": stored_hash,
         "computed_hash": computed_hash,
     }

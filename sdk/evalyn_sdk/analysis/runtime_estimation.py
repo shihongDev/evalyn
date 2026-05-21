@@ -11,8 +11,8 @@ from typing import Any
 
 # Default execution time estimates (milliseconds per evaluation)
 _DEFAULT_TIMES_MS = {
-    "objective": 5,         # local computation
-    "subjective": 2000,     # LLM API call
+    "objective": 5,  # local computation
+    "subjective": 2000,  # LLM API call
 }
 
 
@@ -22,9 +22,9 @@ class MetricTimeEstimate:
 
     metric_id: str
     metric_type: str
-    avg_time_ms: float          # average time per item
+    avg_time_ms: float  # average time per item
     total_time_ms: float = 0.0  # total for dataset
-    source: str = "default"     # "default" or "historical"
+    source: str = "default"  # "default" or "historical"
 
     def as_dict(self) -> dict[str, Any]:
         return {
@@ -65,15 +65,17 @@ class RuntimeEstimateReport:
     def format_text(self) -> str:
         lines = [
             "Runtime Estimation:",
-            f"  Sequential: {self.total_sequential_ms/1000:.1f}s",
-            f"  Parallel ({self.max_workers} workers): {self.total_parallel_ms/1000:.1f}s",
+            f"  Sequential: {self.total_sequential_ms / 1000:.1f}s",
+            f"  Parallel ({self.max_workers} workers): {self.total_parallel_ms / 1000:.1f}s",
             f"  Items: {self.item_count}",
         ]
         if self.slowest_metric:
             lines.append(f"  Slowest: {self.slowest_metric}")
         lines.append("")
         for m in sorted(self.metrics, key=lambda x: -x.total_time_ms):
-            lines.append(f"  {m.metric_id:<30} {m.avg_time_ms:.0f}ms/item  total: {m.total_time_ms/1000:.1f}s")
+            lines.append(
+                f"  {m.metric_id:<30} {m.avg_time_ms:.0f}ms/item  total: {m.total_time_ms / 1000:.1f}s"
+            )
         return "\n".join(lines)
 
 
@@ -112,13 +114,15 @@ def estimate_runtime(
 
         total_ms = avg_ms * item_count
 
-        estimates.append(MetricTimeEstimate(
-            metric_id=mid,
-            metric_type=mtype,
-            avg_time_ms=avg_ms,
-            total_time_ms=total_ms,
-            source=source,
-        ))
+        estimates.append(
+            MetricTimeEstimate(
+                metric_id=mid,
+                metric_type=mtype,
+                avg_time_ms=avg_ms,
+                total_time_ms=total_ms,
+                source=source,
+            )
+        )
         total_seq += total_ms
 
     # Parallel estimate

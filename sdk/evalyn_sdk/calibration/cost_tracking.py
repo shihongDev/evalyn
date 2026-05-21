@@ -83,9 +83,7 @@ class CalibrationCostRecord:
             f"  Total calls: {self.total_calls}",
         ]
         for p in self.phases:
-            lines.append(
-                f"  {p.phase}: {p.tokens} tokens, ${p.cost_usd:.4f}, {p.calls} calls"
-            )
+            lines.append(f"  {p.phase}: {p.tokens} tokens, ${p.cost_usd:.4f}, {p.calls} calls")
         return "\n".join(lines)
 
 
@@ -99,18 +97,14 @@ class CalibrationCostTracker:
 
     def record(self, phase: str, tokens: int, cost_usd: float) -> None:
         """Add cost to a phase."""
-        if phase not in self._phases:
-            self._phases[phase] = PhaseCost(phase=phase)
-        pc = self._phases[phase]
+        pc = self._phases.setdefault(phase, PhaseCost(phase=phase))
         pc.tokens += tokens
         pc.cost_usd += cost_usd
         pc.calls += 1
 
     def get_phase_cost(self, phase: str) -> PhaseCost:
         """Get cost for one phase."""
-        if phase in self._phases:
-            return self._phases[phase]
-        return PhaseCost(phase=phase)
+        return self._phases.get(phase, PhaseCost(phase=phase))
 
     def get_record(self) -> CalibrationCostRecord:
         """Get full record with computed totals."""

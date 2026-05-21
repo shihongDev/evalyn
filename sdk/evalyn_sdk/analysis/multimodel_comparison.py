@@ -232,9 +232,7 @@ def build_multimodel_report(results: list[ModelResult]) -> MultiModelReport:
     )
 
 
-def rank_models(
-    results: list[ModelResult], by: str = "score"
-) -> list[ModelResult]:
+def rank_models(results: list[ModelResult], by: str = "score") -> list[ModelResult]:
     """Sort models by score (desc), cost (asc), or latency (asc)."""
     if by == "score":
         return sorted(results, key=lambda r: r.avg_score, reverse=True)

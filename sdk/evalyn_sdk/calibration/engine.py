@@ -100,8 +100,8 @@ class CalibrationEngine:
             self.optimizer_model = config.optimizer_model
             self.optimizer_type = config.optimizer_type
             deprecated_configs = {
-                k: getattr(config, k) for k in
-                ("gepa_config", "gepa_native_config", "opro_config", "ape_config")
+                k: getattr(config, k)
+                for k in ("gepa_config", "gepa_native_config", "opro_config", "ape_config")
                 if getattr(config, k, None) is not None
             }
             if config.optimizer_config and deprecated_configs:
@@ -129,10 +129,14 @@ class CalibrationEngine:
             self.optimizer_model = optimizer_model
             self.optimizer_type = optimizer_type
             deprecated = {
-                k: v for k, v in [
-                    ("gepa_config", gepa_config), ("gepa_native_config", gepa_native_config),
-                    ("opro_config", opro_config), ("ape_config", ape_config),
-                ] if v is not None
+                k: v
+                for k, v in [
+                    ("gepa_config", gepa_config),
+                    ("gepa_native_config", gepa_native_config),
+                    ("opro_config", opro_config),
+                    ("ape_config", ape_config),
+                ]
+                if v is not None
             }
             if optimizer_config and deprecated:
                 logger.warning(
@@ -141,11 +145,7 @@ class CalibrationEngine:
                     list(deprecated.keys()),
                 )
             self.optimizer_config = (
-                optimizer_config
-                or gepa_config
-                or gepa_native_config
-                or opro_config
-                or ape_config
+                optimizer_config or gepa_config or gepa_native_config or opro_config or ape_config
             )
             self.optimizer_api_key = optimizer_api_key
 
@@ -499,9 +499,7 @@ class CalibrationEngine:
         alignment = self.compute_alignment(metric_results, annotations)
 
         # Step 2: Analyze disagreements
-        disagreements = self.analyze_disagreements(
-            metric_results, annotations, dataset_items
-        )
+        disagreements = self.analyze_disagreements(metric_results, annotations, dataset_items)
 
         # Step 3: Suggest threshold adjustment (legacy behavior)
         suggested_threshold = self._suggest_threshold(metric_results, annotations)
@@ -564,7 +562,9 @@ class CalibrationEngine:
                         accumulator=accumulator,
                     )
                 except Exception:
-                    logger.warning("Failed to validate optimized prompt, skipping validation", exc_info=True)
+                    logger.warning(
+                        "Failed to validate optimized prompt, skipping validation", exc_info=True
+                    )
                     validation_result = None
 
         # Build adjustments dict with all calibration data

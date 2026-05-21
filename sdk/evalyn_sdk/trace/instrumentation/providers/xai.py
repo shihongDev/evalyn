@@ -25,12 +25,8 @@ def _extract_usage(response: Any) -> tuple[int, int]:
     if not usage:
         return 0, 0
 
-    input_tokens = getattr(usage, "prompt_tokens", 0) or getattr(
-        usage, "input_tokens", 0
-    )
-    output_tokens = getattr(usage, "completion_tokens", 0) or getattr(
-        usage, "output_tokens", 0
-    )
+    input_tokens = getattr(usage, "prompt_tokens", 0) or getattr(usage, "input_tokens", 0)
+    output_tokens = getattr(usage, "completion_tokens", 0) or getattr(usage, "output_tokens", 0)
     return input_tokens, output_tokens
 
 
@@ -95,9 +91,7 @@ class XAIInstrumentor(Instrumentor):
         def patched_sample(chat_self, *args, **kwargs):
             start = time.time()
             # Extract model from Chat instance
-            model = getattr(chat_self, "_model", None) or getattr(
-                chat_self, "model", "unknown"
-            )
+            model = getattr(chat_self, "_model", None) or getattr(chat_self, "model", "unknown")
             request = _extract_request(args, kwargs)
 
             try:
@@ -140,9 +134,7 @@ class XAIInstrumentor(Instrumentor):
             @functools.wraps(self._original_asample)
             async def patched_asample(chat_self, *args, **kwargs):
                 start = time.time()
-                model = getattr(chat_self, "_model", None) or getattr(
-                    chat_self, "model", "unknown"
-                )
+                model = getattr(chat_self, "_model", None) or getattr(chat_self, "model", "unknown")
                 request = _extract_request(args, kwargs)
 
                 try:

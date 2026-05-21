@@ -121,9 +121,7 @@ def load_sampling_record(path: str) -> SamplingRecord | None:
         return None
 
 
-def verify_reproducibility(
-    record: SamplingRecord, new_selected_ids: list[str]
-) -> bool:
+def verify_reproducibility(record: SamplingRecord, new_selected_ids: list[str]) -> bool:
     """Check whether new_selected_ids reproduce the same checksum as record."""
     return compute_selection_checksum(new_selected_ids) == record.checksum
 

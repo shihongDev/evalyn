@@ -83,9 +83,7 @@ class BudgetTracker:
         alerts: list[str] = []
         if self._total_cost >= max_cost:
             status = "exceeded"
-            alerts.append(
-                f"Budget exceeded: ${self._total_cost:.4f} >= ${max_cost:.4f}"
-            )
+            alerts.append(f"Budget exceeded: ${self._total_cost:.4f} >= ${max_cost:.4f}")
         elif utilization >= self.config.warning_threshold:
             status = "warning"
             alerts.append(
@@ -132,11 +130,7 @@ class BudgetTracker:
         return tracker
 
 
-def create_budget(
-    max_cost_usd: float, warning_threshold: float = 0.8
-) -> BudgetTracker:
+def create_budget(max_cost_usd: float, warning_threshold: float = 0.8) -> BudgetTracker:
     """Factory to create a BudgetTracker with the given limits."""
-    config = BudgetConfig(
-        max_cost_usd=max_cost_usd, warning_threshold=warning_threshold
-    )
+    config = BudgetConfig(max_cost_usd=max_cost_usd, warning_threshold=warning_threshold)
     return BudgetTracker(config)

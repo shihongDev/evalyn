@@ -81,12 +81,9 @@ class PersonaHub:
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> PersonaHub:
         return cls(
-            profiles=[
-                PersonaProfile.from_dict(p) for p in data.get("profiles", [])
-            ],
+            profiles=[PersonaProfile.from_dict(p) for p in data.get("profiles", [])],
             trait_definitions=[
-                PersonaTrait.from_dict(t)
-                for t in data.get("trait_definitions", [])
+                PersonaTrait.from_dict(t) for t in data.get("trait_definitions", [])
             ],
             total_profiles=data.get("total_profiles", 0),
         )
@@ -317,9 +314,7 @@ def filter_personas(
     value: str,
 ) -> list[PersonaProfile]:
     """Filter personas by a specific trait value."""
-    return [
-        p for p in hub.profiles if p.traits.get(trait_name) == value
-    ]
+    return [p for p in hub.profiles if p.traits.get(trait_name) == value]
 
 
 def format_persona_hub(hub: PersonaHub) -> str:
@@ -334,10 +329,7 @@ def format_persona_hub(hub: PersonaHub) -> str:
     # Trait definitions
     lines.append("Trait Definitions:")
     for trait in hub.trait_definitions:
-        lines.append(
-            f"  {trait.trait_name} ({trait.category}): "
-            f"{', '.join(trait.values)}"
-        )
+        lines.append(f"  {trait.trait_name} ({trait.category}): {', '.join(trait.values)}")
     lines.append("")
 
     # Coverage

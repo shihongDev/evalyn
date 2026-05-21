@@ -76,9 +76,7 @@ class MergeResult:
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> MergeResult:
-        conflicts = [
-            MergeConflict(**c) for c in data.get("conflicts", [])
-        ]
+        conflicts = [MergeConflict(**c) for c in data.get("conflicts", [])]
         return cls(
             merged_count=data.get("merged_count", 0),
             conflict_count=data.get("conflict_count", 0),
@@ -98,8 +96,7 @@ class MergeResult:
             for c in self.conflicts:
                 res = f" -> {c.resolution}" if c.resolution else ""
                 lines.append(
-                    f"  [{c.table}] {c.record_id}.{c.field}: "
-                    f"'{c.value_a}' vs '{c.value_b}'{res}"
+                    f"  [{c.table}] {c.record_id}.{c.field}: '{c.value_a}' vs '{c.value_b}'{res}"
                 )
         return "\n".join(lines)
 
@@ -228,9 +225,7 @@ def merge_records(
             index_a[rid] = dict(rec)
         # keep_a and keep_newest: keep what is already in index_a
 
-    resolved_conflicts = [
-        resolve_conflict(c, config.strategy) for c in conflicts
-    ]
+    resolved_conflicts = [resolve_conflict(c, config.strategy) for c in conflicts]
 
     merged = list(index_a.values())
     result = MergeResult(
@@ -252,14 +247,16 @@ def plan_merge(
     for name in all_tables:
         count_a = tables_a.get(name, 0)
         count_b = tables_b.get(name, 0)
-        plan.append({
-            "table": name,
-            "rows_a": count_a,
-            "rows_b": count_b,
-            "estimated_merged": count_a + count_b,
-            "only_in_a": name not in tables_b,
-            "only_in_b": name not in tables_a,
-        })
+        plan.append(
+            {
+                "table": name,
+                "rows_a": count_a,
+                "rows_b": count_b,
+                "estimated_merged": count_a + count_b,
+                "only_in_a": name not in tables_b,
+                "only_in_b": name not in tables_a,
+            }
+        )
     return {
         "tables": plan,
         "total_tables": len(all_tables),

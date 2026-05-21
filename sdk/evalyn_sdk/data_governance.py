@@ -95,8 +95,7 @@ class DataGovernanceRecord:
             dataset_id=data["dataset_id"],
             tags=list(data.get("tags", [])),
             compliance_flags=[
-                ComplianceFlag.from_dict(f)
-                for f in data.get("compliance_flags", [])
+                ComplianceFlag.from_dict(f) for f in data.get("compliance_flags", [])
             ],
             owner=data.get("owner", ""),
             created_at=data["created_at"],
@@ -123,10 +122,7 @@ class GovernanceReport:
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> GovernanceReport:
         return cls(
-            records=[
-                DataGovernanceRecord.from_dict(r)
-                for r in data.get("records", [])
-            ],
+            records=[DataGovernanceRecord.from_dict(r) for r in data.get("records", [])],
             summary=dict(data.get("summary", {})),
             generated_at=data["generated_at"],
         )

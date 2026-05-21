@@ -76,9 +76,7 @@ class StabilityReport:
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> StabilityReport:
-        metrics = [
-            StabilityMetric.from_dict(m) for m in data.get("metrics", [])
-        ]
+        metrics = [StabilityMetric.from_dict(m) for m in data.get("metrics", [])]
         return cls(
             metrics=metrics,
             overall_stability=data.get("overall_stability", "stable"),

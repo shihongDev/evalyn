@@ -77,7 +77,9 @@ def register_ws_routes(app: FastAPI) -> None:
 
         reader_task = asyncio.create_task(reader())
         heartbeat_task = spawn_heartbeat(
-            websocket, send_lock, client_disconnected,
+            websocket,
+            send_lock,
+            client_disconnected,
         )
 
         try:
@@ -110,6 +112,3 @@ def register_ws_routes(app: FastAPI) -> None:
                 await websocket.close()
             except Exception:  # noqa: BLE001
                 pass
-
-
-__all__ = ["register_ws_routes"]

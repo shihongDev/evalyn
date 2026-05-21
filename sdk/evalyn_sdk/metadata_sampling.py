@@ -96,9 +96,7 @@ class MetadataResult:
 # ---------------------------------------------------------------------------
 
 
-def group_by_metadata(
-    items: list[dict], field_name: str
-) -> dict[str, list[str]]:
+def group_by_metadata(items: list[dict], field_name: str) -> dict[str, list[str]]:
     """Group item IDs by metadata field value.
 
     Each item must have an "id" key. Items missing the field are placed in
@@ -138,9 +136,7 @@ def apply_sampling_rates(
     return sampled
 
 
-def run_metadata_sampling(
-    items: list[dict], config: MetadataConfig
-) -> MetadataResult:
+def run_metadata_sampling(items: list[dict], config: MetadataConfig) -> MetadataResult:
     """Full metadata-conditional sampling pipeline.
 
     Groups items by config.field_name, applies per-value rates, and returns
@@ -153,9 +149,7 @@ def run_metadata_sampling(
     for sr in config.rates:
         rates_lookup[sr.field_value] = sr.rate
 
-    sampled = apply_sampling_rates(
-        groups, rates_lookup, config.default_rate, config.seed
-    )
+    sampled = apply_sampling_rates(groups, rates_lookup, config.default_rate, config.seed)
 
     # Collect results
     all_selected: list[str] = []
@@ -192,14 +186,10 @@ def format_metadata_report(result: MetadataResult) -> str:
     """Format a metadata sampling result as a human-readable report."""
     lines: list[str] = []
     lines.append(
-        f"Metadata Sampling Report "
-        f"(pool={result.total_pool}, selected={result.total_selected})"
+        f"Metadata Sampling Report (pool={result.total_pool}, selected={result.total_selected})"
     )
     lines.append("-" * 64)
-    header = (
-        f"{'Value':<20} {'Total':>8} {'Sampled':>8} "
-        f"{'Requested':>10} {'Actual':>10}"
-    )
+    header = f"{'Value':<20} {'Total':>8} {'Sampled':>8} {'Requested':>10} {'Actual':>10}"
     lines.append(header)
     lines.append("-" * 64)
 

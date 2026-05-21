@@ -87,10 +87,7 @@ class GCResult:
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> GCResult:
         return cls(
-            items_found=[
-                OrphanedItem.from_dict(item)
-                for item in data.get("items_found", [])
-            ],
+            items_found=[OrphanedItem.from_dict(item) for item in data.get("items_found", [])],
             items_removed=data.get("items_removed", 0),
             bytes_freed=data.get("bytes_freed", 0),
             dry_run=data.get("dry_run", True),
@@ -124,17 +121,16 @@ def find_orphaned_checkpoints(data_dir: str) -> list[OrphanedItem]:
 
     for checkpoint_file in root.rglob("checkpoint*.json"):
         parent = checkpoint_file.parent
-        has_run_dir = any(
-            d.is_dir() and d.name.startswith("run_")
-            for d in parent.iterdir()
-        )
+        has_run_dir = any(d.is_dir() and d.name.startswith("run_") for d in parent.iterdir())
         if not has_run_dir:
-            results.append(OrphanedItem(
-                path=str(checkpoint_file),
-                item_type="checkpoint",
-                size_bytes=_get_size(str(checkpoint_file)),
-                reason="no corresponding run directory in parent",
-            ))
+            results.append(
+                OrphanedItem(
+                    path=str(checkpoint_file),
+                    item_type="checkpoint",
+                    size_bytes=_get_size(str(checkpoint_file)),
+                    reason="no corresponding run directory in parent",
+                )
+            )
 
     return results
 
@@ -156,12 +152,14 @@ def find_orphaned_runs(data_dir: str) -> list[OrphanedItem]:
         parent = run_dir.parent
         dataset_file = parent / "dataset.jsonl"
         if not dataset_file.exists():
-            results.append(OrphanedItem(
-                path=str(run_dir),
-                item_type="run",
-                size_bytes=_get_size(str(run_dir)),
-                reason="no dataset.jsonl in parent directory",
-            ))
+            results.append(
+                OrphanedItem(
+                    path=str(run_dir),
+                    item_type="run",
+                    size_bytes=_get_size(str(run_dir)),
+                    reason="no dataset.jsonl in parent directory",
+                )
+            )
 
     return results
 
@@ -189,12 +187,14 @@ def find_temp_files(temp_dir: str, max_age_days: float = 30.0) -> list[OrphanedI
         age = now - mtime
         if age > max_age_seconds:
             age_days = age / 86400
-            results.append(OrphanedItem(
-                path=str(entry),
-                item_type="temp",
-                size_bytes=_get_size(str(entry)),
-                reason=f"temp file is {age_days:.1f} days old (max: {max_age_days})",
-            ))
+            results.append(
+                OrphanedItem(
+                    path=str(entry),
+                    item_type="temp",
+                    size_bytes=_get_size(str(entry)),
+                    reason=f"temp file is {age_days:.1f} days old (max: {max_age_days})",
+                )
+            )
 
     return results
 

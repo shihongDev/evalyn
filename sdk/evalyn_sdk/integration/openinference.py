@@ -108,9 +108,7 @@ class OpenInferenceTrace:
     def from_dict(cls, data: dict[str, Any]) -> OpenInferenceTrace:
         return cls(
             trace_id=data.get("trace_id", ""),
-            spans=[
-                OpenInferenceSpan.from_dict(s) for s in data.get("spans", [])
-            ],
+            spans=[OpenInferenceSpan.from_dict(s) for s in data.get("spans", [])],
             project_name=data.get("project_name", "evalyn"),
         )
 
@@ -173,9 +171,7 @@ def convert_span_to_oi(span: Span) -> OpenInferenceSpan:
     )
 
 
-def convert_trace_to_oi(
-    spans: list[Span], project_name: str = "evalyn"
-) -> OpenInferenceTrace:
+def convert_trace_to_oi(spans: list[Span], project_name: str = "evalyn") -> OpenInferenceTrace:
     """Convert a list of evalyn Spans into a full OpenInference trace."""
     if not spans:
         return OpenInferenceTrace(trace_id="", project_name=project_name)
@@ -209,9 +205,7 @@ def check_compliance(oi_span: OpenInferenceSpan) -> list[str]:
         issues.append("missing span name")
 
     if oi_span.span_kind not in OPENINFERENCE_SPAN_KINDS:
-        issues.append(
-            f"invalid span_kind: {oi_span.span_kind!r}"
-        )
+        issues.append(f"invalid span_kind: {oi_span.span_kind!r}")
 
     if not oi_span.span_id:
         issues.append("missing span_id")

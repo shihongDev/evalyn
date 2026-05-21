@@ -191,9 +191,11 @@ def diff_traces(left: list[Span], right: list[Span]) -> TraceDiff:
             if l_cost or r_cost:
                 cost_delta = float(r_cost) - float(l_cost)
 
-            has_changes = bool(output_diff) or (
-                duration_delta is not None and duration_delta != 0
-            ) or (cost_delta is not None and cost_delta != 0)
+            has_changes = (
+                bool(output_diff)
+                or (duration_delta is not None and duration_delta != 0)
+                or (cost_delta is not None and cost_delta != 0)
+            )
 
             status = "changed" if has_changes else "unchanged"
 
@@ -228,14 +230,14 @@ def format_diff_ascii(diff: TraceDiff) -> str:
     lines: list[str] = []
 
     # Header
-    header = f"{'Status':<10} {'Span Name':<30} {'Type':<15} {'Duration Delta':<18} {'Cost Delta':<12}"
+    header = (
+        f"{'Status':<10} {'Span Name':<30} {'Type':<15} {'Duration Delta':<18} {'Cost Delta':<12}"
+    )
     lines.append(header)
     lines.append("-" * len(header))
 
     for d in diff.diffs:
-        prefix = {"added": "+", "removed": "-", "changed": "~", "unchanged": " "}.get(
-            d.status, "?"
-        )
+        prefix = {"added": "+", "removed": "-", "changed": "~", "unchanged": " "}.get(d.status, "?")
         status_str = f"[{prefix}]"
 
         dur_str = ""

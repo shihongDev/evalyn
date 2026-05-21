@@ -148,9 +148,7 @@ def decompress_span_attributes(span: Span) -> Span:
     return new_span
 
 
-def compute_compression_stats(
-    spans: list[Span], config: CompressionConfig
-) -> CompressionStats:
+def compute_compression_stats(spans: list[Span], config: CompressionConfig) -> CompressionStats:
     """Estimate compression savings for a list of spans without persisting changes."""
     total_original = 0
     total_compressed = 0

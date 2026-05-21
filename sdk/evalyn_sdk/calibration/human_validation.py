@@ -96,12 +96,8 @@ class ValidationReport:
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> ValidationReport:
         return cls(
-            requests=[
-                ValidationRequest.from_dict(r) for r in data.get("requests", [])
-            ],
-            decisions=[
-                ValidationDecision.from_dict(d) for d in data.get("decisions", [])
-            ],
+            requests=[ValidationRequest.from_dict(r) for r in data.get("requests", [])],
+            decisions=[ValidationDecision.from_dict(d) for d in data.get("decisions", [])],
             approved_count=data.get("approved_count", 0),
             rejected_count=data.get("rejected_count", 0),
             pending_count=data.get("pending_count", 0),
@@ -117,8 +113,10 @@ class ValidationReport:
             f"  Pending: {self.pending_count}",
         ]
         for i, req in enumerate(self.requests):
-            lines.append(f"  [{i + 1}] {req.metric_id} - "
-                         f"alignment {req.alignment_before:.3f} -> {req.alignment_after:.3f}")
+            lines.append(
+                f"  [{i + 1}] {req.metric_id} - "
+                f"alignment {req.alignment_before:.3f} -> {req.alignment_after:.3f}"
+            )
         return "\n".join(lines)
 
 

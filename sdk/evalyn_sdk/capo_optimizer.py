@@ -347,9 +347,7 @@ def advance_generation(
     config: CAPOConfig,
 ) -> CAPOState:
     """Run one generation: evaluate, select, mutate, produce next population."""
-    rng = random.Random(
-        (config.seed or 0) + state.generation
-    )
+    rng = random.Random((config.seed or 0) + state.generation)
 
     # --- Evaluate current population ---
     for candidate in state.population:

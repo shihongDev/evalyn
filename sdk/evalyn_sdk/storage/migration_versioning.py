@@ -229,10 +229,7 @@ def validate_migration_order(
     for i, step in enumerate(sorted_steps):
         expected = i + 1
         if step.version != expected:
-            errors.append(
-                f"Expected version {expected} but got {step.version}"
-                f" for '{step.name}'"
-            )
+            errors.append(f"Expected version {expected} but got {step.version} for '{step.name}'")
 
     # Check for duplicates
     versions = [s.version for s in steps]

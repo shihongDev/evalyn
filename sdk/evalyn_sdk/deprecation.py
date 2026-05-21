@@ -114,9 +114,7 @@ class DeprecationRegistry:
             entry = self.check(key, "config")
             if entry is not None:
                 new_config[entry.new_name] = value
-                changes.append(
-                    f"Renamed '{entry.old_name}' -> '{entry.new_name}'"
-                )
+                changes.append(f"Renamed '{entry.old_name}' -> '{entry.new_name}'")
             else:
                 new_config[key] = value
         return new_config, changes

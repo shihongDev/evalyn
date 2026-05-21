@@ -12,6 +12,8 @@ from __future__ import annotations
 import json
 import random
 import re
+from datetime import datetime
+from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 from ..models import Annotation, DatasetItem, MetricResult
@@ -37,7 +39,9 @@ def build_full_prompt(preamble: str, rubric: list[str]) -> str:
     rubric_text = ""
     if rubric:
         rubric_lines = "\n".join([f"- {r}" for r in rubric])
-        rubric_text = f"\n\nEvaluate using this rubric (PASS only if all criteria met):\n{rubric_lines}"
+        rubric_text = (
+            f"\n\nEvaluate using this rubric (PASS only if all criteria met):\n{rubric_lines}"
+        )
 
     output_format = """
 
@@ -178,9 +182,9 @@ def parse_judge_response(response: str) -> bool:
         pass
 
     # Fallback: check for standalone "true"/"false" keywords (not substrings)
-    if re.search(r'\btrue\b', text):
+    if re.search(r"\btrue\b", text):
         return True
-    if re.search(r'\bfalse\b', text):
+    if re.search(r"\bfalse\b", text):
         return False
 
     # Default to fail if unparseable
@@ -215,9 +219,6 @@ def save_calibration(
         - "preamble": Path to preamble file (if available)
         - "full_prompt": Path to full prompt file (if available)
     """
-    from datetime import datetime
-    from pathlib import Path
-
     dataset_dir = Path(dataset_path)
     if not dataset_dir.exists():
         raise ValueError(f"Dataset path does not exist: {dataset_path}")
@@ -225,7 +226,6 @@ def save_calibration(
     # Create calibrations directory structure
     calibrations_dir = dataset_dir / "calibrations" / metric_id
     prompts_dir = calibrations_dir / "prompts"
-    calibrations_dir.mkdir(parents=True, exist_ok=True)
     prompts_dir.mkdir(parents=True, exist_ok=True)
 
     # Generate timestamp for file names
@@ -236,8 +236,10 @@ def save_calibration(
 
     # Save the calibration record JSON
     calibration_file = calibrations_dir / f"{timestamp}_{optimizer_type}.json"
-    with open(calibration_file, "w", encoding="utf-8") as f:
-        json.dump(record.as_dict(), f, indent=2, default=str)
+    calibration_file.write_text(
+        json.dumps(record.as_dict(), indent=2, default=str),
+        encoding="utf-8",
+    )
     saved_paths["calibration"] = str(calibration_file)
 
     # Extract and save optimized prompts if available
@@ -247,16 +249,14 @@ def save_calibration(
         optimized_preamble = optimization.get("optimized_preamble", "")
         if optimized_preamble:
             preamble_file = prompts_dir / f"{timestamp}_preamble.txt"
-            with open(preamble_file, "w", encoding="utf-8") as f:
-                f.write(optimized_preamble)
+            preamble_file.write_text(optimized_preamble, encoding="utf-8")
             saved_paths["preamble"] = str(preamble_file)
 
         # Save full prompt (ready to use)
         full_prompt = optimization.get("full_prompt", "")
         if full_prompt:
             full_file = prompts_dir / f"{timestamp}_full.txt"
-            with open(full_file, "w", encoding="utf-8") as f:
-                f.write(full_prompt)
+            full_file.write_text(full_prompt, encoding="utf-8")
             saved_paths["full_prompt"] = str(full_file)
 
         # If no full_prompt but we have improved_rubric, build it
@@ -267,8 +267,7 @@ def save_calibration(
                 full_built = build_full_prompt(preamble or "", rubric)
                 if full_built.strip():
                     full_file = prompts_dir / f"{timestamp}_full.txt"
-                    with open(full_file, "w", encoding="utf-8") as f:
-                        f.write(full_built)
+                    full_file.write_text(full_built, encoding="utf-8")
                     saved_paths["full_prompt"] = str(full_file)
 
     return saved_paths
@@ -291,8 +290,6 @@ def load_optimized_prompt(
     Returns:
         The full optimized prompt text, or None if not found.
     """
-    from pathlib import Path
-
     prompts_dir = Path(dataset_path) / "calibrations" / metric_id / "prompts"
     if not prompts_dir.exists():
         return None

@@ -117,7 +117,10 @@ def cmd_status(args: argparse.Namespace) -> None:
 
     # Eval runs detail
     if eval_runs:
-        run_count = sum(1 for d in eval_runs if list(d.glob("*.json")))
+        # `any(...)` short-circuits at the first match; the original
+        # `if list(d.glob(...))` materialized every json path just to
+        # check non-emptiness.
+        run_count = sum(1 for d in eval_runs if any(d.glob("*.json")))
         runs_info = f"{run_count} run(s)"
     else:
         runs_info = "none"
@@ -126,9 +129,7 @@ def cmd_status(args: argparse.Namespace) -> None:
     if has_annotations:
         with open(annotations_file, encoding="utf-8") as f:
             ann_count = sum(1 for _ in f)
-        coverage = (
-            f"{ann_count}/{ds.item_count}" if ds.item_count > 0 else str(ann_count)
-        )
+        coverage = f"{ann_count}/{ds.item_count}" if ds.item_count > 0 else str(ann_count)
         pct = f" ({ann_count / ds.item_count:.0%})" if ds.item_count > 0 else ""
         ann_info = f"{coverage}{pct}"
     else:
@@ -190,9 +191,7 @@ def cmd_status(args: argparse.Namespace) -> None:
         for m in metrics_with_cal[:5]:
             prompts_dir = calibrations_dir / m / "prompts"
             has_prompt = (
-                "(prompt)"
-                if prompts_dir.exists() and list(prompts_dir.glob("*_full.txt"))
-                else ""
+                "(prompt)" if prompts_dir.exists() and any(prompts_dir.glob("*_full.txt")) else ""
             )
             print(f"  {m} {has_prompt}")
 
@@ -211,7 +210,10 @@ def cmd_status(args: argparse.Namespace) -> None:
             "Calibrate metrics",
         )
     else:
-        next_cmd = (f"evalyn run-eval --dataset {ds.path}", "All steps complete - re-run eval with optimized prompts")
+        next_cmd = (
+            f"evalyn run-eval --dataset {ds.path}",
+            "All steps complete - re-run eval with optimized prompts",
+        )
     print(footer([next_cmd]))
 
 
@@ -225,10 +227,14 @@ def cmd_validate(args: argparse.Namespace) -> None:
     )
 
     print(banner("VALIDATION"))
-    print(kv([
-        ("File", str(dataset_file)),
-        ("Directory", str(dataset_dir)),
-    ]))
+    print(
+        kv(
+            [
+                ("File", str(dataset_file)),
+                ("Directory", str(dataset_dir)),
+            ]
+        )
+    )
 
     errors: list[str] = []
     warnings: list[str] = []
@@ -323,8 +329,7 @@ def cmd_validate(args: argparse.Namespace) -> None:
 
     if stats["has_id"] < total:
         warnings.append(
-            f"{total - stats['has_id']} items missing 'id' field. "
-            "Auto-generated IDs will be used."
+            f"{total - stats['has_id']} items missing 'id' field. Auto-generated IDs will be used."
         )
 
     # Check for meta.json
@@ -357,9 +362,7 @@ def cmd_validate(args: argparse.Namespace) -> None:
         if len(metric_files) > 5:
             print(f"    ... and {len(metric_files) - 5} more")
     else:
-        warnings.append(
-            "No metrics/ directory found. Run 'evalyn suggest-metrics' first."
-        )
+        warnings.append("No metrics/ directory found. Run 'evalyn suggest-metrics' first.")
 
     # Print warnings
     if warnings:
@@ -491,7 +494,9 @@ def _build_analysis_insights(sorted_metrics, item_failures: dict[str, list[str]]
     insights = []
 
     problem_metrics = [
-        (m, s) for m, s in sorted_metrics if s["failed"] / max(1, s["total"]) > _PROBLEM_METRIC_THRESHOLD
+        (m, s)
+        for m, s in sorted_metrics
+        if s["failed"] / max(1, s["total"]) > _PROBLEM_METRIC_THRESHOLD
     ]
     if problem_metrics:
         worst = problem_metrics[0]
@@ -508,18 +513,14 @@ def _build_analysis_insights(sorted_metrics, item_failures: dict[str, list[str]]
         worst_item = max(multi_fail_items, key=lambda x: len(x[1]))
         insights.append(
             f"Item '{worst_item[0][:20]}...' failed {len(worst_item[1])} metrics: "
-            f"{', '.join(worst_item[1][:3])}"
-            + ("..." if len(worst_item[1]) > 3 else "")
+            f"{', '.join(worst_item[1][:3])}" + ("..." if len(worst_item[1]) > 3 else "")
         )
 
-    perfect_metrics = [
-        m for m, s in sorted_metrics if s["failed"] == 0 and s["total"] > 1
-    ]
+    perfect_metrics = [m for m, s in sorted_metrics if s["failed"] == 0 and s["total"] > 1]
     if perfect_metrics:
         insights.append(
             f"{len(perfect_metrics)} metric(s) have 100% pass rate: "
-            f"{', '.join(perfect_metrics[:3])}"
-            + ("..." if len(perfect_metrics) > 3 else "")
+            f"{', '.join(perfect_metrics[:3])}" + ("..." if len(perfect_metrics) > 3 else "")
         )
 
     total_evals = sum(s["total"] for _, s in sorted_metrics)
@@ -586,10 +587,14 @@ def _print_analysis_table_output(
     item_count = len(set(mr.item_id for mr in run.metric_results))
 
     print(banner("EVALUATION ANALYSIS"))
-    print(kv([
-        ("Run", f"{run.id[:8]}  ({run.dataset_name}, {item_count} items)"),
-        ("Created", str(run.created_at)[:16]),
-    ]))
+    print(
+        kv(
+            [
+                ("Run", f"{run.id[:8]}  ({run.dataset_name}, {item_count} items)"),
+                ("Created", str(run.created_at)[:16]),
+            ]
+        )
+    )
 
     print(f"\n{section('METRIC SUMMARY')}\n")
 
@@ -606,14 +611,14 @@ def _print_analysis_table_output(
         print(f"  {ic} {metric_id:<25} {passed:>3}/{total:<3} {rate:>5.1f}%  avg {avg:.2f}")
 
     overall_rate = 100 * total_passed / max(1, total_evals)
-    print(f"\n  Overall: {progress_bar(total_passed, total_evals, label=_health_status(overall_rate))}")
+    print(
+        f"\n  Overall: {progress_bar(total_passed, total_evals, label=_health_status(overall_rate))}"
+    )
 
     has_alignment = any(a.total > 0 for a in alignment_stats.values())
     if has_alignment:
         print(f"\n{section('ALIGNMENT STATS (vs human annotations)')}\n")
-        print(
-            f"  {'Metric':<25} {'N':>4} {'Acc':>6} {'Prec':>6} {'Rec':>6} {'F1':>6} {'Kappa':>6}"
-        )
+        print(f"  {'Metric':<25} {'N':>4} {'Acc':>6} {'Prec':>6} {'Rec':>6} {'F1':>6} {'Kappa':>6}")
         print(f"  {'-' * 61}")
         for metric_id, _ in sorted_metrics:
             align = alignment_stats[metric_id]
@@ -663,9 +668,7 @@ def _print_analysis_table_output(
 
             findings = []
             for c in compute_metric_correlations(run_analysis):
-                findings.append(
-                    f"{c.metric_a} <-> {c.metric_b}: {c.relationship} (r={c.pearson})"
-                )
+                findings.append(f"{c.metric_a} <-> {c.metric_b}: {c.relationship} (r={c.pearson})")
             for d in analyze_score_distributions(run_analysis):
                 findings.append(f"{d.metric_id}: {d.shape} - {d.finding}")
 
@@ -696,9 +699,7 @@ def _print_analysis_next_hint(
     from ...metrics.subjective import SUBJECTIVE_REGISTRY
 
     subjective_ids = {m["id"] for m in SUBJECTIVE_REGISTRY}
-    subjective_problem_metrics = [
-        (m, s) for m, s in problem_metrics if m in subjective_ids
-    ]
+    subjective_problem_metrics = [(m, s) for m, s in problem_metrics if m in subjective_ids]
 
     if subjective_problem_metrics:
         worst_metric = subjective_problem_metrics[0][0]
@@ -773,9 +774,7 @@ def cmd_analyze(args: argparse.Namespace) -> None:
                     "passed": s["passed"],
                     "failed": s["failed"],
                     "pass_rate": 100 * s["passed"] / max(1, s["total"]),
-                    "avg_score": sum(s["scores"]) / len(s["scores"])
-                    if s["scores"]
-                    else None,
+                    "avg_score": sum(s["scores"]) / len(s["scores"]) if s["scores"] else None,
                     "failed_items": s["failed_items"][:10],
                 }
                 for m, s in sorted_metrics
@@ -840,9 +839,7 @@ def cmd_compare(args: argparse.Namespace) -> None:
     # If --latest with --dataset, compare two most recent runs
     if use_latest:
         config = load_config()
-        dataset_path = resolve_dataset_path(
-            getattr(args, "dataset", None), True, config
-        )
+        dataset_path = resolve_dataset_path(getattr(args, "dataset", None), True, config)
         if not dataset_path:
             fatal_error("No dataset found", "Use --dataset <path>")
 
@@ -892,10 +889,14 @@ def cmd_compare(args: argparse.Namespace) -> None:
     from ..utils.rich import banner, icon, kv, section, status_icon
 
     print(banner("RUN COMPARISON"))
-    print(kv([
-        ("Baseline", f"{run1.id[:12]}  ({run1.dataset_name})"),
-        ("Current", f"{run2.id[:12]}  ({run2.dataset_name})"),
-    ]))
+    print(
+        kv(
+            [
+                ("Baseline", f"{run1.id[:12]}  ({run1.dataset_name})"),
+                ("Current", f"{run2.id[:12]}  ({run2.dataset_name})"),
+            ]
+        )
+    )
 
     # Build metric stats for each run using the canonical analysis engine
     analysis1 = analyze_run(run1.as_dict())
@@ -957,11 +958,15 @@ def cmd_compare(args: argparse.Namespace) -> None:
     overall2 = 100 * total2 / max(1, all2)
     overall_delta = overall2 - overall1
 
-    print(kv([
-        ("Baseline pass rate", f"{overall1:.1f}% ({total1}/{all1})"),
-        ("Current pass rate", f"{overall2:.1f}% ({total2}/{all2})"),
-        ("Change", delta_color(overall_delta / 100)),
-    ]))
+    print(
+        kv(
+            [
+                ("Baseline pass rate", f"{overall1:.1f}% ({total1}/{all1})"),
+                ("Current pass rate", f"{overall2:.1f}% ({total2}/{all2})"),
+                ("Change", delta_color(overall_delta / 100)),
+            ]
+        )
+    )
 
     print(f"\n  {status_icon(improvements > 0)} Metrics improved:  {improvements}")
     print(f"  {status_icon(regressions == 0)} Metrics regressed: {regressions}")
@@ -977,7 +982,9 @@ def cmd_compare(args: argparse.Namespace) -> None:
             if critical:
                 print(f"\n{section('REGRESSION ALERTS')}\n")
                 for alert in critical:
-                    print(f"  {icon('fail')} [CRITICAL] {alert.metric_id}: {abs(alert.delta) * 100:.0f}% drop")
+                    print(
+                        f"  {icon('fail')} [CRITICAL] {alert.metric_id}: {abs(alert.delta) * 100:.0f}% drop"
+                    )
         except (ImportError, KeyError, ValueError, TypeError):
             pass
 
@@ -1020,9 +1027,7 @@ def cmd_trend(args: argparse.Namespace) -> None:
 
     if use_latest and not project_name:
         config = load_config()
-        dataset_path = resolve_dataset_path(
-            getattr(args, "dataset", None), True, config
-        )
+        dataset_path = resolve_dataset_path(getattr(args, "dataset", None), True, config)
         if dataset_path:
             project_name = dataset_path.name
         else:
@@ -1112,9 +1117,7 @@ def register_commands(subparsers) -> None:
         help="Show status of a dataset (items, metrics, runs, annotations, calibrations)",
     )
     p.add_argument("--dataset", help="Path to dataset directory")
-    p.add_argument(
-        "--latest", action="store_true", help="Use the most recently modified dataset"
-    )
+    p.add_argument("--latest", action="store_true", help="Use the most recently modified dataset")
     p.set_defaults(func=cmd_status)
 
     # validate
@@ -1122,20 +1125,14 @@ def register_commands(subparsers) -> None:
         "validate", help="Validate dataset format and detect potential issues"
     )
     p.add_argument("--dataset", help="Path to dataset directory or file")
-    p.add_argument(
-        "--latest", action="store_true", help="Use the most recently modified dataset"
-    )
+    p.add_argument("--latest", action="store_true", help="Use the most recently modified dataset")
     p.set_defaults(func=cmd_validate)
 
     # analyze
-    p = subparsers.add_parser(
-        "analyze", help="Analyze evaluation results and generate insights"
-    )
+    p = subparsers.add_parser("analyze", help="Analyze evaluation results and generate insights")
     p.add_argument("--run", help="Eval run ID to analyze")
     p.add_argument("--dataset", help="Dataset path (uses latest run from eval_runs/)")
-    p.add_argument(
-        "--latest", action="store_true", help="Use the most recently modified dataset"
-    )
+    p.add_argument("--latest", action="store_true", help="Use the most recently modified dataset")
     p.add_argument(
         "--format",
         choices=["table", "json"],
@@ -1145,9 +1142,7 @@ def register_commands(subparsers) -> None:
     p.set_defaults(func=cmd_analyze)
 
     # compare
-    p = subparsers.add_parser(
-        "compare", help="Compare two evaluation runs side-by-side"
-    )
+    p = subparsers.add_parser("compare", help="Compare two evaluation runs side-by-side")
     p.add_argument("--run1", help="First eval run ID or path to run JSON file")
     p.add_argument("--run2", help="Second eval run ID or path to run JSON file")
     p.add_argument("--dataset", help="Dataset path (used with --latest)")
@@ -1159,9 +1154,7 @@ def register_commands(subparsers) -> None:
     p.set_defaults(func=cmd_compare)
 
     # trend
-    p = subparsers.add_parser(
-        "trend", help="Show evaluation trends over time for a project"
-    )
+    p = subparsers.add_parser("trend", help="Show evaluation trends over time for a project")
     p.add_argument(
         "--project",
         help="Project/dataset name to analyze trends for",

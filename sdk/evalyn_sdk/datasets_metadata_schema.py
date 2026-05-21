@@ -205,11 +205,13 @@ def validate_item(item: dict[str, Any], schema: MetadataSchema) -> list[Validati
 
         # Required check
         if fs.required and value is None:
-            errors.append(ValidationError(
-                item_id=item_id,
-                field=fs.name,
-                error="required field missing",
-            ))
+            errors.append(
+                ValidationError(
+                    item_id=item_id,
+                    field=fs.name,
+                    error="required field missing",
+                )
+            )
             continue
 
         if value is None:
@@ -222,27 +224,29 @@ def validate_item(item: dict[str, Any], schema: MetadataSchema) -> list[Validati
             if fs.field_type == "float" and isinstance(value, int):
                 pass
             else:
-                errors.append(ValidationError(
-                    item_id=item_id,
-                    field=fs.name,
-                    error=f"expected type {fs.field_type}, got {type(value).__name__}",
-                ))
+                errors.append(
+                    ValidationError(
+                        item_id=item_id,
+                        field=fs.name,
+                        error=f"expected type {fs.field_type}, got {type(value).__name__}",
+                    )
+                )
                 continue
 
         # Allowed values check
         if fs.allowed_values and value not in fs.allowed_values:
-            errors.append(ValidationError(
-                item_id=item_id,
-                field=fs.name,
-                error=f"value {value!r} not in allowed values {fs.allowed_values}",
-            ))
+            errors.append(
+                ValidationError(
+                    item_id=item_id,
+                    field=fs.name,
+                    error=f"value {value!r} not in allowed values {fs.allowed_values}",
+                )
+            )
 
     return errors
 
 
-def validate_dataset(
-    items: list[dict[str, Any]], schema: MetadataSchema
-) -> SchemaValidationResult:
+def validate_dataset(items: list[dict[str, Any]], schema: MetadataSchema) -> SchemaValidationResult:
     """Validate all items in a dataset against a schema."""
     all_errors: list[ValidationError] = []
     all_warnings: list[ValidationError] = []
@@ -263,9 +267,7 @@ def validate_dataset(
     )
 
 
-def infer_schema(
-    items: list[dict[str, Any]], metadata_field: str = "metadata"
-) -> MetadataSchema:
+def infer_schema(items: list[dict[str, Any]], metadata_field: str = "metadata") -> MetadataSchema:
     """Infer a MetadataSchema from items by inspecting metadata fields and types.
 
     Examines every item's metadata to discover field names and their
@@ -302,18 +304,18 @@ def infer_schema(
         best_type = max(type_counts, key=lambda t: type_counts[t])
         required = field_counts.get(name, 0) == total_items
 
-        fields.append(FieldSchema(
-            name=name,
-            field_type=best_type,
-            required=required,
-        ))
+        fields.append(
+            FieldSchema(
+                name=name,
+                field_type=best_type,
+                required=required,
+            )
+        )
 
     return MetadataSchema(name="inferred", fields=fields)
 
 
-def apply_defaults(
-    item: dict[str, Any], schema: MetadataSchema
-) -> dict[str, Any]:
+def apply_defaults(item: dict[str, Any], schema: MetadataSchema) -> dict[str, Any]:
     """Apply default values for missing metadata fields.
 
     Returns a new dict (shallow copy) with defaults filled in.

@@ -13,19 +13,55 @@ from typing import Any
 # Sentiment word lists (simple heuristic)
 # ---------------------------------------------------------------------------
 
-_POSITIVE_WORDS = frozenset([
-    "good", "great", "excellent", "amazing", "wonderful", "fantastic",
-    "best", "love", "happy", "awesome", "perfect", "brilliant",
-    "outstanding", "superb", "nice", "beautiful", "positive", "joy",
-    "pleased", "delighted",
-])
+_POSITIVE_WORDS = frozenset(
+    [
+        "good",
+        "great",
+        "excellent",
+        "amazing",
+        "wonderful",
+        "fantastic",
+        "best",
+        "love",
+        "happy",
+        "awesome",
+        "perfect",
+        "brilliant",
+        "outstanding",
+        "superb",
+        "nice",
+        "beautiful",
+        "positive",
+        "joy",
+        "pleased",
+        "delighted",
+    ]
+)
 
-_NEGATIVE_WORDS = frozenset([
-    "bad", "terrible", "awful", "horrible", "worst", "hate", "ugly",
-    "poor", "sad", "angry", "disappointing", "negative", "dreadful",
-    "miserable", "failure", "broken", "useless", "annoying", "painful",
-    "disgusting",
-])
+_NEGATIVE_WORDS = frozenset(
+    [
+        "bad",
+        "terrible",
+        "awful",
+        "horrible",
+        "worst",
+        "hate",
+        "ugly",
+        "poor",
+        "sad",
+        "angry",
+        "disappointing",
+        "negative",
+        "dreadful",
+        "miserable",
+        "failure",
+        "broken",
+        "useless",
+        "annoying",
+        "painful",
+        "disgusting",
+    ]
+)
 
 
 # ---------------------------------------------------------------------------
@@ -287,7 +323,9 @@ def audit_dataset(
     high_count = sum(1 for ind in indicators if ind.severity == "high")
     severity_scores = {"low": 0.0, "medium": 0.5, "high": 1.0}
     if indicators:
-        overall = sum(severity_scores.get(ind.severity, 0.0) for ind in indicators) / len(indicators)
+        overall = sum(severity_scores.get(ind.severity, 0.0) for ind in indicators) / len(
+            indicators
+        )
     else:
         overall = 0.0
 
@@ -322,13 +360,9 @@ def suggest_debiasing(report: BiasAuditReport) -> list[str]:
                     "Resample underrepresented categories or trim overrepresented ones"
                 )
             elif ind.name == "vocabulary_concentration":
-                suggestions.append(
-                    "Diversify input phrasing to reduce vocabulary concentration"
-                )
+                suggestions.append("Diversify input phrasing to reduce vocabulary concentration")
             elif ind.name == "sentiment_skew":
-                suggestions.append(
-                    "Balance positive and negative examples in the dataset"
-                )
+                suggestions.append("Balance positive and negative examples in the dataset")
 
     if report.high_severity_count >= 2:
         suggestions.append(

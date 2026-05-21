@@ -222,7 +222,7 @@ def compute_critical_path(topology: GraphTopology) -> list[str]:
         adj[edge.source].append(edge.target)
 
     # Topological sort via Kahn's algorithm
-    in_degree: dict[str, int] = {nid: 0 for nid in topology.nodes}
+    in_degree: dict[str, int] = dict.fromkeys(topology.nodes, 0)
     for edge in topology.edges:
         in_degree[edge.target] = in_degree.get(edge.target, 0) + 1
 
@@ -242,7 +242,7 @@ def compute_critical_path(topology: GraphTopology) -> list[str]:
 
     # DP: dist[node] = longest path weight ending at node
     dist: dict[str, float] = {nid: topology.nodes[nid].avg_duration_ms for nid in topology.nodes}
-    prev: dict[str, str | None] = {nid: None for nid in topology.nodes}
+    prev: dict[str, str | None] = dict.fromkeys(topology.nodes)
 
     for node in topo_order:
         for neighbor in adj[node]:
@@ -262,9 +262,7 @@ def compute_critical_path(topology: GraphTopology) -> list[str]:
     return path
 
 
-def _critical_path_dfs(
-    topology: GraphTopology, adj: dict[str, list[str]]
-) -> list[str]:
+def _critical_path_dfs(topology: GraphTopology, adj: dict[str, list[str]]) -> list[str]:
     """DFS fallback for critical path when graph has cycles."""
     best_path: list[str] = []
     best_weight = 0.0
@@ -278,12 +276,14 @@ def _critical_path_dfs(
                 best_path = list(path)
             for neighbor in adj.get(node, []):
                 if neighbor not in visited:
-                    stack.append((
-                        neighbor,
-                        path + [neighbor],
-                        weight + topology.nodes[neighbor].avg_duration_ms,
-                        visited | {neighbor},
-                    ))
+                    stack.append(
+                        (
+                            neighbor,
+                            path + [neighbor],
+                            weight + topology.nodes[neighbor].avg_duration_ms,
+                            visited | {neighbor},
+                        )
+                    )
 
     return best_path
 

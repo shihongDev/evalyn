@@ -219,7 +219,4 @@ def verify_audit_integrity(records: list[AuditRecord]) -> bool:
     """Check that timestamps are monotonically non-decreasing."""
     if len(records) <= 1:
         return True
-    for i in range(1, len(records)):
-        if records[i].timestamp < records[i - 1].timestamp:
-            return False
-    return True
+    return all(records[i].timestamp >= records[i - 1].timestamp for i in range(1, len(records)))

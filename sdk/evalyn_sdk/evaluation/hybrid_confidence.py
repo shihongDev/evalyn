@@ -109,14 +109,24 @@ def compute_hybrid_score(
     for method, score in sorted(scores.items()):
         method_weight = w.get(method, 1.0 / max(len(scores), 1))
         if score is None:
-            method_scores.append(MethodScore(
-                method=method, score=0.0, available=False, weight=method_weight,
-            ))
+            method_scores.append(
+                MethodScore(
+                    method=method,
+                    score=0.0,
+                    available=False,
+                    weight=method_weight,
+                )
+            )
             unavailable.append(method)
         else:
-            method_scores.append(MethodScore(
-                method=method, score=score, available=True, weight=method_weight,
-            ))
+            method_scores.append(
+                MethodScore(
+                    method=method,
+                    score=score,
+                    available=True,
+                    weight=method_weight,
+                )
+            )
             available_sum += method_weight
             weighted_sum += method_weight * score
 
@@ -164,15 +174,25 @@ def compute_with_bayesian_update(
         rel = reliability.get(method, default_rel)
 
         if score is None:
-            method_scores.append(MethodScore(
-                method=method, score=0.0, available=False, weight=rel,
-            ))
+            method_scores.append(
+                MethodScore(
+                    method=method,
+                    score=0.0,
+                    available=False,
+                    weight=rel,
+                )
+            )
             unavailable.append(method)
             continue
 
-        method_scores.append(MethodScore(
-            method=method, score=score, available=True, weight=rel,
-        ))
+        method_scores.append(
+            MethodScore(
+                method=method,
+                score=score,
+                available=True,
+                weight=rel,
+            )
+        )
 
         # Bayesian update: P(correct|evidence) using likelihood ratio
         # P(score|correct) ~ rel * score + (1-rel) * 0.5
@@ -181,9 +201,8 @@ def compute_with_bayesian_update(
         p_evidence_given_incorrect = rel * (1 - score) + (1 - rel) * 0.5
 
         numerator = p_evidence_given_correct * posterior
-        denominator = (
-            p_evidence_given_correct * posterior
-            + p_evidence_given_incorrect * (1 - posterior)
+        denominator = p_evidence_given_correct * posterior + p_evidence_given_incorrect * (
+            1 - posterior
         )
 
         if denominator > 0:

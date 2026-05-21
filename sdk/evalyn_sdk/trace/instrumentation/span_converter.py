@@ -53,9 +53,7 @@ class SpanConverter:
 
         # Determine span type from OpenInference conventions
         openinference_kind = attributes.get("openinference.span.kind", "")
-        span_type = (
-            get_span_type(openinference_kind) if openinference_kind else "custom"
-        )
+        span_type = get_span_type(openinference_kind) if openinference_kind else "custom"
 
         # Override span type based on name heuristics if not set
         if span_type == "custom":
@@ -69,9 +67,7 @@ class SpanConverter:
 
         # Convert timestamps
         start_time = cls._ns_to_datetime(otel_span.start_time)
-        end_time = (
-            cls._ns_to_datetime(otel_span.end_time) if otel_span.end_time else None
-        )
+        end_time = cls._ns_to_datetime(otel_span.end_time) if otel_span.end_time else None
 
         # Determine status
         status = "ok"
@@ -173,9 +169,7 @@ class SpanConverter:
         if LLMAttributes.TOKEN_COUNT_PROMPT in otel_attrs:
             evalyn_attrs["input_tokens"] = otel_attrs[LLMAttributes.TOKEN_COUNT_PROMPT]
         if LLMAttributes.TOKEN_COUNT_COMPLETION in otel_attrs:
-            evalyn_attrs["output_tokens"] = otel_attrs[
-                LLMAttributes.TOKEN_COUNT_COMPLETION
-            ]
+            evalyn_attrs["output_tokens"] = otel_attrs[LLMAttributes.TOKEN_COUNT_COMPLETION]
         if LLMAttributes.TOKEN_COUNT_TOTAL in otel_attrs:
             evalyn_attrs["total_tokens"] = otel_attrs[LLMAttributes.TOKEN_COUNT_TOTAL]
 
@@ -187,13 +181,9 @@ class SpanConverter:
 
         # I/O attributes
         if IOAttributes.INPUT_VALUE in otel_attrs:
-            evalyn_attrs["input"] = cls._truncate(
-                str(otel_attrs[IOAttributes.INPUT_VALUE]), 1000
-            )
+            evalyn_attrs["input"] = cls._truncate(str(otel_attrs[IOAttributes.INPUT_VALUE]), 1000)
         if IOAttributes.OUTPUT_VALUE in otel_attrs:
-            evalyn_attrs["output"] = cls._truncate(
-                str(otel_attrs[IOAttributes.OUTPUT_VALUE]), 1000
-            )
+            evalyn_attrs["output"] = cls._truncate(str(otel_attrs[IOAttributes.OUTPUT_VALUE]), 1000)
 
         # Pass through any evalyn.* attributes
         for key, value in otel_attrs.items():

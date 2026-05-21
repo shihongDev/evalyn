@@ -270,9 +270,7 @@ async def promote_run_failures(req: PromoteRequest) -> JSONResponse:
         raise HTTPException(404, f"run {safe_run_id} not found")
     _, results = found
 
-    source_dataset_name = (
-        results.get("dataset_name") if isinstance(results, dict) else None
-    )
+    source_dataset_name = results.get("dataset_name") if isinstance(results, dict) else None
 
     raw_name = req.dataset_name if req.dataset_name is not None else _default_dataset_name()
     dataset_name = _validate_dataset_name(raw_name)
@@ -298,9 +296,7 @@ async def promote_run_failures(req: PromoteRequest) -> JSONResponse:
         if not rows:
             skipped.append(raw_hash)
             continue
-        promoted.append(
-            _build_promoted_row(raw_hash, rows, source_index.get(raw_hash))
-        )
+        promoted.append(_build_promoted_row(raw_hash, rows, source_index.get(raw_hash)))
 
     if not promoted:
         raise HTTPException(
@@ -345,9 +341,7 @@ async def promote_run_failures(req: PromoteRequest) -> JSONResponse:
             "item_count": len(promoted),
             "skipped_row_hashes": skipped,
         }
-        (target_dir / "meta.json").write_text(
-            json.dumps(meta, indent=2), encoding="utf-8"
-        )
+        (target_dir / "meta.json").write_text(json.dumps(meta, indent=2), encoding="utf-8")
     except OSError as exc:
         # Atomic cleanup so a partial write doesn't poison subsequent
         # retries with the same name. ``rmtree(ignore_errors=True)``

@@ -18,22 +18,105 @@ from typing import Any
 # Stop words (shared lightweight set)
 # ---------------------------------------------------------------------------
 
-_STOP_WORDS = frozenset({
-    "the", "a", "an", "and", "or", "but", "in", "on", "at", "to", "for",
-    "of", "with", "by", "from", "is", "it", "as", "was", "are", "be",
-    "this", "that", "not", "has", "had", "have", "been", "will", "can",
-    "do", "does", "did", "if", "so", "no", "up", "out", "its", "all",
-    "my", "we", "he", "she", "they", "you", "me", "us", "him", "her",
-    "who", "what", "when", "how", "which", "where", "there", "here",
-    "then", "than", "also", "just", "about", "into", "over", "after",
-    "more", "some", "any", "each", "very", "too", "own", "same",
-})
+_STOP_WORDS = frozenset(
+    {
+        "the",
+        "a",
+        "an",
+        "and",
+        "or",
+        "but",
+        "in",
+        "on",
+        "at",
+        "to",
+        "for",
+        "of",
+        "with",
+        "by",
+        "from",
+        "is",
+        "it",
+        "as",
+        "was",
+        "are",
+        "be",
+        "this",
+        "that",
+        "not",
+        "has",
+        "had",
+        "have",
+        "been",
+        "will",
+        "can",
+        "do",
+        "does",
+        "did",
+        "if",
+        "so",
+        "no",
+        "up",
+        "out",
+        "its",
+        "all",
+        "my",
+        "we",
+        "he",
+        "she",
+        "they",
+        "you",
+        "me",
+        "us",
+        "him",
+        "her",
+        "who",
+        "what",
+        "when",
+        "how",
+        "which",
+        "where",
+        "there",
+        "here",
+        "then",
+        "than",
+        "also",
+        "just",
+        "about",
+        "into",
+        "over",
+        "after",
+        "more",
+        "some",
+        "any",
+        "each",
+        "very",
+        "too",
+        "own",
+        "same",
+    }
+)
 
-_QUESTION_WORDS = frozenset({
-    "why", "how", "what", "explain", "describe", "compare", "analyze",
-    "evaluate", "discuss", "elaborate", "contrast", "justify", "prove",
-    "derive", "synthesize", "critique",
-})
+_QUESTION_WORDS = frozenset(
+    {
+        "why",
+        "how",
+        "what",
+        "explain",
+        "describe",
+        "compare",
+        "analyze",
+        "evaluate",
+        "discuss",
+        "elaborate",
+        "contrast",
+        "justify",
+        "prove",
+        "derive",
+        "synthesize",
+        "critique",
+    }
+)
 
 
 # ---------------------------------------------------------------------------
@@ -303,9 +386,7 @@ def cluster_traces(
     actual_k = max(1, min(n_clusters, n))
 
     # Precompute word sets.
-    word_sets: dict[str, set[str]] = {
-        tid: _word_set(texts[tid]) for tid in trace_ids
-    }
+    word_sets: dict[str, set[str]] = {tid: _word_set(texts[tid]) for tid in trace_ids}
 
     # Initialize centroids: evenly spaced.
     step = max(1, n // actual_k)
@@ -336,11 +417,7 @@ def cluster_traces(
 
         # Update centroids.
         for ci in range(actual_k):
-            cluster_sets = [
-                word_sets[tid]
-                for tid in trace_ids
-                if assignments.get(tid) == ci
-            ]
+            cluster_sets = [word_sets[tid] for tid in trace_ids if assignments.get(tid) == ci]
             if cluster_sets:
                 centroids[ci] = _centroid_words(cluster_sets)
 
@@ -405,9 +482,7 @@ def curate_benchmark(
 
     # Step 3: Filter by min_quality.
     candidates = {
-        tid: sc
-        for tid, sc in all_scores.items()
-        if sc.quality_score >= config.min_quality
+        tid: sc for tid, sc in all_scores.items() if sc.quality_score >= config.min_quality
     }
 
     if not candidates:
@@ -458,9 +533,7 @@ def curate_benchmark(
 
     # Round 2: fill remaining from all clusters by quality.
     if len(selected_ids) < target:
-        remaining = [
-            tid for tid in candidates if tid not in selected_set
-        ]
+        remaining = [tid for tid in candidates if tid not in selected_set]
         remaining.sort(
             key=lambda tid: (-candidates[tid].quality_score, rng.random()),
         )
@@ -482,9 +555,7 @@ def curate_benchmark(
         if selected_scores
         else 0.0
     )
-    clusters_represented = len({
-        all_scores[tid].topic_cluster for tid in selected_ids
-    })
+    clusters_represented = len({all_scores[tid].topic_cluster for tid in selected_ids})
 
     return CurationResult(
         selected_ids=selected_ids,

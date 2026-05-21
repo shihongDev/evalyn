@@ -214,9 +214,7 @@ def generate_synthetic_item(
     topic = _TOPICS[topic_idx]
     template = templates[rng.randint(0, len(templates) - 1)]
     input_text = template.format(topic=topic)
-    expected_hash = hashlib.sha256(
-        f"{item_id}:{category}:{difficulty}".encode()
-    ).hexdigest()[:12]
+    expected_hash = hashlib.sha256(f"{item_id}:{category}:{difficulty}".encode()).hexdigest()[:12]
     expected_output = f"expected_{expected_hash}"
     return SyntheticItem(
         id=item_id,
@@ -248,9 +246,7 @@ def generate_synthetic_dataset(config: SyntheticConfig) -> SyntheticDataset:
     # Trim or pad to exact num_items
     rng.shuffle(difficulties)
     while len(difficulties) < config.num_items:
-        difficulties.append(
-            rng.choice(list(config.difficulty_distribution.keys()))
-        )
+        difficulties.append(rng.choice(list(config.difficulty_distribution.keys())))
     difficulties = difficulties[: config.num_items]
 
     for i in range(config.num_items):

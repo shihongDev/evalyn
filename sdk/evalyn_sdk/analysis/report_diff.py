@@ -62,13 +62,15 @@ class ReportDiff:
     def from_dict(cls, data: dict[str, Any]) -> ReportDiff:
         changes = []
         for c in data.get("metric_changes", []):
-            changes.append(MetricChange(
-                metric_id=c["metric_id"],
-                old_pass_rate=c.get("old_pass_rate"),
-                new_pass_rate=c.get("new_pass_rate"),
-                delta=c.get("delta", 0.0),
-                status=c.get("status", ""),
-            ))
+            changes.append(
+                MetricChange(
+                    metric_id=c["metric_id"],
+                    old_pass_rate=c.get("old_pass_rate"),
+                    new_pass_rate=c.get("new_pass_rate"),
+                    delta=c.get("delta", 0.0),
+                    status=c.get("status", ""),
+                )
+            )
         return cls(
             run_a_id=data.get("run_a_id", ""),
             run_b_id=data.get("run_b_id", ""),
@@ -85,9 +87,7 @@ class ReportDiff:
         lines.append(f"Report Diff: {self.run_a_id} -> {self.run_b_id}")
         lines.append(f"  Pass rate delta: {self.pass_rate_delta:+.1%}")
         lines.append(f"  Item count delta: {self.item_count_delta:+d}")
-        lines.append(
-            f"  Improved: {self.improved_count}, Degraded: {self.degraded_count}"
-        )
+        lines.append(f"  Improved: {self.improved_count}, Degraded: {self.degraded_count}")
         if self.metric_changes:
             lines.append("")
             lines.append("  Metric changes:")
@@ -95,8 +95,7 @@ class ReportDiff:
                 old_str = f"{c.old_pass_rate:.1%}" if c.old_pass_rate is not None else "n/a"
                 new_str = f"{c.new_pass_rate:.1%}" if c.new_pass_rate is not None else "n/a"
                 lines.append(
-                    f"    {c.metric_id}: {old_str} -> {new_str}"
-                    f" ({c.delta:+.1%}) [{c.status}]"
+                    f"    {c.metric_id}: {old_str} -> {new_str} ({c.delta:+.1%}) [{c.status}]"
                 )
         return "\n".join(lines)
 
@@ -222,10 +221,7 @@ def render_diff_table(diff: ReportDiff) -> str:
         len("Metric"),
         max(len(c.metric_id) for c in diff.metric_changes),
     )
-    header = (
-        f"{'Metric':<{id_width}}  {'Old':>6}  {'New':>6}"
-        f"  {'Delta':>8}  {'Status':>10}"
-    )
+    header = f"{'Metric':<{id_width}}  {'Old':>6}  {'New':>6}  {'Delta':>8}  {'Status':>10}"
     sep = "-" * len(header)
     lines = [header, sep]
 
@@ -239,8 +235,7 @@ def render_diff_table(diff: ReportDiff) -> str:
         else:
             delta_str = " 0.0%"
         lines.append(
-            f"{c.metric_id:<{id_width}}  {old_str:>6}  {new_str:>6}"
-            f"  {delta_str:>8}  {c.status:>10}"
+            f"{c.metric_id:<{id_width}}  {old_str:>6}  {new_str:>6}  {delta_str:>8}  {c.status:>10}"
         )
 
     return "\n".join(lines)

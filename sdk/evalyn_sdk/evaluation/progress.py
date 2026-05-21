@@ -87,47 +87,64 @@ class ProgressTracker:
     def run_started(self, run_id: str, item_count: int, metric_count: int) -> None:
         self._start_time = time.time()
         self._total_items = item_count
-        self._emit("run_started", {
-            "run_id": run_id,
-            "item_count": item_count,
-            "metric_count": metric_count,
-        })
+        self._emit(
+            "run_started",
+            {
+                "run_id": run_id,
+                "item_count": item_count,
+                "metric_count": metric_count,
+            },
+        )
 
     def item_started(self, item_id: str) -> None:
         self._emit("item_started", {"item_id": item_id})
 
     def item_complete(self, item_id: str, pass_count: int = 0, fail_count: int = 0) -> None:
         self._items_complete += 1
-        self._emit("item_complete", {
-            "item_id": item_id,
-            "pass_count": pass_count,
-            "fail_count": fail_count,
-            "progress": round(self.progress_fraction, 4),
-        })
+        self._emit(
+            "item_complete",
+            {
+                "item_id": item_id,
+                "pass_count": pass_count,
+                "fail_count": fail_count,
+                "progress": round(self.progress_fraction, 4),
+            },
+        )
 
     def metric_scored(self, metric_id: str, item_id: str, score: float, passed: bool) -> None:
-        self._emit("metric_scored", {
-            "metric_id": metric_id,
-            "item_id": item_id,
-            "score": score,
-            "passed": passed,
-        })
+        self._emit(
+            "metric_scored",
+            {
+                "metric_id": metric_id,
+                "item_id": item_id,
+                "score": score,
+                "passed": passed,
+            },
+        )
 
-    def run_complete(self, run_id: str, overall_pass_rate: float = 0.0, total_cost: float = 0.0) -> None:
-        self._emit("run_complete", {
-            "run_id": run_id,
-            "overall_pass_rate": round(overall_pass_rate, 4),
-            "total_cost_usd": round(total_cost, 6),
-            "elapsed_seconds": round(self.elapsed_seconds, 2),
-            "items_evaluated": self._items_complete,
-        })
+    def run_complete(
+        self, run_id: str, overall_pass_rate: float = 0.0, total_cost: float = 0.0
+    ) -> None:
+        self._emit(
+            "run_complete",
+            {
+                "run_id": run_id,
+                "overall_pass_rate": round(overall_pass_rate, 4),
+                "total_cost_usd": round(total_cost, 6),
+                "elapsed_seconds": round(self.elapsed_seconds, 2),
+                "items_evaluated": self._items_complete,
+            },
+        )
 
     def error(self, metric_id: str, item_id: str, error_message: str) -> None:
-        self._emit("error", {
-            "metric_id": metric_id,
-            "item_id": item_id,
-            "error": error_message,
-        })
+        self._emit(
+            "error",
+            {
+                "metric_id": metric_id,
+                "item_id": item_id,
+                "error": error_message,
+            },
+        )
 
     def _emit(self, event_type: str, data: dict[str, Any]) -> None:
         if not self.enabled:

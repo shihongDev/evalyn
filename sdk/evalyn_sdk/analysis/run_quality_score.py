@@ -55,12 +55,14 @@ class RunQualityResult:
     def from_dict(cls, data: dict[str, Any]) -> RunQualityResult:
         dims = []
         for d in data.get("dimensions", []):
-            dims.append(QualityDimension(
-                name=d.get("name", ""),
-                score=d.get("score", 0.0),
-                weight=d.get("weight", 1.0),
-                details=d.get("details", ""),
-            ))
+            dims.append(
+                QualityDimension(
+                    name=d.get("name", ""),
+                    score=d.get("score", 0.0),
+                    weight=d.get("weight", 1.0),
+                    details=d.get("details", ""),
+                )
+            )
         return cls(
             run_id=data.get("run_id", ""),
             overall_score=data.get("overall_score", 0.0),
@@ -229,7 +231,9 @@ def compute_run_quality(
         if dim.name == "coverage" and dim.score < 1.0:
             recommendations.append("Not all metrics evaluated - check metric configuration")
         if dim.name == "confidence" and dim.score < 0.5:
-            recommendations.append("Low judge confidence - consider stronger models or clearer rubrics")
+            recommendations.append(
+                "Low judge confidence - consider stronger models or clearer rubrics"
+            )
         if dim.name == "cost_efficiency" and dim.score < 0.5:
             recommendations.append("High cost per item - consider caching or cheaper models")
 

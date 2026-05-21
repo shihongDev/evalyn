@@ -29,11 +29,13 @@ class PerCallBuilder:
         units: list[dict[str, Any]] = []
         for s in spans:
             if s.span_type == "llm_call":
-                units.append({
-                    "unit_id": s.id,
-                    "unit_type": "per_call",
-                    "spans": [s],
-                })
+                units.append(
+                    {
+                        "unit_id": s.id,
+                        "unit_type": "per_call",
+                        "spans": [s],
+                    }
+                )
         return units
 
 
@@ -48,11 +50,13 @@ class PerSessionBuilder:
                 sessions.setdefault(session_id, []).append(s)
         units: list[dict[str, Any]] = []
         for session_id, session_spans in sessions.items():
-            units.append({
-                "unit_id": session_id,
-                "unit_type": "per_session",
-                "spans": session_spans,
-            })
+            units.append(
+                {
+                    "unit_id": session_id,
+                    "unit_type": "per_session",
+                    "spans": session_spans,
+                }
+            )
         return units
 
 
@@ -69,11 +73,13 @@ class PerToolBuilder:
                     parent = by_id[s.parent_id]
                     if parent.span_type == "llm_call":
                         unit_spans.insert(0, parent)
-                units.append({
-                    "unit_id": s.id,
-                    "unit_type": "per_tool",
-                    "spans": unit_spans,
-                })
+                units.append(
+                    {
+                        "unit_id": s.id,
+                        "unit_type": "per_tool",
+                        "spans": unit_spans,
+                    }
+                )
         return units
 
 

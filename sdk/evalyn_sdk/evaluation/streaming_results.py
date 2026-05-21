@@ -79,17 +79,9 @@ class StreamingBuffer:
         """Compute stats from buffered results."""
         completed = len(self.results)
         in_progress = max(0, self.expected_count - completed)
-        completion_pct = (
-            completed / self.expected_count if self.expected_count > 0 else 0.0
-        )
-        avg_score = (
-            sum(r.score for r in self.results) / completed if completed > 0 else 0.0
-        )
-        pass_rate = (
-            sum(1 for r in self.results if r.passed) / completed
-            if completed > 0
-            else 0.0
-        )
+        completion_pct = completed / self.expected_count if self.expected_count > 0 else 0.0
+        avg_score = sum(r.score for r in self.results) / completed if completed > 0 else 0.0
+        pass_rate = sum(1 for r in self.results if r.passed) / completed if completed > 0 else 0.0
         return StreamingStats(
             total_expected=self.expected_count,
             completed=completed,

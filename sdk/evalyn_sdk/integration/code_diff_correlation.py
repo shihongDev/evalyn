@@ -208,9 +208,7 @@ def render_correlation_timeline(entries: list[CorrelationEntry]) -> str:
         lines.append(f"    correlation_strength: {entry.correlation_strength:.3f}")
         for mc in entry.metric_changes:
             direction = "+" if mc.delta >= 0 else ""
-            lines.append(
-                f"      {mc.metric_id}: {direction}{mc.delta:.3f}"
-            )
+            lines.append(f"      {mc.metric_id}: {direction}{mc.delta:.3f}")
         lines.append("")
     return "\n".join(lines)
 

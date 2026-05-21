@@ -240,9 +240,7 @@ def suggest_fixes(report: AttributionReport) -> list[str]:
         return []
 
     suggestions: list[str] = []
-    sorted_hotspots = sorted(
-        report.failure_hotspots.items(), key=lambda x: x[1], reverse=True
-    )
+    sorted_hotspots = sorted(report.failure_hotspots.items(), key=lambda x: x[1], reverse=True)
 
     for node_name, count in sorted_hotspots:
         suggestions.append(

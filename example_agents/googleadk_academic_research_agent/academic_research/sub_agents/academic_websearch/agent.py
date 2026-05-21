@@ -14,12 +14,19 @@
 
 """Academic_websearch_agent for finding research papers using search tools."""
 
+import os
+
 from google.adk import Agent
 from google.adk.tools import google_search
 
 from . import prompt
 
-MODEL = "gemini-2.5-pro"
+# Override with EVALYN_DEMO_WEBSEARCH_MODEL or the demo-wide
+# EVALYN_DEMO_MODEL fallback.
+MODEL = os.environ.get(
+    "EVALYN_DEMO_WEBSEARCH_MODEL",
+    os.environ.get("EVALYN_DEMO_MODEL", "gemini-2.5-pro"),
+)
 
 
 academic_websearch_agent = Agent(

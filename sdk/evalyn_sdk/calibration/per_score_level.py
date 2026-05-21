@@ -159,9 +159,7 @@ def analyze_per_level(
         ("high", (0.7, 1.0)),
     ]
 
-    buckets: dict[str, list[tuple[float, bool]]] = {
-        name: [] for name, _ in level_defs
-    }
+    buckets: dict[str, list[tuple[float, bool]]] = {name: [] for name, _ in level_defs}
     for score, truth in predictions:
         lv = classify_score_level(score)
         buckets[lv].append((score, truth))

@@ -82,9 +82,7 @@ class HeuristicSuggester(MetricSuggester):
                     config={},
                 )
             )
-        if traces and any(
-            "tool" in ev.kind.lower() for call in traces for ev in call.trace
-        ):
+        if traces and any("tool" in ev.kind.lower() for call in traces for ev in call.trace):
             suggestions.append(
                 MetricSpec(
                     id="tool_call_count",
@@ -398,9 +396,7 @@ def render_suggestion_prompt(
             output_preview = repr(output_str[:400]) + f"... [{len(output_str)} chars]"
         else:
             output_preview = repr(call.output)[:500]
-        example_lines.append(
-            f"- inputs={call.inputs}, output={output_preview}, error={call.error}"
-        )
+        example_lines.append(f"- inputs={call.inputs}, output={output_preview}, error={call.error}")
     examples = "\n".join(example_lines) if example_lines else "No traces yet."
     count_hint = (
         f"Return JSON array with exactly {desired_count} entries (or as close as possible)."
@@ -468,9 +464,7 @@ def render_selection_prompt(
             spec = metric.spec  # type: ignore[attr-defined]
         else:
             spec = metric  # MetricSpec
-        available_metrics.append(
-            f"{spec.id}: {spec.name} [{spec.type}] - {spec.description}"
-        )
+        available_metrics.append(f"{spec.id}: {spec.name} [{spec.type}] - {spec.description}")
     metrics_list = "\n".join(available_metrics)
     return (
         "You are selecting the best evaluation metrics for a function based on its code and behavior.\n"

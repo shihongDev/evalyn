@@ -2,6 +2,7 @@
 
 Pure Python registry for AI/ML framework specs - no external deps, no actual framework calls.
 """
+
 from __future__ import annotations
 
 import importlib.util

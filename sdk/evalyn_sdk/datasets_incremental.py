@@ -91,14 +91,22 @@ def incremental_build(
     # Build hash set of existing items for dedup
     existing_hashes: set[str] = set()
     for item in existing_items:
-        h = hash_inputs(item.input) if isinstance(item.input, dict) else hash_inputs({"_raw": item.input})
+        h = (
+            hash_inputs(item.input)
+            if isinstance(item.input, dict)
+            else hash_inputs({"_raw": item.input})
+        )
         existing_hashes.add(h)
 
     # Filter new items
     added = []
     duplicates = 0
     for item in new_items:
-        h = hash_inputs(item.input) if isinstance(item.input, dict) else hash_inputs({"_raw": item.input})
+        h = (
+            hash_inputs(item.input)
+            if isinstance(item.input, dict)
+            else hash_inputs({"_raw": item.input})
+        )
         if h in existing_hashes:
             duplicates += 1
         else:

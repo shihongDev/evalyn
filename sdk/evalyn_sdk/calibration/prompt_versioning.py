@@ -189,7 +189,7 @@ class PromptVersionStore:
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> PromptVersionStore:
         store = cls()
-        for _mid, h_data in data.get("histories", {}).items():
+        for h_data in data.get("histories", {}).values():
             history = PromptHistory.from_dict(h_data)
             store._histories[history.metric_id] = history
         return store

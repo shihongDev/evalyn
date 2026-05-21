@@ -89,9 +89,7 @@ class IRTResult:
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> IRTResult:
         return cls(
-            selected_items=[
-                IRTItem.from_dict(d) for d in data.get("selected_items", [])
-            ],
+            selected_items=[IRTItem.from_dict(d) for d in data.get("selected_items", [])],
             total_pool=data.get("total_pool", 0),
             compression_ratio=data.get("compression_ratio", 0.0),
             information_retained=data.get("information_retained", 0.0),
@@ -159,10 +157,7 @@ def estimate_all_parameters(
     Returns:
         List of IRTItem with estimated parameters.
     """
-    return [
-        estimate_item_parameters(item_id, scores)
-        for item_id, scores in item_scores.items()
-    ]
+    return [estimate_item_parameters(item_id, scores) for item_id, scores in item_scores.items()]
 
 
 # ---------------------------------------------------------------------------
@@ -269,8 +264,7 @@ def select_informative_items(
     item_info: dict[str, list[float]] = {}
     for item in items:
         item_info[item.item_id] = [
-            compute_item_information(item, theta)
-            for theta in ability_points
+            compute_item_information(item, theta) for theta in ability_points
         ]
 
     total_pool_info = compute_total_information(items, ability_points)

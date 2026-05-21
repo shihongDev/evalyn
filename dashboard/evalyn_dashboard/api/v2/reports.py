@@ -30,9 +30,7 @@ from ._shared import (
 router = APIRouter()
 
 
-def _six_week_buckets(
-    runs: list[dict], anchor: datetime, *, n_weeks: int = 6
-) -> list[list[dict]]:
+def _six_week_buckets(runs: list[dict], anchor: datetime, *, n_weeks: int = 6) -> list[list[dict]]:
     """Return ``n_weeks`` buckets, oldest first.
 
     Bucket k is the (n_weeks - 1 - k)-th week before ``anchor``. Runs
@@ -138,8 +136,7 @@ def _blocking(failed: list[dict]) -> dict | None:
     return {
         "title": f"Run {run_id(worst)} failed",
         "body_md": (
-            f"Run `{run_id(worst)}` reported failure status with "
-            f"{n_failed(worst)} failed items."
+            f"Run `{run_id(worst)}` reported failure status with {n_failed(worst)} failed items."
         ),
         "owner": "You",
         "eta": "tbd",
@@ -211,9 +208,7 @@ def _evidence_links(this_week: list[dict], failed: list[dict]) -> list[dict]:
 async def get_weekly() -> JSONResponse:
     """Return the weekly report aggregated from runs on disk."""
     runs = load_all_runs()
-    anchor = (
-        parse_iso(runs[-1].get("created_at")) if runs else None
-    ) or datetime.now(timezone.utc)
+    anchor = (parse_iso(runs[-1].get("created_at")) if runs else None) or datetime.now(timezone.utc)
 
     this_week, prior_week = _split_windows(runs, anchor)
     this_quality = _avg_pass_rate(this_week)
@@ -235,7 +230,11 @@ async def get_weekly() -> JSONResponse:
             "delta": _delta_str(quality_pct, quality_prev_pct),
             "delta_kind": _delta_kind(quality_pct, quality_prev_pct, higher_is_better=True),
             "sub": f"{len(this_week)} runs this week",
-            "good": (quality_prev_pct is not None and quality_pct is not None and quality_pct >= quality_prev_pct),
+            "good": (
+                quality_prev_pct is not None
+                and quality_pct is not None
+                and quality_pct >= quality_prev_pct
+            ),
             "spark": _spark_for_metric(buckets, "quality"),
         },
         {

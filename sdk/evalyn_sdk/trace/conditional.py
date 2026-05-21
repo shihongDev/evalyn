@@ -47,9 +47,7 @@ class TracingDecision:
         }
 
 
-def sample_rate_condition(
-    rate: float, seed: int | None = None
-) -> TracingCondition:
+def sample_rate_condition(rate: float, seed: int | None = None) -> TracingCondition:
     """Create a rate-based sampling condition."""
     config: dict[str, Any] = {"rate": rate}
     if seed is not None:

@@ -44,11 +44,7 @@ class DiffResult:
     @property
     def items_to_evaluate(self) -> list[str]:
         """Item IDs that need re-evaluation: added + modified."""
-        return [
-            c.item_id
-            for c in self.changes
-            if c.change_type in ("added", "modified")
-        ]
+        return [c.item_id for c in self.changes if c.change_type in ("added", "modified")]
 
     def as_dict(self) -> dict[str, Any]:
         return {
@@ -131,14 +127,10 @@ def compute_diff(
             changes.append(ItemChange(item_id, "removed", old_hash=old_hash))
             removed += 1
         elif old_hash != new_hash:
-            changes.append(
-                ItemChange(item_id, "modified", old_hash=old_hash, new_hash=new_hash)
-            )
+            changes.append(ItemChange(item_id, "modified", old_hash=old_hash, new_hash=new_hash))
             modified += 1
         else:
-            changes.append(
-                ItemChange(item_id, "unchanged", old_hash=old_hash, new_hash=new_hash)
-            )
+            changes.append(ItemChange(item_id, "unchanged", old_hash=old_hash, new_hash=new_hash))
             unchanged += 1
 
     total = len(new_items)
@@ -162,9 +154,7 @@ def carry_forward_results(
     Filters previous_results to keep only those whose item_id
     appears as "unchanged" in the diff.
     """
-    unchanged_ids = {
-        c.item_id for c in diff.changes if c.change_type == "unchanged"
-    }
+    unchanged_ids = {c.item_id for c in diff.changes if c.change_type == "unchanged"}
     return [r for r in previous_results if r.get("item_id") in unchanged_ids]
 
 

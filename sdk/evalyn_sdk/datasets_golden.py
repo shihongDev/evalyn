@@ -78,8 +78,7 @@ class GoldenSet:
     def format_text(self) -> str:
         lines = [
             f"GoldenSet: {self.name} v{self.version}",
-            f"  {self.count} items, {self.verified_count} verified "
-            f"({self.verification_rate:.0%})",
+            f"  {self.count} items, {self.verified_count} verified ({self.verification_rate:.0%})",
         ]
         if self.description:
             lines.append(f"  {self.description}")

@@ -69,8 +69,10 @@ class SensitivityReport:
             lines.append(f"  {r.format_text()}")
         if self.volatile_metrics:
             lines.append("")
-            lines.append(f"  Volatile metrics ({len(self.volatile_metrics)}): "
-                        f"{', '.join(self.volatile_metrics)}")
+            lines.append(
+                f"  Volatile metrics ({len(self.volatile_metrics)}): "
+                f"{', '.join(self.volatile_metrics)}"
+            )
             lines.append("  Consider: increase samples or switch judge model for volatile metrics")
         return "\n".join(lines)
 
@@ -94,14 +96,16 @@ def analyze_sensitivity(
     results = []
     for metric_id, scores in sorted(scores_by_metric.items()):
         if len(scores) < 2:
-            results.append(SensitivityResult(
-                metric_id=metric_id,
-                mean_score=scores[0] if scores else 0.0,
-                std_dev=0.0,
-                coefficient_of_variation=0.0,
-                scores=list(scores),
-                classification="insufficient_data",
-            ))
+            results.append(
+                SensitivityResult(
+                    metric_id=metric_id,
+                    mean_score=scores[0] if scores else 0.0,
+                    std_dev=0.0,
+                    coefficient_of_variation=0.0,
+                    scores=list(scores),
+                    classification="insufficient_data",
+                )
+            )
             continue
 
         mean = sum(scores) / len(scores)
@@ -116,14 +120,16 @@ def analyze_sensitivity(
         else:
             classification = "moderate"
 
-        results.append(SensitivityResult(
-            metric_id=metric_id,
-            mean_score=mean,
-            std_dev=std,
-            coefficient_of_variation=cv,
-            scores=list(scores),
-            classification=classification,
-        ))
+        results.append(
+            SensitivityResult(
+                metric_id=metric_id,
+                mean_score=mean,
+                std_dev=std,
+                coefficient_of_variation=cv,
+                scores=list(scores),
+                classification=classification,
+            )
+        )
 
     return SensitivityReport(results=results)
 

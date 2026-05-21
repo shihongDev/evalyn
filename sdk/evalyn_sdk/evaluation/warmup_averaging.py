@@ -97,7 +97,9 @@ class WarmupAveragingReport:
         if hv:
             lines.append("\n  High-variance items:")
             for r in hv[:10]:
-                lines.append(f"    {r.metric_id}/{r.item_id}: std={r.score_std:.3f}, agreement={r.agreement_rate:.0%}")
+                lines.append(
+                    f"    {r.metric_id}/{r.item_id}: std={r.score_std:.3f}, agreement={r.agreement_rate:.0%}"
+                )
         return "\n".join(lines)
 
 

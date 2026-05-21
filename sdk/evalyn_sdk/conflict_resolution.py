@@ -121,10 +121,7 @@ class Resolution:
             resolved_label=data["resolved_label"],
             method=data["method"],
             resolved_by=data.get("resolved_by", ""),
-            original_labels=[
-                AnnotatorLabel.from_dict(d)
-                for d in data.get("original_labels", [])
-            ],
+            original_labels=[AnnotatorLabel.from_dict(d) for d in data.get("original_labels", [])],
         )
 
 
@@ -133,9 +130,7 @@ class Resolution:
 # ---------------------------------------------------------------------------
 
 
-def detect_conflicts(
-    labels: list[AnnotatorLabel], threshold: float = 0.5
-) -> list[Conflict]:
+def detect_conflicts(labels: list[AnnotatorLabel], threshold: float = 0.5) -> list[Conflict]:
     """Find items where annotator labels differ by more than *threshold*.
 
     Groups labels by item_id, computes pairwise max disagreement, and
@@ -172,9 +167,7 @@ def detect_conflicts(
 # ---------------------------------------------------------------------------
 
 
-def resolve_by_majority_vote(
-    conflict: Conflict, threshold: float = 0.5
-) -> Resolution:
+def resolve_by_majority_vote(conflict: Conflict, threshold: float = 0.5) -> Resolution:
     """Binarize labels (>= threshold -> 1, else 0) and pick majority.
 
     Returns the majority binary label. Ties go to 1.
@@ -194,9 +187,7 @@ def resolve_by_majority_vote(
     )
 
 
-def resolve_by_senior_override(
-    conflict: Conflict, senior_ids: list[str]
-) -> Resolution | None:
+def resolve_by_senior_override(conflict: Conflict, senior_ids: list[str]) -> Resolution | None:
     """Use the first matching senior annotator's label.
 
     Returns None if no senior annotator is present in the conflict labels.
@@ -213,9 +204,7 @@ def resolve_by_senior_override(
     return None
 
 
-def apply_resolution_policy(
-    conflict: Conflict, policy: ResolutionPolicy
-) -> Resolution | None:
+def apply_resolution_policy(conflict: Conflict, policy: ResolutionPolicy) -> Resolution | None:
     """Dispatch to the correct resolution method based on policy.
 
     Returns None if the policy is "discussion_required" (needs human) or if
@@ -270,9 +259,7 @@ def format_conflict_view(conflict: Conflict) -> str:
     return "\n".join(lines)
 
 
-def format_resolution_summary(
-    resolutions: list[Resolution], unresolved: list[Conflict]
-) -> str:
+def format_resolution_summary(resolutions: list[Resolution], unresolved: list[Conflict]) -> str:
     """Summary report of resolutions and remaining conflicts."""
     lines: list[str] = []
     total = len(resolutions) + len(unresolved)

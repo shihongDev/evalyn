@@ -113,9 +113,7 @@ class CrossReferenceReport:
             lines.append("")
             lines.append("Relations:")
             for r in self.relations:
-                lines.append(
-                    f"  {r.source_type} --{r.relation}--> {r.target_type} ({r.count})"
-                )
+                lines.append(f"  {r.source_type} --{r.relation}--> {r.target_type} ({r.count})")
         if self.orphaned_entities:
             lines.append("")
             lines.append("Orphaned entities:")
@@ -178,9 +176,7 @@ def detect_relations(
                 if field_name in record and record[field_name] is not None:
                     count += 1
             if count > 0:
-                target_counts[target_type] = (
-                    target_counts.get(target_type, 0) + count
-                )
+                target_counts[target_type] = target_counts.get(target_type, 0) + count
 
         for target_type, count in sorted(target_counts.items()):
             relations.append(
@@ -263,14 +259,12 @@ def render_relation_diagram(report: CrossReferenceReport) -> str:
     # Emit entity blocks
     for entity in report.entities:
         lines.append(f"    {entity.entity_type} {{")
-        lines.append(f"        int count \"{entity.count}\"")
+        lines.append(f'        int count "{entity.count}"')
         lines.append("    }")
 
     # Emit relations
     for rel in report.relations:
         label = rel.relation
-        lines.append(
-            f"    {rel.source_type} }}o--o{{ {rel.target_type} : \"{label}\""
-        )
+        lines.append(f'    {rel.source_type} }}o--o{{ {rel.target_type} : "{label}"')
 
     return "\n".join(lines)

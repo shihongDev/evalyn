@@ -79,9 +79,7 @@ class FallbackResult:
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> FallbackResult:
-        attempts = [
-            FallbackAttempt(**a) for a in data.get("attempts", [])
-        ]
+        attempts = [FallbackAttempt(**a) for a in data.get("attempts", [])]
         return cls(
             final_provider=data.get("final_provider", ""),
             attempts=attempts,
@@ -123,9 +121,7 @@ class FallbackChainConfig:
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> FallbackChainConfig:
-        providers = [
-            ProviderConfig.from_dict(p) for p in data.get("providers", [])
-        ]
+        providers = [ProviderConfig.from_dict(p) for p in data.get("providers", [])]
         return cls(
             providers=providers,
             stop_on_first_success=data.get("stop_on_first_success", True),
@@ -166,11 +162,13 @@ def execute_with_fallback(
             try:
                 execute_fn(provider.name, provider.model)
                 elapsed_ms = (time.monotonic() - start) * 1000
-                attempts.append(FallbackAttempt(
-                    provider=provider.name,
-                    success=True,
-                    duration_ms=elapsed_ms,
-                ))
+                attempts.append(
+                    FallbackAttempt(
+                        provider=provider.name,
+                        success=True,
+                        duration_ms=elapsed_ms,
+                    )
+                )
                 if config.stop_on_first_success:
                     return FallbackResult(
                         final_provider=provider.name,
@@ -180,12 +178,14 @@ def execute_with_fallback(
                     )
             except Exception as exc:
                 elapsed_ms = (time.monotonic() - start) * 1000
-                attempts.append(FallbackAttempt(
-                    provider=provider.name,
-                    success=False,
-                    error=str(exc),
-                    duration_ms=elapsed_ms,
-                ))
+                attempts.append(
+                    FallbackAttempt(
+                        provider=provider.name,
+                        success=False,
+                        error=str(exc),
+                        duration_ms=elapsed_ms,
+                    )
+                )
 
     # All providers exhausted
     final = attempts[-1].provider if attempts else ""
@@ -216,9 +216,7 @@ def build_fallback_report(results: list[FallbackResult]) -> dict[str, Any]:
     for result in results:
         total_depth += result.total_attempts
         for attempt in result.attempts:
-            provider_attempts[attempt.provider] = (
-                provider_attempts.get(attempt.provider, 0) + 1
-            )
+            provider_attempts[attempt.provider] = provider_attempts.get(attempt.provider, 0) + 1
             if attempt.success:
                 provider_successes[attempt.provider] = (
                     provider_successes.get(attempt.provider, 0) + 1
@@ -255,9 +253,7 @@ def suggest_chain_optimization(results: list[FallbackResult]) -> list[str]:
     for result in results:
         if result.attempts:
             first = result.attempts[0]
-            first_attempt_total[first.provider] = (
-                first_attempt_total.get(first.provider, 0) + 1
-            )
+            first_attempt_total[first.provider] = first_attempt_total.get(first.provider, 0) + 1
             if first.success:
                 first_attempt_success[first.provider] = (
                     first_attempt_success.get(first.provider, 0) + 1
@@ -268,9 +264,7 @@ def suggest_chain_optimization(results: list[FallbackResult]) -> list[str]:
     provider_totals: dict[str, int] = {}
     for result in results:
         for attempt in result.attempts:
-            provider_totals[attempt.provider] = (
-                provider_totals.get(attempt.provider, 0) + 1
-            )
+            provider_totals[attempt.provider] = provider_totals.get(attempt.provider, 0) + 1
             if attempt.success:
                 provider_successes[attempt.provider] = (
                     provider_successes.get(attempt.provider, 0) + 1
@@ -285,9 +279,7 @@ def suggest_chain_optimization(results: list[FallbackResult]) -> list[str]:
             first_success = first_attempt_success.get(name, 0)
             first_rate = first_success / first_total if first_total > 0 else 0.0
             if first_rate < 0.5 or first_total == 0:
-                suggestions.append(
-                    f"Move provider {name} to front - {rate:.0%} success rate"
-                )
+                suggestions.append(f"Move provider {name} to front - {rate:.0%} success rate")
 
     # Flag providers that always fail
     for name, total in provider_totals.items():

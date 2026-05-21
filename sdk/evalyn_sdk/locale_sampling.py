@@ -171,7 +171,18 @@ def detect_locale(text: str) -> str:
     lower = text.lower()
     _LANG_MARKERS: dict[str, list[str]] = {
         "fr": ["le ", "la ", "les ", "des ", "est ", "une ", "dans ", "pour ", "avec ", "que "],
-        "es": [" el ", " la ", " los ", " las ", " es ", " una ", " del ", " por ", " con ", " que "],
+        "es": [
+            " el ",
+            " la ",
+            " los ",
+            " las ",
+            " es ",
+            " una ",
+            " del ",
+            " por ",
+            " con ",
+            " que ",
+        ],
         "de": [" der ", " die ", " das ", " und ", " ist ", " ein ", " mit ", " den ", " von "],
         "pt": [" o ", " os ", " uma ", " com ", " para ", " que ", " mais ", " por "],
         "it": [" il ", " la ", " che ", " per ", " con ", " una ", " del ", " sono "],
@@ -377,8 +388,7 @@ def format_locale_report(result: LocaleResult) -> str:
 
     for s in result.locale_stats:
         lines.append(
-            f"{s.locale:>8}  {s.total_count:>8}  "
-            f"{s.sampled_count:>8}  {s.target_rate:>8.2%}"
+            f"{s.locale:>8}  {s.total_count:>8}  {s.sampled_count:>8}  {s.target_rate:>8.2%}"
         )
 
     return "\n".join(lines)

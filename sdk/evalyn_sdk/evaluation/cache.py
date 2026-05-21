@@ -92,6 +92,7 @@ class EvalCache:
         config_hash: str,
         provider: str = "",
         model: str = "",
+        expected_output: Any = None,
     ) -> str:
         """Generate a deterministic cache key from evaluation parameters.
 
@@ -102,18 +103,27 @@ class EvalCache:
             config_hash: MetricSpec.version_hash (captures prompt/rubric/threshold).
             provider: LLM provider name (for subjective metrics).
             model: Model name (for subjective metrics).
+            expected_output: The dataset's ground-truth reference, if any. Included
+                so that editing a dataset's `expected_output` invalidates cached
+                judgments — otherwise a re-run after relabelling would silently
+                return stale verdicts (the original PERF-034 correctness bug).
 
         Returns:
             SHA-256 hash string (32 chars).
         """
-        content = json.dumps({
-            "input": item_input,
-            "output": item_output,
-            "metric_id": metric_id,
-            "config_hash": config_hash,
-            "provider": provider,
-            "model": model,
-        }, sort_keys=True, default=str)
+        content = json.dumps(
+            {
+                "input": item_input,
+                "output": item_output,
+                "expected_output": expected_output,
+                "metric_id": metric_id,
+                "config_hash": config_hash,
+                "provider": provider,
+                "model": model,
+            },
+            sort_keys=True,
+            default=str,
+        )
         return hashlib.sha256(content.encode()).hexdigest()[:32]
 
     def get(self, key: str) -> dict[str, Any] | None:
@@ -172,7 +182,8 @@ class EvalCache:
         # We can't efficiently filter by metric_id from the hash key alone,
         # so we inspect the stored result's metric_id field.
         to_remove = [
-            k for k, v in self._cache.items()
+            k
+            for k, v in self._cache.items()
             if isinstance(v, dict) and v.get("metric_id") == metric_id
         ]
         for k in to_remove:

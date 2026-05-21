@@ -4,13 +4,14 @@ Provides shared utilities: train/val split, candidate scoring, result building.
 Existing optimizers (Basic, APE, OPRO, GEPANative, GEPA) do NOT need to
 subclass this - they continue working as-is via the factory adapter.
 """
+
 from __future__ import annotations
 
 import logging
 import random
 import time
 from abc import ABC, abstractmethod
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 logger = logging.getLogger(__name__)
 
@@ -20,6 +21,9 @@ from .utils import (
     build_full_prompt,
     parse_judge_response,
 )
+
+if TYPE_CHECKING:
+    from ..utils.api_client import GenerateResult
 
 
 class BaseOptimizer(ABC):
@@ -38,12 +42,16 @@ class BaseOptimizer(ABC):
             scorer_model = getattr(self.config, "scorer_model", None)
             timeout = getattr(self.config, "timeout", 120)
             self._base_scorer_client = GeminiClient(
-                model=scorer_model, temperature=0.0, api_key=self._api_key, timeout=timeout,
+                model=scorer_model,
+                temperature=0.0,
+                api_key=self._api_key,
+                timeout=timeout,
             )
         return self._base_scorer_client
 
-    def _generate_with_retry(self, client, prompt: str, max_retries: int = 2,
-                              accumulator=None) -> GenerateResult | None:
+    def _generate_with_retry(
+        self, client, prompt: str, max_retries: int = 2, accumulator=None
+    ) -> GenerateResult | None:
         """Call client.generate_with_usage with retry and exponential backoff.
 
         Args:
@@ -63,16 +71,20 @@ class BaseOptimizer(ABC):
                 return result
             except Exception as exc:
                 if attempt < max_retries:
-                    backoff = 4 ** attempt  # 1s after first failure, 4s after second
+                    backoff = 4**attempt  # 1s after first failure, 4s after second
                     logger.warning(
                         "LLM API call failed (attempt %d/%d): %s — retrying in %ds",
-                        attempt + 1, 1 + max_retries, exc, backoff,
+                        attempt + 1,
+                        1 + max_retries,
+                        exc,
+                        backoff,
                     )
                     time.sleep(backoff)
                 else:
                     logger.error(
                         "LLM API call failed after %d attempts: %s",
-                        1 + max_retries, exc,
+                        1 + max_retries,
+                        exc,
                     )
                     return None
 
@@ -129,7 +141,9 @@ class BaseOptimizer(ABC):
         for ex in sample:
             eval_input = f"INPUT: {ex.get('input', '')}\nOUTPUT: {ex.get('output', '')}"
             result = self._generate_with_retry(
-                client, full_prompt + "\n\n" + eval_input, accumulator=accumulator,
+                client,
+                full_prompt + "\n\n" + eval_input,
+                accumulator=accumulator,
             )
             if result is None:
                 continue
@@ -165,19 +179,23 @@ class BaseOptimizer(ABC):
         for ex in examples:
             eval_input = f"INPUT: {str(ex.get('input', ''))[:500]}\nOUTPUT: {str(ex.get('output', ''))[:500]}"
             result = self._generate_with_retry(
-                client, full_prompt + "\n\n" + eval_input, accumulator=accumulator,
+                client,
+                full_prompt + "\n\n" + eval_input,
+                accumulator=accumulator,
             )
             if result is None:
                 continue
             predicted = parse_judge_response(result.text)
             actual = ex.get("expected") == "PASS"
             if predicted != actual:
-                failures.append({
-                    "input": ex.get("input", "")[:500],
-                    "output": ex.get("output", "")[:500],
-                    "judge_said": "PASS" if predicted else "FAIL",
-                    "human_said": "PASS" if actual else "FAIL",
-                })
+                failures.append(
+                    {
+                        "input": ex.get("input", "")[:500],
+                        "output": ex.get("output", "")[:500],
+                        "judge_said": "PASS" if predicted else "FAIL",
+                        "human_said": "PASS" if actual else "FAIL",
+                    }
+                )
                 if len(failures) >= max_failures:
                     break
         return failures

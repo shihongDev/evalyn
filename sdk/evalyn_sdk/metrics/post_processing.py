@@ -102,25 +102,13 @@ class PostProcessorChain:
                 pass  # skip failing processors
         return result
 
-    def apply_to_result(self, result) -> None:
-        """Apply post-processing to a MetricResult in place.
-
-        Modifies result.score with the processed value.
-        Also updates result.passed based on the new score if applicable.
-        """
-        if result.score is not None:
-            result.score = self.apply(result.score)
-
     @property
     def names(self) -> list[str]:
         return [p.name for p in self.processors]
 
     def as_dict(self) -> dict[str, Any]:
         return {
-            "processors": [
-                {"name": p.name, "description": p.description}
-                for p in self.processors
-            ],
+            "processors": [{"name": p.name, "description": p.description} for p in self.processors],
         }
 
 

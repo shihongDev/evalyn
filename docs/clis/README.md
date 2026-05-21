@@ -11,7 +11,8 @@ Complete documentation for all Evalyn CLI commands.
 | [quickstart](quickstart.md) | Guided setup for first-time users |
 | [status](status.md) | Show dataset status overview |
 | [workflow](workflow.md) | Show evaluation workflow and next steps |
-| [dashboard](dashboard.md) | Generate and open HTML insights dashboard |
+| [report](report.md) | Generate and open HTML insights report (renamed from `dashboard`) |
+| [dashboard](dashboard.md) | Launch localhost web IDE (with `evalyn-dashboard` installed); legacy alias for `report` otherwise |
 
 ### Tracing
 | Command | Description |

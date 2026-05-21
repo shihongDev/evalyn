@@ -198,9 +198,7 @@ class AnnotationSession:
             session_path=data.get("session_path", ""),
         )
         session._start_time = data.get("start_time", session._start_time)
-        session._records = [
-            AnnotationRecord.from_dict(d) for d in data.get("records", [])
-        ]
+        session._records = [AnnotationRecord.from_dict(d) for d in data.get("records", [])]
         return session
 
 

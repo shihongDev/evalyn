@@ -227,9 +227,7 @@ class PromptBreederOptimizer(BaseOptimizer):
     # Mutation operators
     # ------------------------------------------------------------------
 
-    def _format_failures(
-        self, examples: list[dict[str, Any]], max_show: int = 3
-    ) -> str:
+    def _format_failures(self, examples: list[dict[str, Any]], max_show: int = 3) -> str:
         """Format failure examples for inclusion in prompts."""
         if not examples:
             return "(none)"
@@ -345,9 +343,13 @@ class PromptBreederOptimizer(BaseOptimizer):
                 original_preamble=current_preamble,
             )
 
-        seed_preamble = current_preamble.strip() if current_preamble else (
-            f"You are an expert evaluator for the metric: {metric_id}. "
-            "Carefully analyze the output quality and provide an honest assessment."
+        seed_preamble = (
+            current_preamble.strip()
+            if current_preamble
+            else (
+                f"You are an expert evaluator for the metric: {metric_id}. "
+                "Carefully analyze the output quality and provide an honest assessment."
+            )
         )
 
         # -- Initialize population --
@@ -395,9 +397,7 @@ class PromptBreederOptimizer(BaseOptimizer):
 
             # d. Evolve mutation prompts
             for unit in population:
-                unit.mutation_prompt = self._evolve_mutation_prompt(
-                    unit, prev_best_f1, accumulator
-                )
+                unit.mutation_prompt = self._evolve_mutation_prompt(unit, prev_best_f1, accumulator)
 
             # e. Check early stopping
             gen_best_f1 = population[0].f1_score
@@ -414,12 +414,8 @@ class PromptBreederOptimizer(BaseOptimizer):
 
         # -- Validate best on val set --
         best_unit = population[0]
-        val_f1 = self.score_preamble(
-            best_unit.preamble, current_rubric, valset, accumulator
-        )
-        seed_val_f1 = self.score_preamble(
-            seed_preamble, current_rubric, valset, accumulator
-        )
+        val_f1 = self.score_preamble(best_unit.preamble, current_rubric, valset, accumulator)
+        seed_val_f1 = self.score_preamble(seed_preamble, current_rubric, valset, accumulator)
 
         # -- Build result --
         improvement_delta = val_f1 - seed_val_f1

@@ -88,7 +88,9 @@ class ABTestResult:
 
     def format_text(self) -> str:
         lines = [f"A/B Test: {self.metric_id}"]
-        lines.append(f"  Mean A: {self.mean_score_a:.4f}  Mean B: {self.mean_score_b:.4f}  Delta: {self.mean_delta:.4f}")
+        lines.append(
+            f"  Mean A: {self.mean_score_a:.4f}  Mean B: {self.mean_score_b:.4f}  Delta: {self.mean_delta:.4f}"
+        )
         lines.append(f"  A wins: {self.a_wins}  B wins: {self.b_wins}  Ties: {self.ties}")
         sig = "yes" if self.is_significant else "no"
         lines.append(f"  Significant: {sig}")
@@ -168,7 +170,7 @@ def run_ab_test(
     otherwise it is a tie.
     is_significant is True when abs(mean_delta) > significance_threshold.
     """
-    common_ids = sorted(set(scores_a.keys()) & set(scores_b.keys()))
+    common_ids = sorted(scores_a.keys() & scores_b.keys())
     comparisons: list[ABComparison] = []
     a_wins = 0
     b_wins = 0

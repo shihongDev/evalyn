@@ -90,12 +90,14 @@ class TimeBudgetTracker:
 
     def check(self) -> TimeBudgetStatus:
         """Check current status."""
+        # Single clock read so elapsed/remaining/status stay internally consistent.
         elapsed = self.elapsed_minutes()
-        remaining = self.remaining_minutes()
         max_min = self._config.max_minutes
+        remaining = max(max_min - elapsed, 0.0)
         utilization = elapsed / max_min if max_min > 0 else 1.0
+        expired = elapsed >= max_min
 
-        if elapsed >= max_min:
+        if expired:
             status = "expired"
         elif utilization >= self._config.warning_at_pct:
             status = "warning"
@@ -107,7 +109,7 @@ class TimeBudgetTracker:
             remaining_minutes=remaining,
             utilization_pct=utilization,
             status=status,
-            should_stop=elapsed >= max_min,
+            should_stop=expired,
         )
 
     def reset(self) -> None:

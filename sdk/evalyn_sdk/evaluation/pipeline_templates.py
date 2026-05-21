@@ -67,10 +67,7 @@ class TemplateLibrary:
 
     @classmethod
     def from_dict(cls, data: dict) -> TemplateLibrary:
-        templates = {
-            k: TemplateConfig.from_dict(v)
-            for k, v in data.get("templates", {}).items()
-        }
+        templates = {k: TemplateConfig.from_dict(v) for k, v in data.get("templates", {}).items()}
         return cls(templates=templates)
 
 

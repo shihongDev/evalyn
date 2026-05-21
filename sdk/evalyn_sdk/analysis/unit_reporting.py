@@ -177,8 +177,6 @@ def compute_unit_breakdown(items: list[dict[str, Any]]) -> UnitReport:
     )
 
 
-def filter_by_unit_type(
-    items: list[dict[str, Any]], unit_type: str
-) -> list[dict[str, Any]]:
+def filter_by_unit_type(items: list[dict[str, Any]], unit_type: str) -> list[dict[str, Any]]:
     """Filter items to a single unit type."""
     return [item for item in items if item.get("unit_type", "outcome") == unit_type]

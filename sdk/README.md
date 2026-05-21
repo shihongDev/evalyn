@@ -130,7 +130,7 @@ Built-in modules for PII detection, trace redaction, compliance reports, executi
 | `evalyn annotate --latest` | Human annotation |
 | `evalyn calibrate --metric-id X` | Calibrate LLM judges |
 | `evalyn simulate --mode X` | Generate synthetic data |
-| `evalyn dashboard --latest` | Open interactive HTML dashboard |
+| `evalyn report --latest` | Open interactive HTML insights report |
 | `evalyn quickstart` | Guided first-run setup |
 | `evalyn workflow` | Show evaluation workflow and next steps |
 

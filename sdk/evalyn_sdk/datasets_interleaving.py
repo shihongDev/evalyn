@@ -82,7 +82,9 @@ class InterleavingResult:
         )
 
     def format_text(self) -> str:
-        lines = [f"Interleaved {self.total_items} items from {len(self.source_distribution)} datasets"]
+        lines = [
+            f"Interleaved {self.total_items} items from {len(self.source_distribution)} datasets"
+        ]
         for name, count in sorted(self.source_distribution.items()):
             pct = (count / self.total_items * 100) if self.total_items else 0.0
             lines.append(f"  {name}: {count} ({pct:.1f}%)")
@@ -109,12 +111,14 @@ def interleave_round_robin(
         for name in names:
             ds = datasets[name]
             if round_idx < len(ds):
-                items.append(InterleavedItem(
-                    id=f"{name}_{round_idx}",
-                    source_dataset=name,
-                    original_index=round_idx,
-                    data=ds[round_idx],
-                ))
+                items.append(
+                    InterleavedItem(
+                        id=f"{name}_{round_idx}",
+                        source_dataset=name,
+                        original_index=round_idx,
+                        data=ds[round_idx],
+                    )
+                )
     return _build_result(items)
 
 
@@ -156,12 +160,14 @@ def interleave_weighted(
         remaining_weights.pop(chosen)
     for pos in order:
         name, idx = pool[pos]
-        items.append(InterleavedItem(
-            id=f"{name}_{idx}",
-            source_dataset=name,
-            original_index=idx,
-            data=datasets[name][idx],
-        ))
+        items.append(
+            InterleavedItem(
+                id=f"{name}_{idx}",
+                source_dataset=name,
+                original_index=idx,
+                data=datasets[name][idx],
+            )
+        )
     return _build_result(items)
 
 
@@ -174,12 +180,14 @@ def interleave_random(
     items: list[InterleavedItem] = []
     for name in sorted(datasets.keys()):
         for idx, data in enumerate(datasets[name]):
-            items.append(InterleavedItem(
-                id=f"{name}_{idx}",
-                source_dataset=name,
-                original_index=idx,
-                data=data,
-            ))
+            items.append(
+                InterleavedItem(
+                    id=f"{name}_{idx}",
+                    source_dataset=name,
+                    original_index=idx,
+                    data=data,
+                )
+            )
     rng.shuffle(items)
     return _build_result(items)
 

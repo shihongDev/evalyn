@@ -80,9 +80,7 @@ class TimeSeriesReport:
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> TimeSeriesReport:
-        results = [
-            DecompositionResult.from_dict(r) for r in data.get("results", [])
-        ]
+        results = [DecompositionResult.from_dict(r) for r in data.get("results", [])]
         return cls(results=results)
 
     def format_text(self) -> str:

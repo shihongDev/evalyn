@@ -68,9 +68,7 @@ class AnnotationGuideline:
         return cls(
             metric_id=data["metric_id"],
             metric_description=data["metric_description"],
-            sections=[
-                GuidelineSection.from_dict(s) for s in data.get("sections", [])
-            ],
+            sections=[GuidelineSection.from_dict(s) for s in data.get("sections", [])],
             scale_description=data.get("scale_description", ""),
             edge_cases=data.get("edge_cases", []),
             generated_at=data.get("generated_at", ""),
@@ -122,15 +120,10 @@ def extract_edge_cases(rubric: dict[str, str]) -> list[str]:
 # ---------------------------------------------------------------------------
 
 
-def _build_overview_section(
-    metric_id: str, description: str
-) -> GuidelineSection:
+def _build_overview_section(metric_id: str, description: str) -> GuidelineSection:
     return GuidelineSection(
         title="Overview",
-        content=(
-            f"This guideline covers the '{metric_id}' metric. "
-            f"{description}"
-        ),
+        content=(f"This guideline covers the '{metric_id}' metric. {description}"),
     )
 
 
@@ -163,10 +156,7 @@ def _build_pass_fail_section(rubric: dict[str, str]) -> GuidelineSection:
 
     pass_desc = ", ".join(passing) if passing else "none"
     fail_desc = ", ".join(failing) if failing else "none"
-    content = (
-        f"Passing scores: {pass_desc}\n"
-        f"Failing scores: {fail_desc}"
-    )
+    content = f"Passing scores: {pass_desc}\nFailing scores: {fail_desc}"
     return GuidelineSection(title="Pass/Fail Criteria", content=content)
 
 
@@ -310,14 +300,18 @@ def format_guideline_html(guideline: AnnotationGuideline) -> str:
     parts: list[str] = []
 
     parts.append("<!DOCTYPE html>")
-    parts.append("<html lang=\"en\">")
+    parts.append('<html lang="en">')
     parts.append("<head>")
-    parts.append("<meta charset=\"utf-8\">")
+    parts.append('<meta charset="utf-8">')
     parts.append(f"<title>{esc(guideline.metric_id)}</title>")
     parts.append("<style>")
-    parts.append("body { font-family: sans-serif; max-width: 800px; margin: 0 auto; padding: 20px; }")
+    parts.append(
+        "body { font-family: sans-serif; max-width: 800px; margin: 0 auto; padding: 20px; }"
+    )
     parts.append("h1 { color: #333; } h2 { color: #555; border-bottom: 1px solid #ddd; }")
-    parts.append(".example { background: #f9f9f9; padding: 10px; margin: 8px 0; border-left: 3px solid #4a90d9; }")
+    parts.append(
+        ".example { background: #f9f9f9; padding: 10px; margin: 8px 0; border-left: 3px solid #4a90d9; }"
+    )
     parts.append(".edge-case { color: #c0392b; }")
     parts.append("</style>")
     parts.append("</head>")
@@ -334,20 +328,18 @@ def format_guideline_html(guideline: AnnotationGuideline) -> str:
 
         if section.examples:
             for i, ex in enumerate(section.examples, 1):
-                parts.append("<div class=\"example\">")
+                parts.append('<div class="example">')
                 parts.append(f"<strong>Example {i}</strong><br>")
                 for key in ("input", "output", "label", "reasoning"):
                     if key in ex:
-                        parts.append(
-                            f"<strong>{esc(key)}</strong>: {esc(str(ex[key]))}<br>"
-                        )
+                        parts.append(f"<strong>{esc(key)}</strong>: {esc(str(ex[key]))}<br>")
                 parts.append("</div>")
 
     if guideline.edge_cases:
         parts.append("<h2>Edge Cases Summary</h2>")
         parts.append("<ul>")
         for ec in guideline.edge_cases:
-            parts.append(f"<li class=\"edge-case\">{esc(ec)}</li>")
+            parts.append(f'<li class="edge-case">{esc(ec)}</li>')
         parts.append("</ul>")
 
     parts.append(f"<footer><small>Generated at {esc(guideline.generated_at)}</small></footer>")

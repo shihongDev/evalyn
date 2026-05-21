@@ -98,8 +98,7 @@ class SpanEvalReport:
         lines: list[str] = []
         lines.append(f"Span Evaluation: {self.total_spans} spans")
         lines.append(
-            f"Passed: {self.passed_count}  Failed: {self.failed_count}  "
-            f"Rate: {self.pass_rate:.1%}"
+            f"Passed: {self.passed_count}  Failed: {self.failed_count}  Rate: {self.pass_rate:.1%}"
         )
         lines.append("")
         for type_name, breakdown in self.by_type.items():
@@ -138,9 +137,7 @@ def evaluate_span(span: Span, config: SpanEvalConfig) -> SpanScore:
         # Latency check
         if config.check_latency:
             duration = span.duration_ms
-            checks["latency_ok"] = (
-                duration is not None and duration <= config.max_latency_ms
-            )
+            checks["latency_ok"] = duration is not None and duration <= config.max_latency_ms
 
         # Error check
         checks["no_error"] = span.status != "error"
@@ -174,9 +171,7 @@ def evaluate_span(span: Span, config: SpanEvalConfig) -> SpanScore:
     )
 
 
-def evaluate_spans(
-    spans: list[Span], config: SpanEvalConfig | None = None
-) -> SpanEvalReport:
+def evaluate_spans(spans: list[Span], config: SpanEvalConfig | None = None) -> SpanEvalReport:
     """Evaluate all spans and compute per-type breakdown."""
     if config is None:
         config = SpanEvalConfig()

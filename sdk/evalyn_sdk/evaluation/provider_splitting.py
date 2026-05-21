@@ -110,17 +110,12 @@ class SplitResult:
         }
 
 
-def split_round_robin(
-    item_ids: list[str], providers: list[dict[str, Any]]
-) -> list[SplitResult]:
+def split_round_robin(item_ids: list[str], providers: list[dict[str, Any]]) -> list[SplitResult]:
     """Distribute items evenly across providers in round-robin order."""
     if not providers:
         return []
 
-    results = [
-        SplitResult(provider=p["provider"], model=p["model"])
-        for p in providers
-    ]
+    results = [SplitResult(provider=p["provider"], model=p["model"]) for p in providers]
 
     for i, item_id in enumerate(item_ids):
         idx = i % len(providers)
@@ -129,9 +124,7 @@ def split_round_robin(
     return results
 
 
-def split_cost_optimized(
-    item_ids: list[str], providers: list[dict[str, Any]]
-) -> list[SplitResult]:
+def split_cost_optimized(item_ids: list[str], providers: list[dict[str, Any]]) -> list[SplitResult]:
     """Assign items to cheapest provider first until capacity reached, then next cheapest."""
     if not providers:
         return []
@@ -143,8 +136,7 @@ def split_cost_optimized(
         for p in sorted_providers
     }
     remaining_capacity = {
-        (p["provider"], p["model"]): p.get("capacity", len(item_ids))
-        for p in sorted_providers
+        (p["provider"], p["model"]): p.get("capacity", len(item_ids)) for p in sorted_providers
     }
 
     for item_id in item_ids:
@@ -175,10 +167,7 @@ def split_capacity_weighted(
     if total_capacity <= 0:
         return split_round_robin(item_ids, providers)
 
-    results = [
-        SplitResult(provider=p["provider"], model=p["model"])
-        for p in providers
-    ]
+    results = [SplitResult(provider=p["provider"], model=p["model"]) for p in providers]
 
     n = len(item_ids)
     assigned = 0
@@ -195,9 +184,7 @@ def split_capacity_weighted(
     return [r for r in results if r.item_ids]
 
 
-def create_split_plan(
-    item_ids: list[str], config: SplitConfig
-) -> SplitPlan:
+def create_split_plan(item_ids: list[str], config: SplitConfig) -> SplitPlan:
     """Route to the appropriate splitting strategy and build a plan."""
     if config.strategy == "cost_optimized":
         split_results = split_cost_optimized(item_ids, config.providers)
@@ -207,8 +194,7 @@ def create_split_plan(
         split_results = split_round_robin(item_ids, config.providers)
 
     provider_cost_map = {
-        (p["provider"], p["model"]): p.get("cost_per_item", 0.0)
-        for p in config.providers
+        (p["provider"], p["model"]): p.get("cost_per_item", 0.0) for p in config.providers
     }
 
     allocations = []

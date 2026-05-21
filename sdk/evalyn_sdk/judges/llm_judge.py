@@ -192,9 +192,7 @@ Evaluate the OUTPUT given the INPUT. Return ONLY a JSON object with:
 
 {body}"""
 
-    def _parse_response(
-        self, raw_text: str
-    ) -> tuple[float | None, bool | None, str | None, dict]:
+    def _parse_response(self, raw_text: str) -> tuple[float | None, bool | None, str | None, dict]:
         """Parse LLM response text and return (score, passed, reason, parsed_dict)."""
         parsed = _extract_json_object(raw_text) or {}
 
@@ -265,9 +263,7 @@ Evaluate the OUTPUT given the INPUT. Return ONLY a JSON object with:
             "model": self.model,
         }
 
-    def score_with_confidence(
-        self, call: FunctionCall, item: DatasetItem
-    ) -> dict[str, Any]:
+    def score_with_confidence(self, call: FunctionCall, item: DatasetItem) -> dict[str, Any]:
         """Evaluate with logprobs-based confidence (openai/ollama only).
 
         Returns {score, passed, reason, confidence, raw}.
@@ -390,12 +386,8 @@ Evaluate the OUTPUT given the INPUT. Return ONLY a JSON object with:
         # Get defaults from template if available
         tpl = self.TEMPLATES.get(self.name, {})
         final_id = metric_id or self.name
-        final_threshold = (
-            threshold if threshold is not None else tpl.get("threshold", 0.5)
-        )
-        final_description = description or tpl.get(
-            "description", "LLM judge evaluation"
-        )
+        final_threshold = threshold if threshold is not None else tpl.get("threshold", 0.5)
+        final_description = description or tpl.get("description", "LLM judge evaluation")
 
         spec = MetricSpec(
             id=final_id,
@@ -441,7 +433,8 @@ Evaluate the OUTPUT given the INPUT. Return ONLY a JSON object with:
                 details["parse_error"] = True
                 logger.warning(
                     "Judge '%s' returned unparseable response for item '%s'",
-                    judge.name, item.id,
+                    judge.name,
+                    item.id,
                 )
 
             return MetricResult(

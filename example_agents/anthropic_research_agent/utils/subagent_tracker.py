@@ -14,6 +14,7 @@ logger = logging.getLogger(__name__)
 @dataclass
 class ToolCallRecord:
     """Record of a single tool call."""
+
     timestamp: str
     tool_name: str
     tool_input: Dict[str, Any]
@@ -27,6 +28,7 @@ class ToolCallRecord:
 @dataclass
 class SubagentSession:
     """Information about a subagent execution session."""
+
     subagent_type: str
     parent_tool_use_id: str
     spawned_at: str
@@ -72,11 +74,7 @@ class SubagentTracker:
         logger.debug("SubagentTracker initialized")
 
     def register_subagent_spawn(
-        self,
-        tool_use_id: str,
-        subagent_type: str,
-        description: str,
-        prompt: str
+        self, tool_use_id: str, subagent_type: str, description: str, prompt: str
     ) -> str:
         """
         Register a new subagent spawn detected from the message stream.
@@ -100,15 +98,15 @@ class SubagentTracker:
             spawned_at=datetime.now().isoformat(),
             description=description,
             prompt_preview=prompt[:200] + "..." if len(prompt) > 200 else prompt,
-            subagent_id=subagent_id
+            subagent_id=subagent_id,
         )
 
         self.sessions[tool_use_id] = session
-        logger.info(f"{'='*60}")
+        logger.info(f"{'=' * 60}")
         logger.info(f"🚀 SUBAGENT SPAWNED: {subagent_id}")
-        logger.info(f"{'='*60}")
+        logger.info(f"{'=' * 60}")
         logger.info(f"Task: {description}")
-        logger.info(f"{'='*60}")
+        logger.info(f"{'=' * 60}")
 
         return subagent_id
 
@@ -150,24 +148,26 @@ class SubagentTracker:
             return ""
 
         # WebSearch: show query
-        if 'query' in tool_input:
-            query = str(tool_input['query'])
+        if "query" in tool_input:
+            query = str(tool_input["query"])
             return f"query='{query if len(query) <= max_length else query[:max_length] + '...'}'"
 
         # Write: show file path and content size
-        if 'file_path' in tool_input and 'content' in tool_input:
-            filename = Path(tool_input['file_path']).name
+        if "file_path" in tool_input and "content" in tool_input:
+            filename = Path(tool_input["file_path"]).name
             return f"file='{filename}' ({len(tool_input['content'])} chars)"
 
         # Read/Glob: show path or pattern
-        if 'file_path' in tool_input:
+        if "file_path" in tool_input:
             return f"path='{tool_input['file_path']}'"
-        if 'pattern' in tool_input:
+        if "pattern" in tool_input:
             return f"pattern='{tool_input['pattern']}'"
 
         # Task: show subagent spawn
-        if 'subagent_type' in tool_input:
-            return f"spawn={tool_input.get('subagent_type', '')} ({tool_input.get('description', '')})"
+        if "subagent_type" in tool_input:
+            return (
+                f"spawn={tool_input.get('subagent_type', '')} ({tool_input.get('description', '')})"
+            )
 
         # Fallback: generic (truncated)
         return str(tool_input)[:max_length]
@@ -180,8 +180,8 @@ class SubagentTracker:
 
     async def pre_tool_use_hook(self, hook_input, tool_use_id, context):
         """Hook callback for PreToolUse events - captures tool calls."""
-        tool_name = hook_input['tool_name']
-        tool_input = hook_input['tool_input']
+        tool_name = hook_input["tool_name"]
+        tool_input = hook_input["tool_input"]
         timestamp = datetime.now().isoformat()
 
         # Determine agent context
@@ -199,51 +199,55 @@ class SubagentTracker:
                 tool_input=tool_input,
                 tool_use_id=tool_use_id,
                 subagent_type=agent_type,
-                parent_tool_use_id=self._current_parent_id
+                parent_tool_use_id=self._current_parent_id,
             )
             session.tool_calls.append(record)
             self.tool_call_records[tool_use_id] = record
 
             # Log
             self._log_tool_use(agent_id, tool_name, tool_input)
-            self._log_to_jsonl({
-                "event": "tool_call_start",
-                "timestamp": timestamp,
-                "tool_use_id": tool_use_id,
-                "agent_id": agent_id,
-                "agent_type": agent_type,
-                "tool_name": tool_name,
-                "tool_input": tool_input,
-                "parent_tool_use_id": self._current_parent_id
-            })
-        elif tool_name != 'Task':  # Skip Task calls for main agent (handled by spawn message)
+            self._log_to_jsonl(
+                {
+                    "event": "tool_call_start",
+                    "timestamp": timestamp,
+                    "tool_use_id": tool_use_id,
+                    "agent_id": agent_id,
+                    "agent_type": agent_type,
+                    "tool_name": tool_name,
+                    "tool_input": tool_input,
+                    "parent_tool_use_id": self._current_parent_id,
+                }
+            )
+        elif tool_name != "Task":  # Skip Task calls for main agent (handled by spawn message)
             # Main agent tool call
             self._log_tool_use("MAIN AGENT", tool_name, tool_input)
-            self._log_to_jsonl({
-                "event": "tool_call_start",
-                "timestamp": timestamp,
-                "tool_use_id": tool_use_id,
-                "agent_id": "MAIN_AGENT",
-                "agent_type": "lead",
-                "tool_name": tool_name,
-                "tool_input": tool_input
-            })
+            self._log_to_jsonl(
+                {
+                    "event": "tool_call_start",
+                    "timestamp": timestamp,
+                    "tool_use_id": tool_use_id,
+                    "agent_id": "MAIN_AGENT",
+                    "agent_type": "lead",
+                    "tool_name": tool_name,
+                    "tool_input": tool_input,
+                }
+            )
 
-        return {'continue_': True}
+        return {"continue_": True}
 
     async def post_tool_use_hook(self, hook_input, tool_use_id, context):
         """Hook callback for PostToolUse events - captures tool results."""
-        tool_response = hook_input.get('tool_response')
+        tool_response = hook_input.get("tool_response")
         record = self.tool_call_records.get(tool_use_id)
 
         if not record:
-            return {'continue_': True}
+            return {"continue_": True}
 
         # Update record with output
         record.tool_output = tool_response
 
         # Check for errors
-        error = tool_response.get('error') if isinstance(tool_response, dict) else None
+        error = tool_response.get("error") if isinstance(tool_response, dict) else None
         if error:
             record.error = error
             session = self.sessions.get(record.parent_tool_use_id)
@@ -256,19 +260,21 @@ class SubagentTracker:
         agent_type = session.subagent_type if session else "lead"
 
         # Log completion to JSONL
-        self._log_to_jsonl({
-            "event": "tool_call_complete",
-            "timestamp": datetime.now().isoformat(),
-            "tool_use_id": tool_use_id,
-            "agent_id": agent_id,
-            "agent_type": agent_type,
-            "tool_name": record.tool_name,
-            "success": error is None,
-            "error": error,
-            "output_size": len(str(tool_response)) if tool_response else 0
-        })
+        self._log_to_jsonl(
+            {
+                "event": "tool_call_complete",
+                "timestamp": datetime.now().isoformat(),
+                "tool_use_id": tool_use_id,
+                "agent_id": agent_id,
+                "agent_type": agent_type,
+                "tool_name": record.tool_name,
+                "success": error is None,
+                "error": error,
+                "output_size": len(str(tool_response)) if tool_response else 0,
+            }
+        )
 
-        return {'continue_': True}
+        return {"continue_": True}
 
     def close(self):
         """Close the tool log file."""

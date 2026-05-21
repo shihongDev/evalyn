@@ -76,9 +76,7 @@ class ProgressIndicator:
     def finish(self, message: str = "Done"):
         """Complete the progress indicator."""
         elapsed = time.time() - self._start_time
-        sys.stderr.write(
-            f"\r{self.message}: {message} ({elapsed:.1f}s)" + " " * 20 + "\n"
-        )
+        sys.stderr.write(f"\r{self.message}: {message} ({elapsed:.1f}s)" + " " * 20 + "\n")
         sys.stderr.flush()
 
 

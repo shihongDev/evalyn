@@ -218,9 +218,7 @@ def render_task_line(task: TaskProgress, width: int = 60) -> str:
     return line
 
 
-def render_dashboard(
-    state: DashboardState, config: DashboardConfig | None = None
-) -> str:
+def render_dashboard(state: DashboardState, config: DashboardConfig | None = None) -> str:
     """Render the full dashboard as a multi-line string.
 
     Includes header, per-task progress bars, and summary line.
@@ -243,9 +241,7 @@ def render_dashboard(
     # Summary
     lines.append("-" * config.width)
 
-    done_count = sum(
-        1 for t in state.tasks if t.status in ("complete", "failed")
-    )
+    done_count = sum(1 for t in state.tasks if t.status in ("complete", "failed"))
     total_count = len(state.tasks)
     summary_parts: list[str] = [f"{done_count}/{total_count} tasks done"]
 

@@ -121,8 +121,7 @@ def prepare_panel_context(
     for mid, ms in sorted(run_analysis.metric_stats.items()):
         pr = f"{ms.pass_rate:.0%}" if ms.pass_rate is not None else "N/A"
         lines.append(
-            f"  {mid}: pass_rate={pr}, avg={ms.avg_score:.2f}, "
-            f"std={ms.std_dev:.2f}, n={ms.count}"
+            f"  {mid}: pass_rate={pr}, avg={ms.avg_score:.2f}, std={ms.std_dev:.2f}, n={ms.count}"
         )
     lines.append("")
 
@@ -131,9 +130,7 @@ def prepare_panel_context(
         lines.append(f"TOP FAILED ITEMS ({min(sample_failures, len(run_analysis.failed_items))}):")
         for item_id in run_analysis.failed_items[:sample_failures]:
             ist = run_analysis.item_stats[item_id]
-            failed_metrics = [
-                m for m, r in ist.metric_results.items() if r["passed"] is False
-            ]
+            failed_metrics = [m for m, r in ist.metric_results.items() if r["passed"] is False]
             reasons = []
             for m in failed_metrics[:3]:
                 reason = ist.metric_results[m].get("reason") or ""
@@ -448,9 +445,7 @@ def run_expert_panel(
     if not expert_roles:
         expert_roles = EXPERT_ROLES
 
-    context = prepare_panel_context(
-        run_analysis, insights_report, dataset_items
-    )
+    context = prepare_panel_context(run_analysis, insights_report, dataset_items)
 
     opinions: list[ExpertOpinion] = []
     total_input = 0

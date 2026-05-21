@@ -117,13 +117,15 @@ def build_docker_command(code: str, config: SandboxConfig) -> list[str]:
     cmd.append(config.image)
 
     # Timeout wrapper + code execution
-    cmd.extend([
-        "timeout",
-        str(config.timeout_seconds),
-        "python",
-        "-c",
-        code,
-    ])
+    cmd.extend(
+        [
+            "timeout",
+            str(config.timeout_seconds),
+            "python",
+            "-c",
+            code,
+        ]
+    )
 
     return cmd
 

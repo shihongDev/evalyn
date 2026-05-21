@@ -6,6 +6,14 @@ from pathlib import Path
 from dotenv import load_dotenv
 from claude_agent_sdk import ClaudeSDKClient, ClaudeAgentOptions, AgentDefinition, HookMatcher
 
+# Demo-wide model default. Override with EVALYN_DEMO_MODEL (e.g. "sonnet"),
+# or with the env var of any specific subagent if you need per-stage models.
+DEFAULT_MODEL = os.environ.get("EVALYN_DEMO_MODEL", "haiku")
+RESEARCHER_MODEL = os.environ.get("EVALYN_DEMO_RESEARCHER_MODEL", DEFAULT_MODEL)
+DATA_ANALYST_MODEL = os.environ.get("EVALYN_DEMO_DATA_ANALYST_MODEL", DEFAULT_MODEL)
+REPORT_WRITER_MODEL = os.environ.get("EVALYN_DEMO_REPORT_WRITER_MODEL", DEFAULT_MODEL)
+LEAD_MODEL = os.environ.get("EVALYN_DEMO_LEAD_MODEL", DEFAULT_MODEL)
+
 # =============================================================================
 # EVALYN INSTRUMENTATION - The following imports are added by Evalyn SDK for
 # tracing and evaluation. Remove these to use the agent without instrumentation.
@@ -16,6 +24,7 @@ from evalyn_sdk.trace.instrumentation import create_agent_hooks, create_stream_a
 
 import sys
 from pathlib import Path
+
 # Add the agent directory to path for local imports
 sys.path.insert(0, str(Path(__file__).parent))
 
@@ -87,7 +96,7 @@ async def chat():
             ),
             tools=["WebSearch", "Write"],
             prompt=researcher_prompt,
-            model="haiku"
+            model=RESEARCHER_MODEL,
         ),
         "data-analyst": AgentDefinition(
             description=(
@@ -99,7 +108,7 @@ async def chat():
             ),
             tools=["Glob", "Read", "Bash", "Write"],
             prompt=data_analyst_prompt,
-            model="haiku"
+            model=DATA_ANALYST_MODEL,
         ),
         "report-writer": AgentDefinition(
             description=(
@@ -112,8 +121,8 @@ async def chat():
             ),
             tools=["Skill", "Write", "Glob", "Read", "Bash"],
             prompt=report_writer_prompt,
-            model="haiku"
-        )
+            model=REPORT_WRITER_MODEL,
+        ),
     }
 
     # =========================================================================
@@ -121,18 +130,18 @@ async def chat():
     # tool calls for tracing. To remove Evalyn, delete evalyn_hooks from lists.
     # =========================================================================
     hooks = {
-        'PreToolUse': [
+        "PreToolUse": [
             HookMatcher(
                 matcher=None,  # Match all tools
-                hooks=[evalyn_hooks.pre_tool_use_hook, tracker.pre_tool_use_hook]
+                hooks=[evalyn_hooks.pre_tool_use_hook, tracker.pre_tool_use_hook],
             )
         ],
-        'PostToolUse': [
+        "PostToolUse": [
             HookMatcher(
                 matcher=None,  # Match all tools
-                hooks=[evalyn_hooks.post_tool_use_hook, tracker.post_tool_use_hook]
+                hooks=[evalyn_hooks.post_tool_use_hook, tracker.post_tool_use_hook],
             )
-        ]
+        ],
     }
     # =========================================================================
 
@@ -143,7 +152,7 @@ async def chat():
         allowed_tools=["Task"],
         agents=agents,
         hooks=hooks,
-        model="haiku"
+        model=LEAD_MODEL,
     )
 
     print("\n" + "=" * 50)
@@ -180,8 +189,8 @@ async def chat():
                 # =========================================================
                 adapter = create_stream_adapter(evalyn_hooks)
                 async for msg in adapter.wrap_stream(client.receive_response()):
-                # =========================================================
-                    if type(msg).__name__ == 'AssistantMessage':
+                    # =========================================================
+                    if type(msg).__name__ == "AssistantMessage":
                         process_assistant_message(msg, tracker, transcript)
 
                 transcript.write("\n")

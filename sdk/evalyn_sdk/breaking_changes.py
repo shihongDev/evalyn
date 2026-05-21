@@ -52,9 +52,7 @@ class RunManifest:
         return cls(
             run_id=data["run_id"],
             evalyn_version=data["evalyn_version"],
-            fingerprints=[
-                MetricFingerprint.from_dict(fp) for fp in data.get("fingerprints", [])
-            ],
+            fingerprints=[MetricFingerprint.from_dict(fp) for fp in data.get("fingerprints", [])],
             created_at=data["created_at"],
         )
 
@@ -110,9 +108,7 @@ class CompatibilityReport:
     def from_dict(cls, data: dict[str, Any]) -> CompatibilityReport:
         return cls(
             compatible=data["compatible"],
-            changes=[
-                BreakingChange.from_dict(c) for c in data.get("changes", [])
-            ],
+            changes=[BreakingChange.from_dict(c) for c in data.get("changes", [])],
             old_version=data["old_version"],
             new_version=data["new_version"],
         )
@@ -128,9 +124,7 @@ def _stable_json(obj: Any) -> str:
     return json.dumps(obj, sort_keys=True, separators=(",", ":"))
 
 
-def compute_fingerprint(
-    metric_id: str, implementation: str, parameters: dict
-) -> MetricFingerprint:
+def compute_fingerprint(metric_id: str, implementation: str, parameters: dict) -> MetricFingerprint:
     """Hash a metric's code and parameters into a fingerprint.
 
     The version_hash covers the implementation source, while the
@@ -160,9 +154,7 @@ def create_manifest(
     )
 
 
-def compare_manifests(
-    old: RunManifest, new: RunManifest
-) -> CompatibilityReport:
+def compare_manifests(old: RunManifest, new: RunManifest) -> CompatibilityReport:
     """Compare two manifests and detect breaking changes.
 
     Detects three kinds of changes:
@@ -170,12 +162,8 @@ def compare_manifests(
     - modified: metric implementation hash changed
     - parameters_changed: metric parameters hash changed
     """
-    old_fps: dict[str, MetricFingerprint] = {
-        fp.metric_id: fp for fp in old.fingerprints
-    }
-    new_fps: dict[str, MetricFingerprint] = {
-        fp.metric_id: fp for fp in new.fingerprints
-    }
+    old_fps: dict[str, MetricFingerprint] = {fp.metric_id: fp for fp in old.fingerprints}
+    new_fps: dict[str, MetricFingerprint] = {fp.metric_id: fp for fp in new.fingerprints}
 
     changes: list[BreakingChange] = []
 
@@ -231,16 +219,12 @@ def compare_manifests(
 def format_compatibility_report(report: CompatibilityReport) -> str:
     """Format a compatibility report as human-readable text."""
     lines: list[str] = []
-    lines.append(
-        f"Compatibility: {report.old_version} -> {report.new_version}"
-    )
+    lines.append(f"Compatibility: {report.old_version} -> {report.new_version}")
     if report.compatible:
         lines.append("Status: COMPATIBLE - no breaking changes detected.")
         return "\n".join(lines)
 
-    lines.append(
-        f"Status: INCOMPATIBLE - {len(report.changes)} breaking change(s) detected."
-    )
+    lines.append(f"Status: INCOMPATIBLE - {len(report.changes)} breaking change(s) detected.")
     for change in report.changes:
         lines.append(f"  [{change.change_type}] {change.metric_id}")
         lines.append(f"    {change.migration_hint}")

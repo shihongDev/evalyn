@@ -17,9 +17,9 @@ class DeprecationEntry:
     """A deprecated metric with migration information."""
 
     metric_id: str
-    replacement: str | None = None   # replacement metric ID
-    deprecated_since: str = ""          # version string
-    sunset_date: str | None = None   # date when metric will be removed
+    replacement: str | None = None  # replacement metric ID
+    deprecated_since: str = ""  # version string
+    sunset_date: str | None = None  # date when metric will be removed
     reason: str = ""
 
     def as_dict(self) -> dict[str, Any]:

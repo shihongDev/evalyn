@@ -93,9 +93,7 @@ class CurationReport:
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> CurationReport:
         return cls(
-            suggestions=[
-                CurationSuggestion.from_dict(s) for s in data.get("suggestions", [])
-            ],
+            suggestions=[CurationSuggestion.from_dict(s) for s in data.get("suggestions", [])],
             total_items=data.get("total_items", 0),
             gaps_found=data.get("gaps_found", 0),
             gaps=[CurationGap.from_dict(g) for g in data.get("gaps", [])],
@@ -366,8 +364,7 @@ def analyze_length_distribution(
                 CurationGap(
                     gap_type="length",
                     description=(
-                        f"'{level}' length underrepresented: "
-                        f"{count}/{total} items ({fraction:.0%})"
+                        f"'{level}' length underrepresented: {count}/{total} items ({fraction:.0%})"
                     ),
                     severity="high" if fraction < ideal_fraction * 0.25 else "medium",
                     suggested_count=deficit,
@@ -378,8 +375,7 @@ def analyze_length_distribution(
                 CurationGap(
                     gap_type="length",
                     description=(
-                        f"'{level}' length overrepresented: "
-                        f"{count}/{total} items ({fraction:.0%})"
+                        f"'{level}' length overrepresented: {count}/{total} items ({fraction:.0%})"
                     ),
                     severity="low",
                     suggested_count=0,

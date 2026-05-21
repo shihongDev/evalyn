@@ -117,9 +117,7 @@ class ReplayReport:
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> ReplayReport:
-        comparisons = [
-            ReplayComparison(**c) for c in data.get("comparisons", [])
-        ]
+        comparisons = [ReplayComparison(**c) for c in data.get("comparisons", [])]
         return cls(
             comparisons=comparisons,
             improved_count=data.get("improved_count", 0),
@@ -193,13 +191,15 @@ def compare_replay_results(
         replayed_score = replayed_lookup[key]
         delta = replayed_score - original_score
 
-        comparisons.append(ReplayComparison(
-            item_id=orig["item_id"],
-            metric_id=orig["metric_id"],
-            original_score=original_score,
-            replayed_score=replayed_score,
-            delta=delta,
-        ))
+        comparisons.append(
+            ReplayComparison(
+                item_id=orig["item_id"],
+                metric_id=orig["metric_id"],
+                original_score=original_score,
+                replayed_score=replayed_score,
+                delta=delta,
+            )
+        )
 
         if delta > threshold:
             improved += 1
@@ -228,11 +228,9 @@ def summarize_replay(report: ReplayReport) -> dict[str, Any]:
         "unchanged_count": report.unchanged_count,
         "mean_delta": report.mean_delta,
         "improved_pct": (
-            report.improved_count / len(report.comparisons) * 100
-            if report.comparisons else 0.0
+            report.improved_count / len(report.comparisons) * 100 if report.comparisons else 0.0
         ),
         "degraded_pct": (
-            report.degraded_count / len(report.comparisons) * 100
-            if report.comparisons else 0.0
+            report.degraded_count / len(report.comparisons) * 100 if report.comparisons else 0.0
         ),
     }

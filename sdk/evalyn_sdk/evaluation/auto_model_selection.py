@@ -104,9 +104,7 @@ class SelectionReport:
     @classmethod
     def from_dict(cls, d: dict[str, Any]) -> SelectionReport:
         return cls(
-            selections=[
-                SelectionResult(**s) for s in d.get("selections", [])
-            ],
+            selections=[SelectionResult(**s) for s in d.get("selections", [])],
             tier_distribution=d.get("tier_distribution", {}),
             estimated_cost_savings_pct=d.get("estimated_cost_savings_pct", 0.0),
         )
@@ -122,9 +120,7 @@ class SelectionReport:
             for tier_name, count in sorted(self.tier_distribution.items()):
                 pct = (count / total * 100) if total > 0 else 0.0
                 lines.append(f"  {tier_name}: {count} ({pct:.1f}%)")
-        lines.append(
-            f"Estimated cost savings: {self.estimated_cost_savings_pct:.1f}%"
-        )
+        lines.append(f"Estimated cost savings: {self.estimated_cost_savings_pct:.1f}%")
         return "\n".join(lines)
 
 
@@ -135,9 +131,7 @@ DEFAULT_TIERS = [
 ]
 
 
-def estimate_complexity(
-    text: str, avg_score: float | None = None
-) -> float:
+def estimate_complexity(text: str, avg_score: float | None = None) -> float:
     """Heuristic complexity estimate from text length and optional score.
 
     Short simple text yields low complexity. Long text or low average
@@ -165,9 +159,7 @@ def estimate_complexity(
     return round(min(1.0, max(0.0, complexity)), 4)
 
 
-def select_model(
-    complexity: float, config: AutoSelectionConfig
-) -> ModelTier:
+def select_model(complexity: float, config: AutoSelectionConfig) -> ModelTier:
     """Pick the cheapest tier whose max_complexity covers the given value."""
     sorted_tiers = sorted(config.tiers, key=lambda t: t.max_complexity)
     for tier in sorted_tiers:
@@ -233,9 +225,7 @@ def get_default_config() -> AutoSelectionConfig:
     )
 
 
-def estimate_cost_savings(
-    report: SelectionReport, uniform_model_cost: float = 0.00125
-) -> float:
+def estimate_cost_savings(report: SelectionReport, uniform_model_cost: float = 0.00125) -> float:
     """Compare selected tier costs vs uniform smart-model cost.
 
     Returns savings as a percentage (0-100).

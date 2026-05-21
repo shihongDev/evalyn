@@ -342,19 +342,14 @@ class AgentSimulator:
             dataset_items = self._run_agent_on_queries(generated)
 
             # Save to output directory
-            mode_dir = (
-                output_dir / f"sim-{mode}-{datetime.now().strftime('%Y%m%d-%H%M%S')}"
-            )
+            mode_dir = output_dir / f"sim-{mode}-{datetime.now().strftime('%Y%m%d-%H%M%S')}"
             mode_dir.mkdir(parents=True, exist_ok=True)
 
             # Save dataset
             dataset_path = mode_dir / "dataset.jsonl"
             with open(dataset_path, "w", encoding="utf-8") as f:
                 for item in dataset_items:
-                    f.write(
-                        json.dumps(item.as_dict(), ensure_ascii=False, default=str)
-                        + "\n"
-                    )
+                    f.write(json.dumps(item.as_dict(), ensure_ascii=False, default=str) + "\n")
 
             # Save meta.json
             meta = {

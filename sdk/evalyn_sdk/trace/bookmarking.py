@@ -41,8 +41,7 @@ class Bookmark:
             span_id=data["span_id"],
             label=data.get("label", ""),
             notes=data.get("notes", ""),
-            created_at=_parse_datetime(data.get("created_at"))
-            or datetime.now(timezone.utc),
+            created_at=_parse_datetime(data.get("created_at")) or datetime.now(timezone.utc),
             tags=data.get("tags", []),
         )
 

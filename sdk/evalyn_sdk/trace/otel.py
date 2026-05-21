@@ -93,6 +93,24 @@ class SQLiteSpanExporter:
 
     def export(self, spans) -> None:
         import json
+        import warnings
+
+        def _safe_json_dumps(obj: object, *, what: str) -> str:
+            """json.dumps with explicit warning when default=str would fire.
+
+            The default=str fallback silently coerces unserializable values
+            to repr strings, hiding bugs. Probe first and warn so the user
+            can fix the upstream attribute / event payload.
+            """
+            try:
+                return json.dumps(obj)
+            except (TypeError, ValueError) as exc:
+                warnings.warn(
+                    f"evalyn OTEL exporter: non-JSON-serializable value in "
+                    f"{what} coerced via repr ({exc})",
+                    stacklevel=2,
+                )
+                return json.dumps(obj, default=str)
 
         fmt = self._format_id
         rows = []
@@ -121,18 +139,20 @@ class SQLiteSpanExporter:
             status = getattr(getattr(span, "status", None), "status_code", None)
             if status is not None and hasattr(status, "name"):
                 status = status.name
-            rows.append((
-                trace_id,
-                span_id,
-                parent_span_id,
-                call_id,
-                span.name,
-                getattr(span, "start_time", None),
-                getattr(span, "end_time", None),
-                status,
-                json.dumps(attrs, default=str),
-                json.dumps(events, default=str),
-            ))
+            rows.append(
+                (
+                    trace_id,
+                    span_id,
+                    parent_span_id,
+                    call_id,
+                    span.name,
+                    getattr(span, "start_time", None),
+                    getattr(span, "end_time", None),
+                    status,
+                    _safe_json_dumps(attrs, what="span attributes"),
+                    _safe_json_dumps(events, what="span events"),
+                )
+            )
 
         if rows:
             cur = self.conn.cursor()
@@ -188,8 +208,6 @@ def configure_default_otel(
     Returns None on any configuration error.
     """
     try:
-        return configure_otel(
-            service_name=service_name, exporter=exporter, endpoint=endpoint
-        )
+        return configure_otel(service_name=service_name, exporter=exporter, endpoint=endpoint)
     except Exception:
         return None

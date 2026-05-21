@@ -469,9 +469,11 @@ Insights functions:
 - Frontend: minimal Jinja2 templates + Chart.js (no heavy JS framework)
 - Launch: `evalyn dashboard` command starting local server
 
-> **Note:** Current implementation generates static HTML reports with Chart.js
-> visualizations (no live server). The FastAPI/WebSocket design above is
-> aspirational and planned for a future release.
+> **Note:** Two complementary implementations now exist: `evalyn report` generates
+> static HTML reports with Chart.js (no live server), and the separate
+> `evalyn-dashboard` package ships a FastAPI-based localhost web IDE
+> (see `dashboard/evalyn_dashboard/server.py`). The design above describes the
+> live-server flavor.
 
 ---
 

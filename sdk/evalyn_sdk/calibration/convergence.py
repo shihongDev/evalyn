@@ -132,9 +132,7 @@ class ConvergenceTracker:
         self._step = 0
 
 
-def render_ascii_convergence(
-    trace: ConvergenceTrace, width: int = 60, height: int = 15
-) -> str:
+def render_ascii_convergence(trace: ConvergenceTrace, width: int = 60, height: int = 15) -> str:
     """Render an ASCII plot of alignment score vs step.
 
     X axis = steps, Y axis = alignment score. Uses '#' for points.

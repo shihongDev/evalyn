@@ -43,7 +43,6 @@ class ConfidenceEstimator(ABC):
     @abstractmethod
     def name(self) -> str:
         """Name of this confidence method."""
-        pass
 
     @abstractmethod
     def estimate(self, **kwargs) -> ConfidenceResult:
@@ -59,7 +58,6 @@ class ConfidenceEstimator(ABC):
         Returns:
             ConfidenceResult with score in [0, 1] and method-specific details.
         """
-        pass
 
     def __repr__(self) -> str:
         return f"{self.__class__.__name__}()"
@@ -79,7 +77,12 @@ def get_confidence_estimator(method: str, **kwargs) -> ConfidenceEstimator:
         ValueError: If method is unknown
     """
     from .consistency import SelfConsistencyConfidence
-    from .logprobs import DeepConfConfidence, LogprobsConfidence, PerplexityConfidence
+    from .logprobs import (
+        DeepConfConfidence,
+        EntropyConfidence,
+        LogprobsConfidence,
+        PerplexityConfidence,
+    )
     from .verbalized import VerbalizedConfidence
 
     methods = {
@@ -89,6 +92,7 @@ def get_confidence_estimator(method: str, **kwargs) -> ConfidenceEstimator:
         "deepconf_tail": lambda **kw: DeepConfConfidence(strategy="tail", **kw),
         "deepconf_average": lambda **kw: DeepConfConfidence(strategy="average", **kw),
         "perplexity": PerplexityConfidence,
+        "entropy": EntropyConfidence,
         "consistency": SelfConsistencyConfidence,
         "self_consistency": SelfConsistencyConfidence,
         "verbalized": VerbalizedConfidence,
@@ -96,9 +100,7 @@ def get_confidence_estimator(method: str, **kwargs) -> ConfidenceEstimator:
 
     if method not in methods:
         available = ", ".join(methods.keys())
-        raise ValueError(
-            f"Unknown confidence method '{method}'. Available: {available}"
-        )
+        raise ValueError(f"Unknown confidence method '{method}'. Available: {available}")
 
     return methods[method](**kwargs)
 

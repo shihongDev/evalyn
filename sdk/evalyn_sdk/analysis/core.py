@@ -110,12 +110,24 @@ def load_eval_run(path: Path) -> dict[str, Any]:
         return json.load(f)
 
 
-def find_eval_runs(dataset_dir: Path) -> list[Path]:
+DEFAULT_EVAL_RUNS_SUBDIR = "eval_runs"
+
+
+def find_eval_runs(
+    dataset_dir: Path,
+    eval_runs_subdir: str = DEFAULT_EVAL_RUNS_SUBDIR,
+) -> list[Path]:
     """Find all eval run folders/files in a dataset directory.
+
+    Args:
+        dataset_dir: Path to the dataset root.
+        eval_runs_subdir: Name of the subdirectory under ``dataset_dir`` that
+            holds eval runs. Defaults to ``"eval_runs"``; override when a
+            project stores runs under a different folder name.
 
     Returns paths to results.json files (new structure) or .json files (legacy).
     """
-    eval_runs_dir = Path(dataset_dir) / "eval_runs"
+    eval_runs_dir = Path(dataset_dir) / eval_runs_subdir
     if not eval_runs_dir.exists():
         return []
 
@@ -190,9 +202,7 @@ def analyze_run(run_data: dict[str, Any]) -> RunAnalysis:
             item_stats[item_id].metrics_failed += 1
 
     # Get failed items
-    failed_items = [
-        item_id for item_id, stats in item_stats.items() if not stats.all_passed
-    ]
+    failed_items = [item_id for item_id, stats in item_stats.items() if not stats.all_passed]
 
     # Extract cost information from usage_summary
     usage_summary = run_data.get("usage_summary", {}) or {}

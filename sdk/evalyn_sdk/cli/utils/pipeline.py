@@ -83,9 +83,8 @@ class PipelineState:
             os.replace(temp_path, path)
         except Exception as e:
             import logging
-            logging.getLogger(__name__).warning(
-                "Failed to save pipeline state to %s: %s", path, e
-            )
+
+            logging.getLogger(__name__).warning("Failed to save pipeline state to %s: %s", path, e)
 
     def is_step_done(self, step_name: str) -> bool:
         """Check if a step completed successfully."""
@@ -139,7 +138,6 @@ class PipelineStep(ABC):
         Returns:
             Tuple of (result, updated_context)
         """
-        pass
 
     def dry_run_message(self, output_dir: Path) -> str:
         """Message to show in dry-run mode."""
@@ -319,9 +317,7 @@ class PipelineOrchestrator:
 
             if result.status == "failed":
                 msg = result.error or "unknown error"
-                raise RuntimeError(
-                    f"Step '{step.display_name}' failed: {msg}"
-                )
+                raise RuntimeError(f"Step '{step.display_name}' failed: {msg}")
 
         except KeyboardInterrupt:
             print("\n  Step interrupted by user\n")

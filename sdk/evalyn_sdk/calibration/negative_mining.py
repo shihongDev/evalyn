@@ -57,12 +57,8 @@ class MiningResult:
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> MiningResult:
-        negatives = [
-            NegativeExample(**n) for n in data.get("negatives", [])
-        ]
-        hardest = [
-            NegativeExample(**n) for n in data.get("hardest_failures", [])
-        ]
+        negatives = [NegativeExample(**n) for n in data.get("negatives", [])]
+        hardest = [NegativeExample(**n) for n in data.get("hardest_failures", [])]
         return cls(
             negatives=negatives,
             total_failures=data.get("total_failures", 0),
@@ -80,9 +76,7 @@ class MiningResult:
         if self.hardest_failures:
             lines.append("  Hardest failures:")
             for neg in self.hardest_failures:
-                lines.append(
-                    f"    - {neg.item_id}: error={neg.error_magnitude:.3f}"
-                )
+                lines.append(f"    - {neg.item_id}: error={neg.error_magnitude:.3f}")
         if self.common_patterns:
             lines.append("  Common patterns:")
             for pattern in self.common_patterns:
@@ -195,8 +189,7 @@ def analyze_failure_patterns(
         # Words appearing in majority of failure texts
         threshold = len(texts) / 2
         common = [
-            word for word, count in word_counts.most_common()
-            if count > threshold and len(word) > 2
+            word for word, count in word_counts.most_common() if count > threshold and len(word) > 2
         ]
         if common:
             top_words = common[:5]

@@ -5,6 +5,7 @@ Groups text items into natural clusters using word-set features,
 extracts keywords, finds representatives, and generates human-readable reports.
 Pure Python with no external dependencies.
 """
+
 from __future__ import annotations
 
 import random
@@ -18,19 +19,120 @@ from typing import Any
 # ---------------------------------------------------------------------------
 
 _STOPWORDS: set[str] = {
-    "a", "an", "the", "is", "are", "was", "were", "be", "been", "being",
-    "have", "has", "had", "do", "does", "did", "will", "would", "could",
-    "should", "may", "might", "shall", "can", "need", "dare", "ought",
-    "used", "to", "of", "in", "for", "on", "with", "at", "by", "from",
-    "as", "into", "through", "during", "before", "after", "above", "below",
-    "between", "out", "off", "over", "under", "again", "further", "then",
-    "once", "here", "there", "when", "where", "why", "how", "all", "each",
-    "every", "both", "few", "more", "most", "other", "some", "such", "no",
-    "nor", "not", "only", "own", "same", "so", "than", "too", "very",
-    "just", "because", "but", "and", "or", "if", "while", "about", "up",
-    "that", "this", "it", "its", "i", "me", "my", "we", "our", "you",
-    "your", "he", "him", "his", "she", "her", "they", "them", "their",
-    "what", "which", "who", "whom", "these", "those",
+    "a",
+    "an",
+    "the",
+    "is",
+    "are",
+    "was",
+    "were",
+    "be",
+    "been",
+    "being",
+    "have",
+    "has",
+    "had",
+    "do",
+    "does",
+    "did",
+    "will",
+    "would",
+    "could",
+    "should",
+    "may",
+    "might",
+    "shall",
+    "can",
+    "need",
+    "dare",
+    "ought",
+    "used",
+    "to",
+    "of",
+    "in",
+    "for",
+    "on",
+    "with",
+    "at",
+    "by",
+    "from",
+    "as",
+    "into",
+    "through",
+    "during",
+    "before",
+    "after",
+    "above",
+    "below",
+    "between",
+    "out",
+    "off",
+    "over",
+    "under",
+    "again",
+    "further",
+    "then",
+    "once",
+    "here",
+    "there",
+    "when",
+    "where",
+    "why",
+    "how",
+    "all",
+    "each",
+    "every",
+    "both",
+    "few",
+    "more",
+    "most",
+    "other",
+    "some",
+    "such",
+    "no",
+    "nor",
+    "not",
+    "only",
+    "own",
+    "same",
+    "so",
+    "than",
+    "too",
+    "very",
+    "just",
+    "because",
+    "but",
+    "and",
+    "or",
+    "if",
+    "while",
+    "about",
+    "up",
+    "that",
+    "this",
+    "it",
+    "its",
+    "i",
+    "me",
+    "my",
+    "we",
+    "our",
+    "you",
+    "your",
+    "he",
+    "him",
+    "his",
+    "she",
+    "her",
+    "they",
+    "them",
+    "their",
+    "what",
+    "which",
+    "who",
+    "whom",
+    "these",
+    "those",
 }
 
 
@@ -344,7 +446,9 @@ def _compute_silhouette_hint(
             continue
 
         # a(i): mean distance to own cluster
-        a_i = sum(_jaccard_distance(word_sets[iid], word_sets[j]) for j in own_members) / len(own_members)
+        a_i = sum(_jaccard_distance(word_sets[iid], word_sets[j]) for j in own_members) / len(
+            own_members
+        )
 
         # b(i): min mean distance to another cluster
         b_i = float("inf")
@@ -354,7 +458,9 @@ def _compute_silhouette_hint(
             other_members = [j for j in ids if assignments[j] == cid]
             if not other_members:
                 continue
-            mean_dist = sum(_jaccard_distance(word_sets[iid], word_sets[j]) for j in other_members) / len(other_members)
+            mean_dist = sum(
+                _jaccard_distance(word_sets[iid], word_sets[j]) for j in other_members
+            ) / len(other_members)
             if mean_dist < b_i:
                 b_i = mean_dist
 
@@ -412,13 +518,15 @@ def build_clustering_report(
         desc = generate_cluster_description(keywords)
         size = sum(1 for v in assignments.values() if v == cid)
 
-        cluster_descriptions.append(ClusterDescription(
-            cluster_id=cid,
-            size=size,
-            top_keywords=keywords,
-            description=desc,
-            representative_ids=reps,
-        ))
+        cluster_descriptions.append(
+            ClusterDescription(
+                cluster_id=cid,
+                size=size,
+                top_keywords=keywords,
+                description=desc,
+                representative_ids=reps,
+            )
+        )
 
     silhouette = _compute_silhouette_hint(items, assignments)
 

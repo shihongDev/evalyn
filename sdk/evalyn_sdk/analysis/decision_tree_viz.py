@@ -93,8 +93,7 @@ class DecisionTree:
         for node in self.nodes.values():
             children_str = ", ".join(node.children) if node.children else "none"
             lines.append(
-                f"  [{node.node_id}] {node.label} "
-                f"(type={node.node_type}, children={children_str})"
+                f"  [{node.node_id}] {node.label} (type={node.node_type}, children={children_str})"
             )
         return "\n".join(lines)
 
@@ -128,15 +127,10 @@ def build_decision_tree(spans: list[Span]) -> DecisionTree:
             nodes[s.parent_id].children.append(s.id)
 
     # Find root: spans with no parent or whose parent is not in our set
-    roots = [
-        s.id for s in spans
-        if s.parent_id is None or s.parent_id not in span_by_id
-    ]
+    roots = [s.id for s in spans if s.parent_id is None or s.parent_id not in span_by_id]
     root_id = roots[0] if roots else ""
 
-    total_decisions = sum(
-        1 for n in nodes.values() if n.node_type == "decision"
-    )
+    total_decisions = sum(1 for n in nodes.values() if n.node_type == "decision")
 
     return DecisionTree(
         nodes=nodes,
@@ -157,9 +151,7 @@ def render_tree_ascii(tree: DecisionTree, indent: int = 2) -> str:
         if node is None:
             return
         prefix = " " * (depth * indent)
-        type_marker = {"decision": "?", "action": ">", "outcome": "*"}.get(
-            node.node_type, "-"
-        )
+        type_marker = {"decision": "?", "action": ">", "outcome": "*"}.get(node.node_type, "-")
         lines.append(f"{prefix}[{type_marker}] {node.label}")
         for child_id in node.children:
             _render(child_id, depth + 1)
@@ -176,9 +168,9 @@ def render_tree_mermaid(tree: DecisionTree) -> str:
     lines: list[str] = ["graph TD"]
 
     shape_map = {
-        "decision": ('{"', '"}'),   # diamond-ish via double brace
-        "action": ("[", "]"),        # rectangle
-        "outcome": ("([", "])"),     # stadium
+        "decision": ('{"', '"}'),  # diamond-ish via double brace
+        "action": ("[", "]"),  # rectangle
+        "outcome": ("([", "])"),  # stadium
     }
 
     for node in tree.nodes.values():
@@ -248,17 +240,11 @@ def compute_decision_stats(tree: DecisionTree) -> dict[str, Any]:
             level = next_level
 
     # Breadth: max children count across all nodes
-    breadth = max(
-        (len(n.children) for n in tree.nodes.values()), default=0
-    )
+    breadth = max((len(n.children) for n in tree.nodes.values()), default=0)
 
     # Avg branching factor: average children count of non-leaf nodes
     non_leaf = [n for n in tree.nodes.values() if n.children]
-    avg_branching = (
-        sum(len(n.children) for n in non_leaf) / len(non_leaf)
-        if non_leaf
-        else 0.0
-    )
+    avg_branching = sum(len(n.children) for n in non_leaf) / len(non_leaf) if non_leaf else 0.0
 
     return {
         "depth": depth,

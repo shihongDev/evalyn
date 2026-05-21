@@ -67,9 +67,9 @@ class OutputDiffReport:
             "exact_matches": self.exact_matches,
             "close_matches": self.close_matches,
             "significant_diffs": self.significant_diffs,
-            "avg_similarity": round(
-                sum(d.similarity for d in self.diffs) / len(self.diffs), 4
-            ) if self.diffs else 0.0,
+            "avg_similarity": round(sum(d.similarity for d in self.diffs) / len(self.diffs), 4)
+            if self.diffs
+            else 0.0,
         }
 
     def format_text(self) -> str:
@@ -111,11 +111,15 @@ def compute_output_diff(
     # Generate unified diff
     expected_lines = expected.splitlines(keepends=True)
     actual_lines = actual.splitlines(keepends=True)
-    diff_lines = list(difflib.unified_diff(
-        expected_lines, actual_lines,
-        fromfile="expected", tofile="actual",
-        lineterm="",
-    ))
+    diff_lines = list(
+        difflib.unified_diff(
+            expected_lines,
+            actual_lines,
+            fromfile="expected",
+            tofile="actual",
+            lineterm="",
+        )
+    )
 
     return ItemDiff(
         item_id=item_id,

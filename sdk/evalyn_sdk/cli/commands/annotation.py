@@ -42,12 +42,16 @@ import logging
 import os
 import uuid
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 logger = logging.getLogger(__name__)
 
 from ..utils.command_common import resolve_dataset_dir_and_file
 from ..utils.errors import fatal_error
+
+if TYPE_CHECKING:
+    from ...annotation.span_annotation import SpanAnnotation
+    from ...models import Annotation, DatasetItem
 from ..utils.hints import HintCollector
 from ..utils.input_helpers import (
     get_bool_input,
@@ -204,6 +208,7 @@ def cmd_annotation_stats(args: argparse.Namespace) -> None:
     # Also check storage for imported annotations
     try:
         from ...decorators import get_default_tracer
+
         tracer = get_default_tracer()
         if tracer.storage:
             stored_anns = tracer.storage.list_annotations(limit=10000)
@@ -246,8 +251,8 @@ def cmd_annotation_stats(args: argparse.Namespace) -> None:
     for item in items:
         if not item.human_label or not item.eval_results:
             continue
-        human_passed = getattr(item.human_label, 'passed', None)
-        if human_passed is None and hasattr(item.human_label, 'label'):
+        human_passed = getattr(item.human_label, "passed", None)
+        if human_passed is None and hasattr(item.human_label, "label"):
             human_passed = item.human_label.label
         for metric_id, result in item.eval_results.items():
             llm_passed = result.get("passed")
@@ -273,12 +278,16 @@ def cmd_annotation_stats(args: argparse.Namespace) -> None:
     print()
     print(banner("ANNOTATION COVERAGE"))
     print()
-    print(kv([
-        ("Total items", str(total)),
-        ("With human labels", f"{with_labels} ({coverage * 100:.1f}%)"),
-        ("With eval results", str(with_evals)),
-        ("Awaiting annotation", str(total - with_labels)),
-    ]))
+    print(
+        kv(
+            [
+                ("Total items", str(total)),
+                ("With human labels", f"{with_labels} ({coverage * 100:.1f}%)"),
+                ("With eval results", str(with_evals)),
+                ("Awaiting annotation", str(total - with_labels)),
+            ]
+        )
+    )
     print()
     print(f"  {progress_bar(with_labels, total, label='Coverage')}")
 
@@ -288,18 +297,22 @@ def cmd_annotation_stats(args: argparse.Namespace) -> None:
         rows = []
         for metric_id, stats in sorted(metric_stats.items()):
             pass_rate = stats["passed"] / stats["total"] if stats["total"] > 0 else 0
-            rows.append([
-                metric_id,
-                str(stats["total"]),
-                str(stats["passed"]),
-                str(stats["failed"]),
-                f"{pass_rate * 100:.1f}%",
-            ])
-        print(table(
-            ["Metric", "Total", "Pass", "Fail", "Pass %"],
-            rows,
-            align=["left", "right", "right", "right", "right"],
-        ))
+            rows.append(
+                [
+                    metric_id,
+                    str(stats["total"]),
+                    str(stats["passed"]),
+                    str(stats["failed"]),
+                    f"{pass_rate * 100:.1f}%",
+                ]
+            )
+        print(
+            table(
+                ["Metric", "Total", "Pass", "Fail", "Pass %"],
+                rows,
+                align=["left", "right", "right", "right", "right"],
+            )
+        )
 
     if agreement_stats:
         print()
@@ -308,19 +321,23 @@ def cmd_annotation_stats(args: argparse.Namespace) -> None:
         for metric_id, stats in sorted(agreement_stats.items()):
             total_compared = stats["agree"] + stats["disagree"]
             agr_rate = stats["agree"] / total_compared if total_compared > 0 else 0
-            rows.append([
-                metric_id,
-                str(stats["agree"]),
-                str(stats["disagree"]),
-                str(stats["fp"]),
-                str(stats["fn"]),
-                f"{agr_rate * 100:.1f}%",
-            ])
-        print(table(
-            ["Metric", "Agree", "Disagree", "FP", "FN", "Agr %"],
-            rows,
-            align=["left", "right", "right", "right", "right", "right"],
-        ))
+            rows.append(
+                [
+                    metric_id,
+                    str(stats["agree"]),
+                    str(stats["disagree"]),
+                    str(stats["fp"]),
+                    str(stats["fn"]),
+                    f"{agr_rate * 100:.1f}%",
+                ]
+            )
+        print(
+            table(
+                ["Metric", "Agree", "Disagree", "FP", "FN", "Agr %"],
+                rows,
+                align=["left", "right", "right", "right", "right", "right"],
+            )
+        )
         print("\n  FP = False Positive (LLM=PASS, Human=FAIL)")
         print("  FN = False Negative (LLM=FAIL, Human=PASS)")
 
@@ -354,9 +371,7 @@ def _display_span_detail(span_type: str, detail: dict) -> None:
         if detail.get("cost"):
             print(f"  Cost: ${detail.get('cost', 0):.6f}")
         if detail.get("response_excerpt"):
-            print(
-                f"  Response: {truncate_text(detail.get('response_excerpt', ''), 200)}"
-            )
+            print(f"  Response: {truncate_text(detail.get('response_excerpt', ''), 200)}")
     elif span_type == "tool_call":
         print(f"  Tool: {detail.get('tool_name', 'unknown')}")
         if detail.get("args"):
@@ -576,9 +591,7 @@ def _handle_single_span_annotation(
     """
     span_type = span["span_type"]
     _display_span_annotation_context(span, idx, total)
-    annotation_values, quit_requested, skip_span = _prompt_span_annotation_values(
-        span_type
-    )
+    annotation_values, quit_requested, skip_span = _prompt_span_annotation_values(span_type)
 
     if quit_requested:
         return "quit", None
@@ -593,7 +606,6 @@ def _handle_single_span_annotation(
 
 def cmd_annotate_spans(args: argparse.Namespace) -> None:
     """Interactive span-level annotation interface."""
-    from ...annotation import SpanAnnotation
     from ...datasets import load_dataset
     from ...decorators import get_default_tracer
 
@@ -618,9 +630,7 @@ def cmd_annotate_spans(args: argparse.Namespace) -> None:
         span_type_filter = None
 
     # Output path for span annotations
-    output_path = (
-        Path(args.output) if args.output else dataset_dir / "span_annotations.jsonl"
-    )
+    output_path = Path(args.output) if args.output else dataset_dir / "span_annotations.jsonl"
 
     existing_annotations = _load_existing_span_annotations(
         output_path,
@@ -634,9 +644,7 @@ def cmd_annotate_spans(args: argparse.Namespace) -> None:
     )
 
     if not all_spans:
-        print(
-            "No spans to annotate. All spans already annotated or no matching spans found."
-        )
+        print("No spans to annotate. All spans already annotated or no matching spans found.")
         if span_type_filter:
             print(f"Tip: Filter was set to '{span_type_filter}'. Try --span-type all")
         return
@@ -735,7 +743,6 @@ def _display_annotation_item(
 
     print("---" * 23)
     return subjective_metrics
-
 
 
 def _save_single_annotation(output_path: Path, ann: Annotation) -> bool:
@@ -984,9 +991,7 @@ def cmd_annotate(args: argparse.Namespace) -> None:
             }
 
     # Load existing annotations if any
-    output_path = (
-        Path(args.output) if args.output else dataset_dir / "annotations.jsonl"
-    )
+    output_path = Path(args.output) if args.output else dataset_dir / "annotations.jsonl"
     existing_annotations: dict[str, Annotation] = {}
     if output_path.exists() and not args.restart:
         try:
@@ -1082,9 +1087,7 @@ def cmd_annotate(args: argparse.Namespace) -> None:
                 existing_count=len(annotations),
             )
             if ann is None:
-                print(
-                    f"\nAll annotations already saved ({new_annotation_count} new this session)"
-                )
+                print(f"\nAll annotations already saved ({new_annotation_count} new this session)")
                 print(f"  Output: {output_path}")
                 return
             if ann == "skip":
@@ -1114,19 +1117,14 @@ def cmd_annotate(args: argparse.Namespace) -> None:
         else:
             status = "PASS" if ann.label else "FAIL"
             conf_str = f", confidence={ann.confidence}" if ann.confidence else ""
-            print(
-                f"Saved: {status}{conf_str}"
-                + (f" - {ann.rationale}" if ann.rationale else "")
-            )
+            print(f"Saved: {status}{conf_str}" + (f" - {ann.rationale}" if ann.rationale else ""))
 
         idx += 1
 
     # All annotations already saved incrementally - just show summary
     print("\n" + "=" * 70)
     print("ANNOTATION COMPLETE")
-    print(
-        f"Total annotated: {len(annotations)} ({new_annotation_count} new this session)"
-    )
+    print(f"Total annotated: {len(annotations)} ({new_annotation_count} new this session)")
     print(f"Saved to: {output_path}")
     print("=" * 70)
 

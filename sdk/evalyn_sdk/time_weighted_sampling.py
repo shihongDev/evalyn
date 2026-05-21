@@ -305,9 +305,7 @@ def format_time_weight_report(result: TimeWeightResult) -> str:
         sorted_weights = sorted(result.weights, key=lambda w: w.age_days)
         for w in sorted_weights:
             marker = " *" if w.item_id in _selected_set else ""
-            lines.append(
-                f"  {w.item_id}: age={w.age_days:.1f}d weight={w.weight:.4f}{marker}"
-            )
+            lines.append(f"  {w.item_id}: age={w.age_days:.1f}d weight={w.weight:.4f}{marker}")
         lines.append("")
 
     return "\n".join(lines)

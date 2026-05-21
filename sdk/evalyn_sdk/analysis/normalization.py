@@ -30,9 +30,9 @@ class NormalizedScores:
             "method": self.method,
             "original_mean": round(self.original_mean, 4),
             "original_std": round(self.original_std, 4),
-            "normalized_mean": round(
-                sum(self.normalized_scores) / len(self.normalized_scores), 4
-            ) if self.normalized_scores else 0.0,
+            "normalized_mean": round(sum(self.normalized_scores) / len(self.normalized_scores), 4)
+            if self.normalized_scores
+            else 0.0,
             "count": len(self.normalized_scores),
         }
 
@@ -55,7 +55,8 @@ def normalize_z_score(
     for metric_id, scores in scores_by_metric.items():
         if len(scores) < 2:
             results[metric_id] = NormalizedScores(
-                metric_id=metric_id, method="z_score",
+                metric_id=metric_id,
+                method="z_score",
                 original_scores=list(scores),
                 normalized_scores=list(scores),
                 original_mean=scores[0] if scores else 0.0,
@@ -72,7 +73,8 @@ def normalize_z_score(
             normalized = [(s - mean) / std for s in scores]
 
         results[metric_id] = NormalizedScores(
-            metric_id=metric_id, method="z_score",
+            metric_id=metric_id,
+            method="z_score",
             original_scores=list(scores),
             normalized_scores=normalized,
             original_mean=mean,
@@ -107,7 +109,8 @@ def normalize_min_max(
     for metric_id, scores in scores_by_metric.items():
         if not scores:
             results[metric_id] = NormalizedScores(
-                metric_id=metric_id, method="min_max",
+                metric_id=metric_id,
+                method="min_max",
             )
             continue
 
@@ -118,17 +121,15 @@ def normalize_min_max(
         if s_range == 0:
             normalized = [target_min + target_range / 2] * len(scores)
         else:
-            normalized = [
-                target_min + (s - s_min) / s_range * target_range
-                for s in scores
-            ]
+            normalized = [target_min + (s - s_min) / s_range * target_range for s in scores]
 
         mean = sum(scores) / len(scores)
         variance = sum((s - mean) ** 2 for s in scores) / len(scores) if len(scores) > 1 else 0
         std = math.sqrt(variance)
 
         results[metric_id] = NormalizedScores(
-            metric_id=metric_id, method="min_max",
+            metric_id=metric_id,
+            method="min_max",
             original_scores=list(scores),
             normalized_scores=normalized,
             original_mean=mean,

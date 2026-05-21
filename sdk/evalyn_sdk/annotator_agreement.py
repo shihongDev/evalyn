@@ -242,9 +242,7 @@ def build_pairwise_matrix(
     Cohen's Kappa and percent agreement on their shared items.
     """
     # Group by metric -> annotator -> {item_id: label}
-    by_metric: dict[str, dict[str, dict[str, float]]] = defaultdict(
-        lambda: defaultdict(dict)
-    )
+    by_metric: dict[str, dict[str, dict[str, float]]] = defaultdict(lambda: defaultdict(dict))
     for lbl in labels:
         by_metric[lbl.metric_id][lbl.annotator_id][lbl.item_id] = lbl.label
 
@@ -253,9 +251,7 @@ def build_pairwise_matrix(
     for metric_id, annotators in by_metric.items():
         ann_ids = sorted(annotators.keys())
         for a, b in combinations(ann_ids, 2):
-            shared_items = sorted(
-                set(annotators[a].keys()) & set(annotators[b].keys())
-            )
+            shared_items = sorted(set(annotators[a].keys()) & set(annotators[b].keys()))
             if not shared_items:
                 continue
             labels_a = [annotators[a][item] for item in shared_items]
@@ -302,11 +298,7 @@ def find_disagreement_items(
             item_variances[item_id] = var
 
     # Filter by threshold and sort descending
-    filtered = [
-        (item_id, var)
-        for item_id, var in item_variances.items()
-        if var >= threshold
-    ]
+    filtered = [(item_id, var) for item_id, var in item_variances.items() if var >= threshold]
     filtered.sort(key=lambda x: x[1], reverse=True)
     return [item_id for item_id, _ in filtered]
 

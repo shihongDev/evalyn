@@ -11,12 +11,8 @@ from typing import Any
 from ..models import Span
 
 # Built-in PII patterns (compiled at module level)
-EMAIL_PATTERN = re.compile(
-    r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b"
-)
-PHONE_PATTERN = re.compile(
-    r"\b(?:\+?1[-.\s]?)?\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}\b"
-)
+EMAIL_PATTERN = re.compile(r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b")
+PHONE_PATTERN = re.compile(r"\b(?:\+?1[-.\s]?)?\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}\b")
 SSN_PATTERN = re.compile(r"\b\d{3}-\d{2}-\d{4}\b")
 CREDIT_CARD_PATTERN = re.compile(r"\b(?:\d{4}[-\s]?){3}\d{4}\b")
 IP_ADDRESS_PATTERN = re.compile(r"\b\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}\b")
@@ -65,13 +61,9 @@ class RedactionConfig:
     def from_dict(cls, data: dict[str, Any]) -> RedactionConfig:
         return cls(
             strategy=data["strategy"],
-            patterns=[
-                RedactionPattern.from_dict(p)
-                for p in data.get("patterns", [])
-            ],
+            patterns=[RedactionPattern.from_dict(p) for p in data.get("patterns", [])],
             custom_patterns=[
-                RedactionPattern.from_dict(p)
-                for p in data.get("custom_patterns", [])
+                RedactionPattern.from_dict(p) for p in data.get("custom_patterns", [])
             ],
         )
 
@@ -103,9 +95,7 @@ class RedactionResult:
         )
 
 
-def _apply_pattern(
-    text: str, pat: RedactionPattern, strategy: str
-) -> tuple[str, int]:
+def _apply_pattern(text: str, pat: RedactionPattern, strategy: str) -> tuple[str, int]:
     """Apply a single pattern to text. Returns (new_text, match_count)."""
     count = 0
 
@@ -134,9 +124,7 @@ def redact_text(text: str, config: RedactionConfig) -> str:
     return result
 
 
-def _redact_value(
-    value: Any, config: RedactionConfig
-) -> tuple[Any, int, int, int]:
+def _redact_value(value: Any, config: RedactionConfig) -> tuple[Any, int, int, int]:
     """Redact a single value. Returns (redacted, orig_len, new_len, count)."""
     if isinstance(value, str):
         orig_len = len(value)
@@ -178,9 +166,7 @@ def _redact_value(
 _REDACT_KEYS = {"input", "output", "inputs", "outputs"}
 
 
-def redact_span(
-    span: Span, config: RedactionConfig
-) -> tuple[Span, RedactionResult]:
+def redact_span(span: Span, config: RedactionConfig) -> tuple[Span, RedactionResult]:
     """Redact PII from span attributes. Returns a NEW span and a result summary."""
     new_span = copy.deepcopy(span)
     total_orig = 0
@@ -209,9 +195,7 @@ def redact_span(
     return new_span, result
 
 
-def redact_spans(
-    spans: list[Span], config: RedactionConfig
-) -> tuple[list[Span], RedactionResult]:
+def redact_spans(spans: list[Span], config: RedactionConfig) -> tuple[list[Span], RedactionResult]:
     """Batch redaction across multiple spans."""
     all_spans: list[Span] = []
     total_orig = 0
@@ -244,12 +228,8 @@ def default_config(strategy: str = "mask") -> RedactionConfig:
             RedactionPattern("EMAIL", EMAIL_PATTERN, "[REDACTED:EMAIL]"),
             RedactionPattern("PHONE", PHONE_PATTERN, "[REDACTED:PHONE]"),
             RedactionPattern("SSN", SSN_PATTERN, "[REDACTED:SSN]"),
-            RedactionPattern(
-                "CREDIT_CARD", CREDIT_CARD_PATTERN, "[REDACTED:CREDIT_CARD]"
-            ),
-            RedactionPattern(
-                "IP_ADDRESS", IP_ADDRESS_PATTERN, "[REDACTED:IP_ADDRESS]"
-            ),
+            RedactionPattern("CREDIT_CARD", CREDIT_CARD_PATTERN, "[REDACTED:CREDIT_CARD]"),
+            RedactionPattern("IP_ADDRESS", IP_ADDRESS_PATTERN, "[REDACTED:IP_ADDRESS]"),
         ],
         custom_patterns=[],
     )

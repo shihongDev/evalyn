@@ -60,10 +60,8 @@ class TraceAnnotation:
             span_id=data["span_id"],
             notes=data.get("notes", []),
             tags=data.get("tags", []),
-            created_at=_parse_datetime(data.get("created_at"))
-            or datetime.now(timezone.utc),
-            updated_at=_parse_datetime(data.get("updated_at"))
-            or datetime.now(timezone.utc),
+            created_at=_parse_datetime(data.get("created_at")) or datetime.now(timezone.utc),
+            updated_at=_parse_datetime(data.get("updated_at")) or datetime.now(timezone.utc),
         )
 
 
@@ -99,11 +97,7 @@ class AnnotationStore:
 
     def find_by_note_keyword(self, keyword: str) -> list[TraceAnnotation]:
         """Return annotations where any note contains the keyword."""
-        return [
-            a
-            for a in self.annotations.values()
-            if any(keyword in n for n in a.notes)
-        ]
+        return [a for a in self.annotations.values() if any(keyword in n for n in a.notes)]
 
     def remove(self, span_id: str) -> bool:
         """Delete an annotation. Returns True if it existed."""
@@ -118,16 +112,13 @@ class AnnotationStore:
 
     def as_dict(self) -> dict[str, Any]:
         return {
-            "annotations": {
-                sid: ann.as_dict() for sid, ann in self.annotations.items()
-            },
+            "annotations": {sid: ann.as_dict() for sid, ann in self.annotations.items()},
         }
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> AnnotationStore:
         annotations = {
-            sid: TraceAnnotation.from_dict(ad)
-            for sid, ad in data.get("annotations", {}).items()
+            sid: TraceAnnotation.from_dict(ad) for sid, ad in data.get("annotations", {}).items()
         }
         return cls(annotations=annotations)
 

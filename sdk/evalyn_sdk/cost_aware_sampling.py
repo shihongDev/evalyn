@@ -101,9 +101,7 @@ def estimate_item_tokens(text: str) -> int:
     return input_tokens + output_estimate
 
 
-def compute_item_costs(
-    items: dict[str, str], cost_per_1k: float = 0.075
-) -> list[ItemCost]:
+def compute_item_costs(items: dict[str, str], cost_per_1k: float = 0.075) -> list[ItemCost]:
     """Compute estimated token counts and costs for all items.
 
     Items are returned sorted by item_id for deterministic ordering.
@@ -122,9 +120,7 @@ def compute_item_costs(
     return costs
 
 
-def _fits_budget(
-    tokens: int, cost: float, budget: CostBudget
-) -> bool:
+def _fits_budget(tokens: int, cost: float, budget: CostBudget) -> bool:
     """Check whether adding tokens/cost stays within budget limits."""
     if budget.max_tokens > 0 and tokens > budget.max_tokens:
         return False
@@ -133,9 +129,7 @@ def _fits_budget(
     return True
 
 
-def greedy_budget_selection(
-    costs: list[ItemCost], budget: CostBudget
-) -> list[str]:
+def greedy_budget_selection(costs: list[ItemCost], budget: CostBudget) -> list[str]:
     """Sort by cost ascending and greedily select items until budget exhausted.
 
     Maximizes item count within budget constraints. When both token and cost
@@ -195,9 +189,7 @@ def knapsack_selection(
     return selected
 
 
-def _compute_budget_utilization(
-    total_tokens: int, total_cost: float, budget: CostBudget
-) -> float:
+def _compute_budget_utilization(total_tokens: int, total_cost: float, budget: CostBudget) -> float:
     """Compute budget utilization as fraction of the binding constraint used.
 
     If both budgets are unlimited, returns 0.0. If both are set, returns
@@ -214,9 +206,7 @@ def _compute_budget_utilization(
     return max(token_util, cost_util)
 
 
-def run_cost_aware_sampling(
-    items: dict[str, str], budget: CostBudget
-) -> CostAwareResult:
+def run_cost_aware_sampling(items: dict[str, str], budget: CostBudget) -> CostAwareResult:
     """Full cost-aware sampling pipeline.
 
     1. Compute item costs

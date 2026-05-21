@@ -123,9 +123,7 @@ class CollaborationReport:
             conflicts=data.get("conflicts", 0),
             resolved=data.get("resolved", 0),
             agreement_rate=data.get("agreement_rate", 0.0),
-            annotators=[
-                Annotator.from_dict(a) for a in data.get("annotators", [])
-            ],
+            annotators=[Annotator.from_dict(a) for a in data.get("annotators", [])],
         )
 
     def format_text(self) -> str:

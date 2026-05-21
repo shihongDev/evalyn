@@ -59,7 +59,7 @@ def cmd_export_for_annotation(args: argparse.Namespace) -> None:
 
     from ...datasets import load_dataset
 
-    items = list(load_dataset(dataset_file))
+    items = load_dataset(dataset_file)
 
     # Get eval run
     run = None
@@ -75,6 +75,7 @@ def cmd_export_for_annotation(args: argparse.Namespace) -> None:
 
     # Pre-index metric results by item_id
     from collections import defaultdict
+
     results_by_item: dict[str, list] = defaultdict(list)
     if run:
         for mr in run.metric_results:
@@ -96,7 +97,7 @@ def cmd_export_for_annotation(args: argparse.Namespace) -> None:
 
         ann_item = AnnotationItem(
             id=item.id,
-            input=item.input if item.input else item.inputs,
+            input=item.input,
             output=item.output,
             eval_results=eval_results,
             human_label=None,
@@ -164,13 +165,17 @@ def _flatten_export_rows(run_data: dict) -> list[dict]:
     """Flatten run results into CSV rows."""
     rows = []
     for mr in run_data.get("metric_results", []):
-        rows.append({
-            "item_id": mr.get("item_id", ""),
-            "metric_id": mr.get("metric_id", ""),
-            "score": mr.get("score", ""),
-            "passed": mr.get("passed", ""),
-            "reason": mr.get("details", {}).get("reason", "") if isinstance(mr.get("details"), dict) else "",
-        })
+        details = mr.get("details")
+        reason = details.get("reason", "") if isinstance(details, dict) else ""
+        rows.append(
+            {
+                "item_id": mr.get("item_id", ""),
+                "metric_id": mr.get("metric_id", ""),
+                "score": mr.get("score", ""),
+                "passed": mr.get("passed", ""),
+                "reason": reason,
+            }
+        )
     return rows
 
 
@@ -348,30 +353,22 @@ def register_commands(subparsers) -> None:
         required=True,
         help="Path to dataset directory or dataset.jsonl file",
     )
-    p.add_argument(
-        "--output", required=True, help="Output path for annotation JSONL file"
-    )
+    p.add_argument("--output", required=True, help="Output path for annotation JSONL file")
     p.add_argument("--run-id", help="Specific eval run ID to use (defaults to latest)")
     p.set_defaults(func=cmd_export_for_annotation)
 
     # export
-    p = subparsers.add_parser(
-        "export", help="Export evaluation results in various formats"
-    )
+    p = subparsers.add_parser("export", help="Export evaluation results in various formats")
     p.add_argument("--run", help="Eval run ID to export")
     p.add_argument("--dataset", help="Dataset path (uses latest run from eval_runs/)")
-    p.add_argument(
-        "--latest", action="store_true", help="Use the most recently modified dataset"
-    )
+    p.add_argument("--latest", action="store_true", help="Use the most recently modified dataset")
     p.add_argument(
         "--format",
         choices=["json", "csv", "markdown", "html"],
         default="json",
         help="Output format (default: json)",
     )
-    p.add_argument(
-        "--output", "-o", help="Output file path (prints to stdout if not specified)"
-    )
+    p.add_argument("--output", "-o", help="Output file path (prints to stdout if not specified)")
     p.set_defaults(func=cmd_export)
 
 

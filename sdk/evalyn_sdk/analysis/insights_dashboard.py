@@ -116,10 +116,7 @@ def _build_pass_rate_data(metrics: list) -> dict[str, Any]:
 
 def _build_radar_data(metrics: list) -> dict[str, Any]:
     labels = [m.metric_id for m in metrics]
-    values = [
-        round(m.pass_rate * 100, 1) if m.pass_rate is not None else 0
-        for m in metrics
-    ]
+    values = [round(m.pass_rate * 100, 1) if m.pass_rate is not None else 0 for m in metrics]
     return {"labels": labels, "values": values}
 
 
@@ -134,13 +131,15 @@ def _build_histogram_data(run_analysis: RunAnalysis) -> list[dict[str, Any]]:
         for s in ms.scores:
             idx = min(int(s * 10), 9)
             bins[idx] += 1
-        result.append({
-            "metric_id": mid,
-            "bins": bins,
-            "labels": [f"{i/10:.1f}-{(i+1)/10:.1f}" for i in range(10)],
-            "avg": round(ms.avg_score, 3),
-            "std": round(ms.std_dev, 3),
-        })
+        result.append(
+            {
+                "metric_id": mid,
+                "bins": bins,
+                "labels": [f"{i / 10:.1f}-{(i + 1) / 10:.1f}" for i in range(10)],
+                "avg": round(ms.avg_score, 3),
+                "std": round(ms.std_dev, 3),
+            }
+        )
     return result
 
 
@@ -174,10 +173,7 @@ def _build_scatter_data(
             length = len(str(inp))
 
         # Average score across metrics
-        scores = [
-            r["score"] for r in ist.metric_results.values()
-            if r.get("score") is not None
-        ]
+        scores = [r["score"] for r in ist.metric_results.values() if r.get("score") is not None]
         if not scores:
             continue
         avg = sum(scores) / len(scores)
@@ -302,7 +298,7 @@ def _render_distributions(histogram_data: list) -> str:
         canvases.append(
             f'<div class="chart-container chart-small">'
             f'<h3 class="chart-title">{html.escape(h["metric_id"])} '
-            f'(avg={h["avg"]}, std={h["std"]})</h3>'
+            f"(avg={h['avg']}, std={h['std']})</h3>"
             f'<canvas id="histChart{i}"></canvas></div>'
         )
     return f"""<div class="section">
@@ -320,8 +316,7 @@ def _build_heatmap_html(run_analysis: RunAnalysis) -> str:
     item_ids = list(run_analysis.item_stats.keys())[:50]
 
     header_cells = "".join(
-        f'<th class="heatmap-header">{html.escape(m[:12])}</th>'
-        for m in metric_ids
+        f'<th class="heatmap-header">{html.escape(m[:12])}</th>' for m in metric_ids
     )
 
     rows = []
@@ -344,11 +339,10 @@ def _build_heatmap_html(run_analysis: RunAnalysis) -> str:
                 cells.append(
                     f'<td class="heatmap-cell {cls}" '
                     f'title="{html.escape(iid[:20])} / {html.escape(mid)}: {score:.2f}">'
-                    f'{score:.1f}</td>'
+                    f"{score:.1f}</td>"
                 )
         rows.append(
-            f'<tr><td class="heatmap-item">{html.escape(iid[:12])}...</td>'
-            f'{"".join(cells)}</tr>'
+            f'<tr><td class="heatmap-item">{html.escape(iid[:12])}...</td>{"".join(cells)}</tr>'
         )
 
     return f"""<div class="section">
@@ -381,10 +375,7 @@ def _render_correlation_matrix(correlation_data: dict | None) -> str:
     labels = correlation_data["labels"]
     matrix = correlation_data["matrix"]
 
-    header = "".join(
-        f'<th class="corr-header">{html.escape(label[:10])}</th>'
-        for label in labels
-    )
+    header = "".join(f'<th class="corr-header">{html.escape(label[:10])}</th>' for label in labels)
 
     rows = []
     for i, row in enumerate(matrix):
@@ -397,12 +388,9 @@ def _render_correlation_matrix(correlation_data: dict | None) -> str:
                 bg = f"rgba(201, 123, 99, {intensity * 0.7})"
             else:
                 bg = "transparent"
-            cells.append(
-                f'<td class="corr-cell" style="background:{bg}">{val:.2f}</td>'
-            )
+            cells.append(f'<td class="corr-cell" style="background:{bg}">{val:.2f}</td>')
         rows.append(
-            f'<tr><td class="corr-label">{html.escape(labels[i][:10])}</td>'
-            f'{"".join(cells)}</tr>'
+            f'<tr><td class="corr-label">{html.escape(labels[i][:10])}</td>{"".join(cells)}</tr>'
         )
 
     return f"""<div class="section">
@@ -462,15 +450,9 @@ def _render_expert_panel(panel_discussion: Any | None) -> str:
 
     expert_sections = []
     for expert in panel_discussion.experts:
-        findings_html = "".join(
-            f"<li>{html.escape(f)}</li>" for f in expert.findings
-        )
-        concerns_html = "".join(
-            f"<li>{html.escape(c)}</li>" for c in expert.concerns
-        )
-        suggestions_html = "".join(
-            f"<li>{html.escape(s)}</li>" for s in expert.suggestions
-        )
+        findings_html = "".join(f"<li>{html.escape(f)}</li>" for f in expert.findings)
+        concerns_html = "".join(f"<li>{html.escape(c)}</li>" for c in expert.concerns)
+        suggestions_html = "".join(f"<li>{html.escape(s)}</li>" for s in expert.suggestions)
 
         role_display = expert.role.replace("_", " ").title()
         expert_sections.append(f"""<div class="expert-card">
@@ -481,27 +463,23 @@ def _render_expert_panel(panel_discussion: Any | None) -> str:
     </div>
     <div class="expert-summary">{html.escape(expert.summary)}</div>
     <div class="expert-details">
-        {f'<div class="expert-section"><h4>Findings</h4><ul>{findings_html}</ul></div>' if findings_html else ''}
-        {f'<div class="expert-section"><h4>Concerns</h4><ul>{concerns_html}</ul></div>' if concerns_html else ''}
-        {f'<div class="expert-section"><h4>Suggestions</h4><ul>{suggestions_html}</ul></div>' if suggestions_html else ''}
+        {f'<div class="expert-section"><h4>Findings</h4><ul>{findings_html}</ul></div>' if findings_html else ""}
+        {f'<div class="expert-section"><h4>Concerns</h4><ul>{concerns_html}</ul></div>' if concerns_html else ""}
+        {f'<div class="expert-section"><h4>Suggestions</h4><ul>{suggestions_html}</ul></div>' if suggestions_html else ""}
     </div>
 </div>""")
 
     synthesis_html = html.escape(panel_discussion.synthesis) if panel_discussion.synthesis else ""
 
-    action_items = "".join(
-        f"<li>{html.escape(a)}</li>" for a in panel_discussion.action_plan
-    )
-    dissenting = "".join(
-        f"<li>{html.escape(d)}</li>" for d in panel_discussion.dissenting_views
-    )
+    action_items = "".join(f"<li>{html.escape(a)}</li>" for a in panel_discussion.action_plan)
+    dissenting = "".join(f"<li>{html.escape(d)}</li>" for d in panel_discussion.dissenting_views)
 
     tokens_info = ""
     if panel_discussion.total_input_tokens or panel_discussion.total_output_tokens:
         tokens_info = (
             f'<div class="token-info">Tokens: '
-            f'{panel_discussion.total_input_tokens} in / '
-            f'{panel_discussion.total_output_tokens} out</div>'
+            f"{panel_discussion.total_input_tokens} in / "
+            f"{panel_discussion.total_output_tokens} out</div>"
         )
 
     return f"""<div class="section">
@@ -509,8 +487,8 @@ def _render_expert_panel(panel_discussion: Any | None) -> str:
     <div class="panel-synthesis">
         <h3 class="chart-title">Synthesis</h3>
         <p>{synthesis_html}</p>
-        {f'<h4>Action Plan</h4><ol>{action_items}</ol>' if action_items else ''}
-        {f'<h4>Dissenting Views</h4><ul>{dissenting}</ul>' if dissenting else ''}
+        {f"<h4>Action Plan</h4><ol>{action_items}</ol>" if action_items else ""}
+        {f"<h4>Dissenting Views</h4><ul>{dissenting}</ul>" if dissenting else ""}
         {tokens_info}
     </div>
     <h3 class="chart-title" style="margin-top:24px">Expert Opinions</h3>
@@ -747,10 +725,10 @@ const defaultOpts = {{
 new Chart(document.getElementById('passRateChart'), {{
     type: 'bar',
     data: {{
-        labels: {json.dumps(pass_rate_data['labels'])},
+        labels: {json.dumps(pass_rate_data["labels"])},
         datasets: [{{
-            data: {json.dumps(pass_rate_data['values'])},
-            backgroundColor: {json.dumps(pass_rate_data['colors'])},
+            data: {json.dumps(pass_rate_data["values"])},
+            backgroundColor: {json.dumps(pass_rate_data["colors"])},
             borderRadius: 4,
         }}],
     }},
@@ -768,9 +746,9 @@ new Chart(document.getElementById('passRateChart'), {{
 new Chart(document.getElementById('radarChart'), {{
     type: 'radar',
     data: {{
-        labels: {json.dumps(radar_data['labels'])},
+        labels: {json.dumps(radar_data["labels"])},
         datasets: [{{
-            data: {json.dumps(radar_data['values'])},
+            data: {json.dumps(radar_data["values"])},
             backgroundColor: 'rgba(212, 162, 127, 0.2)',
             borderColor: '#D4A27F',
             borderWidth: 2,

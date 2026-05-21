@@ -127,9 +127,7 @@ class ConfusionReport:
 # ---------------------------------------------------------------------------
 
 
-def build_confusion_matrix(
-    predictions: list[str], actuals: list[str]
-) -> ConfusionMatrix:
+def build_confusion_matrix(predictions: list[str], actuals: list[str]) -> ConfusionMatrix:
     """Build a confusion matrix from paired predictions and actuals."""
     if len(predictions) != len(actuals):
         raise ValueError("predictions and actuals must have the same length")
@@ -185,9 +183,7 @@ def compute_precision_recall(
     return precision, recall
 
 
-def compute_f1_scores(
-    precision: dict[str, float], recall: dict[str, float]
-) -> dict[str, float]:
+def compute_f1_scores(precision: dict[str, float], recall: dict[str, float]) -> dict[str, float]:
     """Harmonic mean of precision and recall per label."""
     f1: dict[str, float] = {}
     for label in precision:
@@ -200,9 +196,7 @@ def compute_f1_scores(
     return f1
 
 
-def build_confusion_report(
-    predictions: list[str], actuals: list[str]
-) -> ConfusionReport:
+def build_confusion_report(predictions: list[str], actuals: list[str]) -> ConfusionReport:
     """Build a full confusion report from predictions and actuals."""
     matrix = build_confusion_matrix(predictions, actuals)
     precision, recall = compute_precision_recall(matrix)
@@ -231,7 +225,9 @@ def render_confusion_ascii(matrix: ConfusionMatrix) -> str:
     lines: list[str] = []
 
     # Header row
-    header = " " * (col_width + 2) + "| " + " | ".join(lbl.rjust(col_width) for lbl in labels) + " |"
+    header = (
+        " " * (col_width + 2) + "| " + " | ".join(lbl.rjust(col_width) for lbl in labels) + " |"
+    )
     lines.append("Predicted v / Actual >")
     lines.append(header)
     lines.append("-" * len(header))

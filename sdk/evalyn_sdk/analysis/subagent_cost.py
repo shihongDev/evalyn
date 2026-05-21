@@ -163,17 +163,12 @@ def compare_agent_costs(report: CostAllocationReport) -> dict[str, Any]:
     token_ratio: dict[str, float] = {}
 
     for a in report.agents:
-        cost_ratio[a.agent_id] = (
-            a.total_cost_usd / total_cost if total_cost > 0 else 0.0
-        )
-        token_ratio[a.agent_id] = (
-            a.total_tokens / total_tokens if total_tokens > 0 else 0.0
-        )
+        cost_ratio[a.agent_id] = a.total_cost_usd / total_cost if total_cost > 0 else 0.0
+        token_ratio[a.agent_id] = a.total_tokens / total_tokens if total_tokens > 0 else 0.0
 
     # Efficiency: lower avg cost per call is better
     efficiency_ranking = [
-        a.agent_id
-        for a in sorted(report.agents, key=lambda a: a.avg_cost_per_call)
+        a.agent_id for a in sorted(report.agents, key=lambda a: a.avg_cost_per_call)
     ]
 
     return {

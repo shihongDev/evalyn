@@ -118,11 +118,7 @@ class SpanCollector:
                 f"({stats.lost} of {stats.expected} spans lost)"
             )
         if stats.duplicates > 0:
-            warnings.append(
-                f"Duplicate spans detected: {stats.duplicates}"
-            )
+            warnings.append(f"Duplicate spans detected: {stats.duplicates}")
         if stats.orphaned > 0:
-            warnings.append(
-                f"Orphaned spans: {stats.orphaned}"
-            )
+            warnings.append(f"Orphaned spans: {stats.orphaned}")
         return warnings

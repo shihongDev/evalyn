@@ -50,9 +50,7 @@ class PropagationResult:
 
 
 # Regex for validating traceparent: version-traceid-spanid-flags
-_TRACEPARENT_RE = re.compile(
-    r"^([0-9a-f]{2})-([0-9a-f]{32})-([0-9a-f]{16})-([0-9a-f]{2})$"
-)
+_TRACEPARENT_RE = re.compile(r"^([0-9a-f]{2})-([0-9a-f]{32})-([0-9a-f]{16})-([0-9a-f]{2})$")
 
 
 def generate_trace_id() -> str:

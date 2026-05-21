@@ -231,9 +231,7 @@ def import_from_jsonl(file_path: str, config: ImportConfig) -> ImportResult:
     )
 
 
-def import_from_dict_list(
-    records: list[dict[str, Any]], config: ImportConfig
-) -> ImportResult:
+def import_from_dict_list(records: list[dict[str, Any]], config: ImportConfig) -> ImportResult:
     """Import from a list of in-memory dicts."""
     items: list[ImportedItem] = []
     errors: list[str] = []

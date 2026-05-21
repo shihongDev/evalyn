@@ -80,18 +80,13 @@ def _coverage(jsonl_path: Path) -> tuple[int, list[dict]]:
                 try:
                     item = json.loads(line)
                 except json.JSONDecodeError as exc:
-                    logger.warning(
-                        "dataset.jsonl line %d at %s: %s", line_num, jsonl_path, exc
-                    )
+                    logger.warning("dataset.jsonl line %d at %s: %s", line_num, jsonl_path, exc)
                     continue
                 counts[_category_of(item)] += 1
     except OSError as exc:
         logger.warning("dataset.jsonl read failed at %s: %s", jsonl_path, exc)
         return 0, []
-    coverage = [
-        {"label": label, "value": value}
-        for label, value in counts.most_common()
-    ]
+    coverage = [{"label": label, "value": value} for label, value in counts.most_common()]
     result = (n, coverage)
     _coverage_cache[jsonl_path] = (mtime, result)
     return result

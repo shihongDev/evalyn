@@ -45,9 +45,12 @@ from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from ..constants import BUNDLES
+
+if TYPE_CHECKING:
+    from ...models import MetricSpec
 from ..utils.config import get_config_default, load_config, resolve_dataset_path
 from ..utils.dataset_utils import (
     ProgressBar,
@@ -101,9 +104,7 @@ def _save_suggested_metrics(
         safe_name = re.sub(r"[^a-zA-Z0-9._-]+", "-", metrics_name).strip("-")
     else:
         safe_name = "default"
-    metrics_file = metrics_dir / (
-        f"metrics-{safe_name}.json" if metrics_name else "metrics.json"
-    )
+    metrics_file = metrics_dir / (f"metrics-{safe_name}.json" if metrics_name else "metrics.json")
 
     # Handle --append: merge with existing metrics
     existing_metrics: list[dict] = []
@@ -131,18 +132,10 @@ def _save_suggested_metrics(
         s for s in specs if s.type == "objective" and s.id not in valid_objective_ids
     ]
     if invalid_objectives and output_format != "json":
-        print(
-            f"Removed {len(invalid_objectives)} unsupported custom objective metric(s):"
-        )
+        print(f"Removed {len(invalid_objectives)} unsupported custom objective metric(s):")
         for s in invalid_objectives:
-            print(
-                f"  - {s.id}: Use 'evalyn list-metrics --type objective' to see valid IDs"
-            )
-    specs = [
-        s
-        for s in specs
-        if not (s.type == "objective" and s.id not in valid_objective_ids)
-    ]
+            print(f"  - {s.id}: Use 'evalyn list-metrics --type objective' to see valid IDs")
+    specs = [s for s in specs if not (s.type == "objective" and s.id not in valid_objective_ids)]
 
     if not specs:
         if output_format != "json":
@@ -159,18 +152,12 @@ def _save_suggested_metrics(
         }
         for spec in specs
     ]
-    metrics_file.write_text(
-        json.dumps(payload, indent=2, ensure_ascii=True), encoding="utf-8"
-    )
+    metrics_file.write_text(json.dumps(payload, indent=2, ensure_ascii=True), encoding="utf-8")
 
     # Update meta.json
     meta_path = dataset_dir / "meta.json"
     try:
-        meta = (
-            json.loads(meta_path.read_text(encoding="utf-8"))
-            if meta_path.exists()
-            else {}
-        )
+        meta = json.loads(meta_path.read_text(encoding="utf-8")) if meta_path.exists() else {}
     except Exception:
         meta = {}
     existing_sets = meta.get("metric_sets")
@@ -186,9 +173,7 @@ def _save_suggested_metrics(
     metric_sets.append(entry)
     meta["metric_sets"] = metric_sets
     meta["active_metric_set"] = safe_name
-    meta_path.write_text(
-        json.dumps(meta, indent=2, ensure_ascii=True), encoding="utf-8"
-    )
+    meta_path.write_text(json.dumps(meta, indent=2, ensure_ascii=True), encoding="utf-8")
 
     if output_format != "json":
         print(f"{icon('pass')} Saved metrics to {metrics_file}")
@@ -279,9 +264,7 @@ def _resolve_run_eval_inputs(
 
     if duplicate_ids and output_format != "json":
         unique_dups = sorted(set(duplicate_ids))
-        print(
-            f"Warning: {len(unique_dups)} duplicate metric ID(s) found (first definition wins):"
-        )
+        print(f"Warning: {len(unique_dups)} duplicate metric ID(s) found (first definition wins):")
         for dup_id in unique_dups[:5]:
             print(f"  - {dup_id}")
         if len(unique_dups) > 5:
@@ -291,9 +274,7 @@ def _resolve_run_eval_inputs(
         fatal_error("No valid metrics loaded from files")
 
     if output_format != "json" and len(metrics_paths) > 1:
-        print(
-            f"Merged {len(all_metrics_data)} unique metrics from {len(metrics_paths)} files"
-        )
+        print(f"Merged {len(all_metrics_data)} unique metrics from {len(metrics_paths)} files")
 
     return dataset_file, dataset_list, all_metrics_data, metrics_paths
 
@@ -420,9 +401,7 @@ def _build_run_eval_metrics(
         fatal_error("No valid metrics loaded from file")
 
     if output_format != "json":
-        metrics_summary = (
-            f"Loaded {len(metrics)} metrics ({objective_count} objective, {subjective_count} subjective"
-        )
+        metrics_summary = f"Loaded {len(metrics)} metrics ({objective_count} objective, {subjective_count} subjective"
         if calibrated_count > 0:
             metrics_summary += f", {calibrated_count} calibrated"
         metrics_summary += ")"
@@ -431,9 +410,7 @@ def _build_run_eval_metrics(
             judge_info = f"Judge: {provider}"
             if confidence_method != "none":
                 if confidence_method == "consistency":
-                    judge_info += (
-                        f", confidence=consistency({confidence_samples} samples)"
-                    )
+                    judge_info += f", confidence=consistency({confidence_samples} samples)"
                 else:
                     judge_info += f", confidence={confidence_method}"
             print(judge_info)
@@ -470,9 +447,7 @@ def _execute_run_eval(
     total_evals = len(dataset_list) * len(metrics)
     progress = ProgressBar(total_evals) if output_format != "json" else None
 
-    def progress_callback(
-        current: int, total: int, metric: str, metric_type: str
-    ) -> None:
+    def progress_callback(current: int, total: int, metric: str, metric_type: str) -> None:
         if progress:
             progress.update(current, total, metric, metric_type)
 
@@ -482,7 +457,9 @@ def _execute_run_eval(
     use_batch = getattr(args, "batch", False)
 
     if use_batch and subjective_count == 0 and output_format != "json":
-        print("Note: --batch only applies to subjective metrics. No subjective metrics found; ignoring --batch.")
+        print(
+            "Note: --batch only applies to subjective metrics. No subjective metrics found; ignoring --batch."
+        )
 
     if use_batch and subjective_count > 0:
         from ...evaluation.batch import BatchEvalProgress, BatchEvaluator
@@ -490,9 +467,7 @@ def _execute_run_eval(
 
         batch_provider = getattr(args, "batch_provider", "gemini")
         if output_format != "json":
-            print(
-                f"\nUsing batch API ({batch_provider}) for {subjective_count} subjective metrics"
-            )
+            print(f"\nUsing batch API ({batch_provider}) for {subjective_count} subjective metrics")
             print("This may take several minutes. Progress will be shown below.\n")
 
         objective_metrics = [m for m in metrics if m.spec.type == "objective"]
@@ -518,9 +493,7 @@ def _execute_run_eval(
         subjective_results = []
         if subjective_metrics:
             if output_format != "json":
-                print(
-                    f"\nSubmitting {len(subjective_metrics)} subjective metrics to batch API..."
-                )
+                print(f"\nSubmitting {len(subjective_metrics)} subjective metrics to batch API...")
 
             prepared = []
             call_ids = []
@@ -692,10 +665,14 @@ def _render_run_eval_output(
         return
 
     print(f"\n{icon('pass')} Eval run {run.id}")
-    print(kv([
-        ("Dataset", run.dataset_name),
-        ("Run folder", str(run_folder)),
-    ]))
+    print(
+        kv(
+            [
+                ("Dataset", run.dataset_name),
+                ("Run folder", str(run_folder)),
+            ]
+        )
+    )
     print("  results.json - evaluation data")
     if report_path:
         print("  report.html  - analysis report")
@@ -743,9 +720,7 @@ def _render_run_eval_output(
         print("   Check that GEMINI_API_KEY or OPENAI_API_KEY is set and valid.")
         print("   Re-run with a valid API key to get accurate LLM judge scores.")
 
-    print_token_usage_summary(
-        run.usage_summary, verbose=getattr(args, "verbose", False)
-    )
+    print_token_usage_summary(run.usage_summary, verbose=getattr(args, "verbose", False))
 
     failed_items = run.summary.get("failed_items", [])
     failed_count = len(failed_items) if isinstance(failed_items, list) else failed_items
@@ -1044,9 +1019,7 @@ def cmd_suggest_metrics(args: argparse.Namespace) -> None:
         filtered_templates = _filter_metric_templates_by_scope(
             OBJECTIVE_REGISTRY + SUBJECTIVE_REGISTRY, scope_filter
         )
-        selector = TemplateSelector(
-            caller, filtered_templates, has_reference=has_reference
-        )
+        selector = TemplateSelector(caller, filtered_templates, has_reference=has_reference)
         specs = selector.select(
             target_fn,
             traces=traces,
@@ -1066,9 +1039,7 @@ def cmd_suggest_metrics(args: argparse.Namespace) -> None:
     if selected_mode == "llm-brainstorm":
         caller = _build_llm_caller(args)
         suggester = LLMSuggester(caller=caller)
-        specs = suggester.suggest(
-            target_fn, traces, desired_count=max_metrics, scope=scope_filter
-        )
+        specs = suggester.suggest(target_fn, traces, desired_count=max_metrics, scope=scope_filter)
         if not specs:
             _print_suggest_metrics_empty_brainstorm(output_format)
             return
@@ -1244,18 +1215,14 @@ def _load_suggest_metrics_target_context(args: argparse.Namespace, tracer) -> di
     }
 
 
-def _select_metric_suggestion_mode(
-    requested_mode: str, metric_mode_hint: str | None
-) -> str:
+def _select_metric_suggestion_mode(requested_mode: str, metric_mode_hint: str | None) -> str:
     """Resolve final metric suggestion mode including decorator hints."""
     if requested_mode != "auto":
         return requested_mode
     return metric_mode_hint or "llm-registry"
 
 
-def _normalize_suggest_metrics_limit(
-    selected_mode: str, requested_limit: int | None
-) -> int | None:
+def _normalize_suggest_metrics_limit(selected_mode: str, requested_limit: int | None) -> int | None:
     """Normalize metric limit defaults by mode."""
     max_metrics = requested_limit
     if selected_mode == "bundle" and max_metrics == 5:
@@ -1288,9 +1255,7 @@ def _print_suggested_metric_spec(spec: MetricSpec, output_format: str) -> None:
     print(f"  {icon('info')} {spec.id} [{spec.type}] :: {spec.description}{suffix}")
 
 
-def _print_suggest_metrics_json(
-    specs: list[MetricSpec], saved_path: Path | None = None
-) -> None:
+def _print_suggest_metrics_json(specs: list[MetricSpec], saved_path: Path | None = None) -> None:
     """Print JSON output for suggested metrics."""
     result = {
         "metrics": [
@@ -1377,7 +1342,9 @@ def _run_suggest_metrics_bundle_mode(
             )
         else:
             if not bundle_name or bundle_name.lower() == "none":
-                print(f"No bundle specified. Use --bundle <name> to select one.\n\nAvailable bundles: {available}")
+                print(
+                    f"No bundle specified. Use --bundle <name> to select one.\n\nAvailable bundles: {available}"
+                )
             else:
                 print(f"Unknown bundle '{bundle_name}'. Available: {available}")
         return
@@ -1579,6 +1546,7 @@ def register_commands(subparsers) -> None:
         default="none",
         help="Confidence method: none (default), consistency (N samples), logprobs/deepconf (openai/ollama only)",
     )
+
     def _positive_int(value):
         ivalue = int(value)
         if ivalue < 1:
@@ -1651,9 +1619,7 @@ def register_commands(subparsers) -> None:
     suggest_parser.add_argument(
         "--api-base", help="Custom API base URL for --llm-mode api (optional)"
     )
-    suggest_parser.add_argument(
-        "--api-key", help="API key override for --llm-mode api (optional)"
-    )
+    suggest_parser.add_argument("--api-key", help="API key override for --llm-mode api (optional)")
     suggest_parser.add_argument(
         "--llm-caller",
         help="Optional callable path that accepts a prompt string and returns a list of metric dicts",
@@ -1671,9 +1637,7 @@ def register_commands(subparsers) -> None:
         action="store_true",
         help="Use the most recently modified dataset",
     )
-    suggest_parser.add_argument(
-        "--metrics-name", help="Metrics set name when saving to a dataset"
-    )
+    suggest_parser.add_argument("--metrics-name", help="Metrics set name when saving to a dataset")
     suggest_parser.add_argument(
         "--scope",
         choices=["all", "overall", "llm_call", "tool_call", "trace"],

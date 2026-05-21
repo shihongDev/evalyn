@@ -84,9 +84,7 @@ class SamplingResult:
     def from_dict(cls, data: dict[str, Any]) -> SamplingResult:
         return cls(
             selected_ids=data.get("selected_ids", []),
-            weights_used=[
-                SampleWeight.from_dict(w) for w in data.get("weights_used", [])
-            ],
+            weights_used=[SampleWeight.from_dict(w) for w in data.get("weights_used", [])],
             total_pool=data.get("total_pool", 0),
             effective_sample_size=data.get("effective_sample_size", 0.0),
         )
@@ -193,9 +191,7 @@ def run_importance_sampling(
     3. Compute effective sample size
     """
     if config.strategy == "inverse_pass_rate":
-        weights = compute_inverse_pass_rate_weights(
-            pool, min_weight=config.min_weight
-        )
+        weights = compute_inverse_pass_rate_weights(pool, min_weight=config.min_weight)
     elif config.strategy == "confidence":
         weights = compute_confidence_weights(pool)
     elif config.strategy == "custom":
@@ -226,9 +222,7 @@ def format_sampling_report(result: SamplingResult) -> str:
     lines.append("")
 
     if result.weights_used:
-        sorted_weights = sorted(
-            result.weights_used, key=lambda w: w.weight, reverse=True
-        )
+        sorted_weights = sorted(result.weights_used, key=lambda w: w.weight, reverse=True)
         lines.append("Top weighted items:")
         for w in sorted_weights[:10]:
             lines.append(f"  {w.item_id}: {w.weight:.4f} ({w.reason})")

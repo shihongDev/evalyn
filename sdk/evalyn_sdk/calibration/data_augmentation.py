@@ -126,8 +126,12 @@ def augment_synonym(text: str, seed: int | None = None) -> str:
             # Preserve casing
             if stripped[0].isupper():
                 replacement = replacement.capitalize()
-            # Re-attach punctuation
-            prefix = word[: word.index(stripped[0])] if stripped and stripped[0] in word else ""
+            # Re-attach punctuation. `stripped` is `word` with leading/trailing
+            # punctuation removed, so stripped[0] is guaranteed to be in word —
+            # `find` returns the same index as `index` without raising and lets
+            # us scan only once instead of probing twice.
+            start = word.find(stripped[0]) if stripped else -1
+            prefix = word[:start] if start >= 0 else ""
             suffix = word[word.rindex(stripped[-1]) + 1 :] if stripped else ""
             result.append(prefix + replacement + suffix)
         else:

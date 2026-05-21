@@ -53,7 +53,7 @@ def generate_pyinstaller_spec(config: PackagingConfig) -> str:
     The spec file configures PyInstaller to produce either a one-file
     or one-directory bundle.
     """
-    module_path, func_name = _parse_entry_point(config.entry_point)
+    module_path, _func_name = _parse_entry_point(config.entry_point)
     script_path = module_path.replace(".", "/") + ".py"
 
     spec = f"""# -*- mode: python ; coding: utf-8 -*-
@@ -83,7 +83,7 @@ pyz = PYZ(a.pure, a.zipped_data, cipher=block_cipher)
 exe = EXE(
     pyz,
     a.scripts,
-    {'a.binaries, a.zipfiles, a.datas,' if config.one_file else ''}
+    {"a.binaries, a.zipfiles, a.datas," if config.one_file else ""}
     [],
     exclude_binaries={not config.one_file},
     name='{config.output_name}',
@@ -96,7 +96,9 @@ exe = EXE(
 """
 
     if not config.one_file:
-        return spec + f"""
+        return (
+            spec
+            + f"""
 coll = COLLECT(
     exe,
     a.binaries,
@@ -107,12 +109,13 @@ coll = COLLECT(
     name='{config.output_name}',
 )
 """
+        )
     return spec
 
 
 def generate_build_script(config: PackagingConfig) -> str:
     """Generate a shell script for building the standalone binary."""
-    module_path, func_name = _parse_entry_point(config.entry_point)
+    module_path, _func_name = _parse_entry_point(config.entry_point)
     script_path = module_path.replace(".", "/") + ".py"
 
     lines = [
@@ -202,17 +205,12 @@ def validate_packaging_config(config: PackagingConfig) -> list[str]:
     errors: list[str] = []
 
     if config.method not in VALID_METHODS:
-        errors.append(
-            f"method must be one of {', '.join(VALID_METHODS)}, "
-            f"got '{config.method}'"
-        )
+        errors.append(f"method must be one of {', '.join(VALID_METHODS)}, got '{config.method}'")
 
     if not config.entry_point:
         errors.append("entry_point must not be empty")
     elif ":" not in config.entry_point:
-        errors.append(
-            "entry_point must be in 'module.path:function' format"
-        )
+        errors.append("entry_point must be in 'module.path:function' format")
 
     if not config.output_name:
         errors.append("output_name must not be empty")
@@ -225,7 +223,7 @@ def validate_packaging_config(config: PackagingConfig) -> list[str]:
 
 def format_packaging_instructions(config: PackagingConfig) -> str:
     """Return human-readable build instructions for the given config."""
-    module_path, func_name = _parse_entry_point(config.entry_point)
+    module_path, _func_name = _parse_entry_point(config.entry_point)
 
     lines = [
         f"Packaging Instructions ({config.method})",
@@ -249,9 +247,7 @@ def format_packaging_instructions(config: PackagingConfig) -> str:
         )
         onefile = "--onefile" if config.one_file else "--onedir"
         script_path = module_path.replace(".", "/") + ".py"
-        lines.append(
-            f"  pyinstaller {onefile} --name {config.output_name} {script_path}"
-        )
+        lines.append(f"  pyinstaller {onefile} --name {config.output_name} {script_path}")
     elif config.method == "nuitka":
         lines.extend(
             [
@@ -264,8 +260,7 @@ def format_packaging_instructions(config: PackagingConfig) -> str:
         onefile = "--onefile" if config.one_file else "--standalone"
         script_path = module_path.replace(".", "/") + ".py"
         lines.append(
-            f"  python -m nuitka {onefile} "
-            f"--output-filename={config.output_name} {script_path}"
+            f"  python -m nuitka {onefile} --output-filename={config.output_name} {script_path}"
         )
     elif config.method == "shiv":
         lines.extend(

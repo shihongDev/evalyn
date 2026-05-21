@@ -59,10 +59,12 @@ class _LLMEventHandler(logging.Handler):
         self._prompt_tokens += prompt_tokens
         self._completion_tokens += completion_tokens
 
-        self._events.append({
-            "prompt_tokens": prompt_tokens,
-            "completion_tokens": completion_tokens,
-        })
+        self._events.append(
+            {
+                "prompt_tokens": prompt_tokens,
+                "completion_tokens": completion_tokens,
+            }
+        )
 
     @property
     def total_prompt_tokens(self) -> int:
@@ -86,9 +88,12 @@ class AutoGenInstrumentor(Instrumentor):
     """Instrumentor for Microsoft AutoGen (autogen-agentchat v0.4+)."""
 
     _instrumented = False
-    _originals: dict[str, Any] = {}
 
     def __init__(self) -> None:
+        # `_originals` was previously a class attribute defaulting to `{}`,
+        # which meant every instrumentor instance shared the same dict
+        # (mutable default, RUF012). Moved to instance state.
+        self._originals: dict[str, Any] = {}
         self._llm_event_handler: _LLMEventHandler | None = None
 
     @property
@@ -207,9 +212,7 @@ class AutoGenInstrumentor(Instrumentor):
             # Capture tools if provided
             tools = kwargs.get("tools") or (args[0] if args else None)
             if tools:
-                span.attributes["tool_schemas"] = [
-                    getattr(t, "name", str(t)) for t in tools
-                ][:20]
+                span.attributes["tool_schemas"] = [getattr(t, "name", str(t)) for t in tools][:20]
 
             stack = span_context._span_stack.get()
             new_stack = stack + [span.id]
@@ -288,9 +291,7 @@ class AutoGenInstrumentor(Instrumentor):
 
             # Capture input messages
             if messages:
-                span.attributes["autogen.input_messages"] = _format_chat_messages(
-                    messages
-                )
+                span.attributes["autogen.input_messages"] = _format_chat_messages(messages)
 
             stack = span_context._span_stack.get()
             new_stack = stack + [span.id]
@@ -303,9 +304,7 @@ class AutoGenInstrumentor(Instrumentor):
                 if result:
                     chat_message = getattr(result, "chat_message", None)
                     if chat_message:
-                        span.attributes["autogen.response_type"] = type(
-                            chat_message
-                        ).__name__
+                        span.attributes["autogen.response_type"] = type(chat_message).__name__
                         content = getattr(chat_message, "content", None)
                         if content:
                             span.attributes["autogen.response"] = str(content)[:1000]
@@ -347,10 +346,7 @@ class AutoGenInstrumentor(Instrumentor):
 
         @functools.wraps(original)
         async def wrapped_run_json(tool_self, args_dict, *args, **kwargs):
-            tool_name = (
-                getattr(tool_self, "name", None)
-                or getattr(tool_self, "_name", "unknown")
-            )
+            tool_name = getattr(tool_self, "name", None) or getattr(tool_self, "_name", "unknown")
 
             parent_span_id = span_context.get_current_span_id()
             span = Span.new(
@@ -412,10 +408,7 @@ class AutoGenInstrumentor(Instrumentor):
 
         @functools.wraps(original)
         async def wrapped_run(team_self, *args, **kwargs):
-            team_name = (
-                getattr(team_self, "name", None)
-                or getattr(team_self, "_name", "team")
-            )
+            team_name = getattr(team_self, "name", None) or getattr(team_self, "_name", "team")
             team_type = type(team_self).__name__
 
             parent_span_id = span_context.get_current_span_id()

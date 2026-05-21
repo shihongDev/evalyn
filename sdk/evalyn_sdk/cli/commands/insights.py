@@ -32,11 +32,15 @@ import argparse
 import json
 from dataclasses import asdict
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from ..utils.command_common import load_eval_run_for_command
 from ..utils.config import load_config, resolve_dataset_path
 from ..utils.formatters import output_json
 from ..utils.hints import HintCollector
+
+if TYPE_CHECKING:
+    from ...models import EvalRun
 
 
 def load_dataset_items(dataset_path: Path) -> list[dict]:
@@ -80,11 +84,7 @@ def _print_insights_table(report, run, previous_run_id=None, panel_discussion=No
     print(kv(pairs))
 
     # Diagnostics
-    has_diagnostics = (
-        report.correlations
-        or report.distribution_insights
-        or report.feature_insights
-    )
+    has_diagnostics = report.correlations or report.distribution_insights or report.feature_insights
     if has_diagnostics:
         print(f"\n{section('DIAGNOSTICS')}")
 
@@ -154,8 +154,10 @@ def _print_insights_table(report, run, previous_run_id=None, panel_discussion=No
                 print(f"    - {d}")
 
         total_tokens = panel_discussion.total_input_tokens + panel_discussion.total_output_tokens
-        print(f"\n  Tokens: {panel_discussion.total_input_tokens} in / "
-              f"{panel_discussion.total_output_tokens} out ({total_tokens} total)")
+        print(
+            f"\n  Tokens: {panel_discussion.total_input_tokens} in / "
+            f"{panel_discussion.total_output_tokens} out ({total_tokens} total)"
+        )
 
     print()
 
@@ -235,9 +237,7 @@ def cmd_insights(args: argparse.Namespace) -> None:
     if run_file_path and output_format not in ("json", "html"):
         print(f"Analyzing latest run: {run_file_path.parent.name}")
 
-    analysis, report, dataset_items = build_insights_report(
-        run, dataset_path, run_file_path
-    )
+    analysis, report, dataset_items = build_insights_report(run, dataset_path, run_file_path)
 
     # Get previous run ID for display (lightweight file read)
     previous_run_id = None
@@ -330,20 +330,25 @@ def register_commands(subparsers) -> None:
     p.add_argument("--run", help="Eval run ID to analyze")
     p.add_argument("--dataset", help="Dataset path (uses latest run)")
     p.add_argument(
-        "--latest", action="store_true",
+        "--latest",
+        action="store_true",
         help="Use the most recently modified dataset",
     )
     p.add_argument(
-        "--format", choices=["table", "json", "html"], default="table",
+        "--format",
+        choices=["table", "json", "html"],
+        default="table",
         help="Output format (default: table)",
     )
     # LLM expert panel flags
     p.add_argument(
-        "--deep", action="store_true",
+        "--deep",
+        action="store_true",
         help="Enable LLM expert panel analysis",
     )
     p.add_argument(
-        "--provider", choices=["gemini", "openai", "ollama"],
+        "--provider",
+        choices=["gemini", "openai", "ollama"],
         help="LLM provider for expert panel (default: gemini)",
     )
     p.add_argument(

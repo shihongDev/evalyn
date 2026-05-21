@@ -65,12 +65,8 @@ class MultiObjectiveResult:
     def as_dict(self) -> dict[str, Any]:
         return {
             "pareto_front": [p.as_dict() for p in self.pareto_front],
-            "best_balanced": self.best_balanced.as_dict()
-            if self.best_balanced
-            else None,
-            "best_accuracy": self.best_accuracy.as_dict()
-            if self.best_accuracy
-            else None,
+            "best_balanced": self.best_balanced.as_dict() if self.best_balanced else None,
+            "best_accuracy": self.best_accuracy.as_dict() if self.best_accuracy else None,
             "cheapest": self.cheapest.as_dict() if self.cheapest else None,
         }
 

@@ -54,11 +54,17 @@ def compute_dataset_content_hash(items: list) -> str:
     """
     parts = []
     for item in sorted(items, key=lambda i: i.id):
-        parts.append(json.dumps({
-            "id": item.id,
-            "input": item.input,
-            "output": item.output,
-        }, sort_keys=True, default=str))
+        parts.append(
+            json.dumps(
+                {
+                    "id": item.id,
+                    "input": item.input,
+                    "output": item.output,
+                },
+                sort_keys=True,
+                default=str,
+            )
+        )
     content = "\n".join(parts)
     return hashlib.sha256(content.encode()).hexdigest()[:32]
 

@@ -96,9 +96,7 @@ class EvalynAgentHooks:
         return {
             "input_tokens": getattr(usage, "input_tokens", 0),
             "output_tokens": getattr(usage, "output_tokens", 0),
-            "cache_creation_input_tokens": getattr(
-                usage, "cache_creation_input_tokens", 0
-            ),
+            "cache_creation_input_tokens": getattr(usage, "cache_creation_input_tokens", 0),
             "cache_read_input_tokens": getattr(usage, "cache_read_input_tokens", 0),
         }
 
@@ -185,14 +183,10 @@ class EvalynAgentHooks:
             start_time=time.time(),
         )
 
-    def capture_thinking(
-        self, thinking_text: str, signature: str | None = None
-    ) -> None:
+    def capture_thinking(self, thinking_text: str, signature: str | None = None) -> None:
         """Capture a thinking block from extended thinking."""
         if signature:
-            self._thinking_blocks.append(
-                {"text": thinking_text, "signature": signature}
-            )
+            self._thinking_blocks.append({"text": thinking_text, "signature": signature})
         else:
             self._thinking_blocks.append(thinking_text)
 
@@ -313,9 +307,7 @@ class EvalynAgentHooks:
 
         # GenAI semantic convention attributes
         extra_attrs["gen_ai.tool.name"] = tool_name
-        extra_attrs["gen_ai.tool.type"] = (
-            "extension" if tool_name == "Task" else "function"
-        )
+        extra_attrs["gen_ai.tool.type"] = "extension" if tool_name == "Task" else "function"
 
         span = Span.new(
             name=tool_name,
@@ -329,9 +321,7 @@ class EvalynAgentHooks:
 
         self._tool_spans[tool_use_id] = SpanState(span=span, start_time=time.time())
 
-        await self._call_user_hook(
-            "pre_tool_use_hook", hook_input, tool_use_id, context
-        )
+        await self._call_user_hook("pre_tool_use_hook", hook_input, tool_use_id, context)
 
         return {"continue_": True}
 
@@ -353,9 +343,7 @@ class EvalynAgentHooks:
 
         if state:
             duration_ms = (time.time() - state.start_time) * 1000
-            state.span.start_time = state.span.start_time - timedelta(
-                milliseconds=duration_ms
-            )
+            state.span.start_time = state.span.start_time - timedelta(milliseconds=duration_ms)
 
             # claude_agent_sdk uses 'tool_response' key
             tool_response = hook_input.get("tool_response")
@@ -380,9 +368,7 @@ class EvalynAgentHooks:
 
             span_context._add_span_to_collector(state.span)
 
-        await self._call_user_hook(
-            "post_tool_use_hook", hook_input, tool_use_id, context
-        )
+        await self._call_user_hook("post_tool_use_hook", hook_input, tool_use_id, context)
 
         return {"continue_": True}
 
@@ -438,8 +424,8 @@ class EvalynAgentHooks:
                 root_state.span.attributes["total_output_tokens"] = token_usage.get(
                     "output_tokens", 0
                 )
-                root_state.span.attributes["total_cache_creation_tokens"] = (
-                    token_usage.get("cache_creation_input_tokens", 0)
+                root_state.span.attributes["total_cache_creation_tokens"] = token_usage.get(
+                    "cache_creation_input_tokens", 0
                 )
                 root_state.span.attributes["total_cache_read_tokens"] = token_usage.get(
                     "cache_read_input_tokens", 0
@@ -622,9 +608,7 @@ class ClaudeAgentSDKInstrumentor(Instrumentor):
             if hooks is not None:
                 hooks.capture_user_input(prompt)
             # Call original method
-            return await original_method(
-                self_client, prompt, **kwargs
-            )
+            return await original_method(self_client, prompt, **kwargs)
 
         ClaudeSDKClient.query = patched_query
         self._patched = True

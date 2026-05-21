@@ -46,7 +46,7 @@ class FilterExpression:
 
         # metadata.* fields
         if self.field.startswith("metadata."):
-            key = self.field[len("metadata."):]
+            key = self.field[len("metadata.") :]
             return (item.metadata or {}).get(key)
 
         return None
@@ -202,7 +202,7 @@ def _parse_single_expression(expr_str: str) -> FilterExpression | None:
                 return FilterExpression(match.group(1).strip(), op_name, match.group(2).strip())
         elif idx >= 0:
             field = expr_str[:idx].strip()
-            value = expr_str[idx + len(op_str) + 2:].strip()
+            value = expr_str[idx + len(op_str) + 2 :].strip()
             return FilterExpression(field, op_name, value)
 
     return None

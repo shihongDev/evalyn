@@ -21,8 +21,8 @@ class DistributionFit:
     mean: float
     std_dev: float
     median: float
-    skewness: float       # 0 = symmetric, >0 = right-tailed, <0 = left-tailed
-    kurtosis: float       # 3 = normal, >3 = heavy-tailed, <3 = light-tailed
+    skewness: float  # 0 = symmetric, >0 = right-tailed, <0 = left-tailed
+    kurtosis: float  # 3 = normal, >3 = heavy-tailed, <3 = light-tailed
     distribution_type: str  # "normal", "bimodal", "uniform", "skewed_left", "skewed_right"
     is_bimodal: bool = False
     mode_1: float | None = None
@@ -80,22 +80,32 @@ def fit_distribution(
     """
     if not scores:
         return DistributionFit(
-            metric_id=metric_id, sample_count=0,
-            mean=0.0, std_dev=0.0, median=0.0,
-            skewness=0.0, kurtosis=0.0,
+            metric_id=metric_id,
+            sample_count=0,
+            mean=0.0,
+            std_dev=0.0,
+            median=0.0,
+            skewness=0.0,
+            kurtosis=0.0,
             distribution_type="empty",
         )
 
     n = len(scores)
     mean = sum(scores) / n
     sorted_scores = sorted(scores)
-    median = sorted_scores[n // 2] if n % 2 else (sorted_scores[n // 2 - 1] + sorted_scores[n // 2]) / 2
+    median = (
+        sorted_scores[n // 2] if n % 2 else (sorted_scores[n // 2 - 1] + sorted_scores[n // 2]) / 2
+    )
 
     if n < 3:
         return DistributionFit(
-            metric_id=metric_id, sample_count=n,
-            mean=mean, std_dev=0.0, median=median,
-            skewness=0.0, kurtosis=0.0,
+            metric_id=metric_id,
+            sample_count=n,
+            mean=mean,
+            std_dev=0.0,
+            median=median,
+            skewness=0.0,
+            kurtosis=0.0,
             distribution_type="insufficient_data",
         )
 
@@ -105,19 +115,23 @@ def fit_distribution(
 
     if std == 0:
         return DistributionFit(
-            metric_id=metric_id, sample_count=n,
-            mean=mean, std_dev=0.0, median=median,
-            skewness=0.0, kurtosis=0.0,
+            metric_id=metric_id,
+            sample_count=n,
+            mean=mean,
+            std_dev=0.0,
+            median=median,
+            skewness=0.0,
+            kurtosis=0.0,
             distribution_type="degenerate",
         )
 
     # Skewness (Fisher's)
     m3 = sum((s - mean) ** 3 for s in scores) / n
-    skewness = m3 / (std ** 3) if std > 0 else 0.0
+    skewness = m3 / (std**3) if std > 0 else 0.0
 
     # Kurtosis (excess, Fisher's)
     m4 = sum((s - mean) ** 4 for s in scores) / n
-    kurtosis = (m4 / (variance ** 2)) if variance > 0 else 0.0
+    kurtosis = (m4 / (variance**2)) if variance > 0 else 0.0
 
     # Bimodality detection via histogram
     is_bimodal, mode_1, mode_2 = _detect_bimodality(scores)
@@ -162,10 +176,7 @@ def fit_all_metrics(
     Returns:
         Dict of metric_id -> DistributionFit.
     """
-    return {
-        mid: fit_distribution(mid, scores)
-        for mid, scores in sorted(scores_by_metric.items())
-    }
+    return {mid: fit_distribution(mid, scores) for mid, scores in sorted(scores_by_metric.items())}
 
 
 def _detect_bimodality(scores: list[float], num_bins: int = 10) -> tuple:

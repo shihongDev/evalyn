@@ -147,16 +147,12 @@ def _validate_recent_args(
         if since < 0:
             raise HTTPException(status_code=400, detail="since must be >= 0")
         if not math.isfinite(since):
-            raise HTTPException(
-                status_code=400, detail="since must be a finite number"
-            )
+            raise HTTPException(status_code=400, detail="since must be a finite number")
     if before is not None:
         if before < 0:
             raise HTTPException(status_code=400, detail="before must be >= 0")
         if not math.isfinite(before):
-            raise HTTPException(
-                status_code=400, detail="before must be a finite number"
-            )
+            raise HTTPException(status_code=400, detail="before must be a finite number")
     if since is not None and before is not None and before <= since:
         raise HTTPException(
             status_code=400,
@@ -169,10 +165,7 @@ def _validate_recent_args(
     if cli_id is not None and "," in cli_id:
         raise HTTPException(
             status_code=400,
-            detail=(
-                "cli_id must be a single value; "
-                "use ?cli_ids=foo,bar for multiple values"
-            ),
+            detail=("cli_id must be a single value; use ?cli_ids=foo,bar for multiple values"),
         )
 
 
@@ -230,13 +223,9 @@ def _collect_recent_rows(
             from datetime import datetime, timezone
 
             if since is not None:
-                since_iso = datetime.fromtimestamp(
-                    since, tz=timezone.utc
-                ).isoformat()
+                since_iso = datetime.fromtimestamp(since, tz=timezone.utc).isoformat()
             if before is not None:
-                before_iso = datetime.fromtimestamp(
-                    before, tz=timezone.utc
-                ).isoformat()
+                before_iso = datetime.fromtimestamp(before, tz=timezone.utc).isoformat()
         for row in persistence.list_recent(
             limit=limit,
             cli_id=cli_id,
@@ -250,7 +239,7 @@ def _collect_recent_rows(
                 continue
             merged.append(entry)
             seen.add(entry["id"])
-    merged.sort(key=lambda e: (e.get("started_at") or 0.0), reverse=True)
+    merged.sort(key=lambda e: e.get("started_at") or 0.0, reverse=True)
     return merged[:limit]
 
 
@@ -349,12 +338,7 @@ async def recent_jobs_csv(
     writer = csv.writer(buf, lineterminator="\n")
     writer.writerow(columns)
     for r in rows:
-        writer.writerow(
-            [
-                r.get(c) if r.get(c) is not None else ""
-                for c in columns
-            ]
-        )
+        writer.writerow([r.get(c) if r.get(c) is not None else "" for c in columns])
     return PlainTextResponse(
         buf.getvalue(),
         media_type="text/csv; charset=utf-8",
@@ -429,9 +413,7 @@ async def jobs_stats(
     stale value would freeze the chip on a wrong saturation level.
     """
     if recent_window_s < 0:
-        raise HTTPException(
-            status_code=400, detail="recent_window_s must be >= 0"
-        )
+        raise HTTPException(status_code=400, detail="recent_window_s must be >= 0")
     no_store = {"Cache-Control": "no-store"}
     jm = request.app.state.job_manager
     # Capacity surface is independent of persistence - always include
@@ -454,9 +436,7 @@ async def jobs_stats(
                 "total": len(in_mem),
                 "by_status": by_status,
                 "total_stderr": sum(j.stderr_count for j in in_mem),
-                "recent_failures": sum(
-                    1 for j in in_mem if j.state == "failed"
-                ),
+                "recent_failures": sum(1 for j in in_mem if j.state == "failed"),
                 **capacity,
             },
             headers=no_store,
@@ -615,9 +595,7 @@ async def get_job_output_txt(
         )
     if tail is not None:
         if tail < 1:
-            raise HTTPException(
-                status_code=400, detail="tail must be >= 1 if provided"
-            )
+            raise HTTPException(status_code=400, detail="tail must be >= 1 if provided")
         # Symmetric upper bound with /recent's `limit <= 1000` cap
         # plus headroom for log-tail use cases where 1000 is too
         # tight. 100_000 is well above any realistic manual-review
@@ -628,9 +606,7 @@ async def get_job_output_txt(
         # slice is cheap but the validation should fail fast on
         # absurd inputs rather than rely on data-bounded behavior).
         if tail > 100_000:
-            raise HTTPException(
-                status_code=400, detail="tail must be <= 100000"
-            )
+            raise HTTPException(status_code=400, detail="tail must be <= 100000")
 
     def _meta_prefix() -> str:
         """Return the ``# ...`` header lines for ``?include_meta=1``,
@@ -672,9 +648,7 @@ async def get_job_output_txt(
         if isinstance(ended, (int, float)) and ended:
             try:
                 ended = (
-                    datetime.fromtimestamp(float(ended))
-                    .astimezone()
-                    .isoformat(timespec="seconds")
+                    datetime.fromtimestamp(float(ended)).astimezone().isoformat(timespec="seconds")
                 )
             except (OSError, ValueError):
                 ended = "(unknown)"
@@ -818,7 +792,7 @@ async def delete_job(request: Request, job_id: str) -> JSONResponse:
     """Remove a finished job from in-memory + persistence.
 
     Status codes:
-      - 204: deleted (or was already absent and the call was idempotent)
+      - 200: deleted (response body ``{"ok": True, "id": <job_id>}``)
       - 404: not found in either store
       - 409: still queued/running; client must POST /cancel first
 
@@ -913,10 +887,7 @@ async def restart_job(request: Request, job_id: str) -> JSONResponse:
     if state in ("queued", "running"):
         raise HTTPException(
             status_code=409,
-            detail=(
-                f"source job {job_id} is {state}; wait for it to finish "
-                f"or cancel first"
-            ),
+            detail=(f"source job {job_id} is {state}; wait for it to finish or cancel first"),
         )
 
     catalog = request.app.state.cli_catalog

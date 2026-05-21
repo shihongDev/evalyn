@@ -255,7 +255,9 @@ def run_significance_test(
 
     # CI on the difference of means
     if len(scores_a) >= 2 and len(scores_b) >= 2:
-        diff_se = math.sqrt(_variance(scores_a) / len(scores_a) + _variance(scores_b) / len(scores_b))
+        diff_se = math.sqrt(
+            _variance(scores_a) / len(scores_a) + _variance(scores_b) / len(scores_b)
+        )
         ci = (delta - 1.96 * diff_se, delta + 1.96 * diff_se)
     else:
         ci = (delta, delta)

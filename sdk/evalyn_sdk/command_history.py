@@ -165,9 +165,7 @@ def format_history(log: HistoryLog) -> str:
     for e in log.entries:
         args_str = " ".join(e.args) if e.args else ""
         dur = f"{e.duration_seconds:.1f}s"
-        lines.append(
-            f"{e.timestamp:<26}  {e.command:<20}  {e.exit_code:>4}  {dur:>8}  {args_str}"
-        )
+        lines.append(f"{e.timestamp:<26}  {e.command:<20}  {e.exit_code:>4}  {dur:>8}  {args_str}")
     return "\n".join(lines)
 
 

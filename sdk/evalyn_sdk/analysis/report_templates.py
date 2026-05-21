@@ -131,9 +131,7 @@ _BUILTIN_TEMPLATES: dict[str, ReportTemplate] = {
 def get_template(name: str) -> ReportTemplate:
     """Look up a built-in template by name. Raises ValueError if not found."""
     if name not in _BUILTIN_TEMPLATES:
-        raise ValueError(
-            f"Unknown template {name!r}. Available: {list(_BUILTIN_TEMPLATES.keys())}"
-        )
+        raise ValueError(f"Unknown template {name!r}. Available: {list(_BUILTIN_TEMPLATES.keys())}")
     return _BUILTIN_TEMPLATES[name]
 
 
@@ -191,9 +189,7 @@ def render_section(section: ReportSection, data: dict[str, Any] | None = None) -
     return f'<div class="section"><h2>{safe_name}</h2><p>{safe_content}</p></div>'
 
 
-def render_report(
-    template: ReportTemplate, data: dict[str, Any] | None = None
-) -> RenderedReport:
+def render_report(template: ReportTemplate, data: dict[str, Any] | None = None) -> RenderedReport:
     """Render a full report template to HTML.
 
     The data dict is keyed by section name. Each section receives the
@@ -243,7 +239,7 @@ def export_html(report: RenderedReport, title: str = "Evalyn Report") -> str:
         "<html>\n"
         "<head>\n"
         f"<title>{safe_title}</title>\n"
-        "<meta charset=\"utf-8\">\n"
+        '<meta charset="utf-8">\n'
         "</head>\n"
         "<body>\n"
         f"<h1>{safe_title}</h1>\n"

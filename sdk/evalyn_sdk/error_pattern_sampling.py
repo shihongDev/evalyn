@@ -204,7 +204,10 @@ def sample_by_error_patterns(
     # Phase 1: one item per pattern (highest score)
     pattern_best: dict[str, PatternMatch] = {}
     for m in matches:
-        if m.pattern_id not in pattern_best or m.match_score > pattern_best[m.pattern_id].match_score:
+        if (
+            m.pattern_id not in pattern_best
+            or m.match_score > pattern_best[m.pattern_id].match_score
+        ):
             pattern_best[m.pattern_id] = m
 
     for pid in sorted(pattern_best.keys()):
@@ -264,15 +267,11 @@ def format_error_pattern_report(result: ErrorPatternResult) -> str:
     lines.append("=" * 40)
     lines.append(f"Total pool size: {result.total_pool}")
     lines.append(f"Selected items: {len(result.selected_ids)}")
-    lines.append(
-        f"Patterns covered: {result.patterns_covered}/{result.total_patterns}"
-    )
+    lines.append(f"Patterns covered: {result.patterns_covered}/{result.total_patterns}")
     lines.append("")
     lines.append("Matches:")
     for m in result.matches:
-        lines.append(
-            f"  item={m.item_id}  pattern={m.pattern_id}  score={m.match_score:.2f}"
-        )
+        lines.append(f"  item={m.item_id}  pattern={m.pattern_id}  score={m.match_score:.2f}")
     lines.append("")
     lines.append("Selected IDs:")
     for item_id in result.selected_ids:

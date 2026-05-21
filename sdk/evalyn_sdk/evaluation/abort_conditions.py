@@ -88,11 +88,13 @@ class AbortController:
 
     def add_pass_rate_condition(self, min_rate: float = 0.2) -> None:
         """Abort if overall pass rate drops below threshold."""
-        self._conditions.append(AbortCondition(
-            name=f"min_pass_rate_{min_rate}",
-            description=f"Abort if pass rate < {min_rate:.0%}",
-            check_fn=lambda ctx: ctx.get("pass_rate", 1.0) < min_rate,
-        ))
+        self._conditions.append(
+            AbortCondition(
+                name=f"min_pass_rate_{min_rate}",
+                description=f"Abort if pass rate < {min_rate:.0%}",
+                check_fn=lambda ctx: ctx.get("pass_rate", 1.0) < min_rate,
+            )
+        )
 
     def add_safety_condition(
         self,
@@ -100,6 +102,7 @@ class AbortController:
         min_rate: float = 0.5,
     ) -> None:
         """Abort if any safety metric drops below threshold."""
+
         def check(ctx):
             rates = ctx.get("metric_pass_rates", {})
             for mid in safety_metrics:
@@ -108,14 +111,17 @@ class AbortController:
                     return True
             return False
 
-        self._conditions.append(AbortCondition(
-            name=f"safety_gate_{min_rate}",
-            description=f"Abort if any safety metric < {min_rate:.0%}",
-            check_fn=check,
-        ))
+        self._conditions.append(
+            AbortCondition(
+                name=f"safety_gate_{min_rate}",
+                description=f"Abort if any safety metric < {min_rate:.0%}",
+                check_fn=check,
+            )
+        )
 
     def add_error_rate_condition(self, max_error_rate: float = 0.2) -> None:
         """Abort if error rate exceeds threshold."""
+
         def check(ctx):
             errors = ctx.get("error_count", 0)
             total = ctx.get("items_evaluated", 0)
@@ -123,19 +129,23 @@ class AbortController:
                 return False
             return errors / total > max_error_rate
 
-        self._conditions.append(AbortCondition(
-            name=f"max_error_rate_{max_error_rate}",
-            description=f"Abort if error rate > {max_error_rate:.0%}",
-            check_fn=check,
-        ))
+        self._conditions.append(
+            AbortCondition(
+                name=f"max_error_rate_{max_error_rate}",
+                description=f"Abort if error rate > {max_error_rate:.0%}",
+                check_fn=check,
+            )
+        )
 
     def add_cost_condition(self, max_cost_usd: float) -> None:
         """Abort if cumulative cost exceeds limit."""
-        self._conditions.append(AbortCondition(
-            name=f"max_cost_{max_cost_usd}",
-            description=f"Abort if cost > ${max_cost_usd}",
-            check_fn=lambda ctx: ctx.get("cost_usd", 0) > max_cost_usd,
-        ))
+        self._conditions.append(
+            AbortCondition(
+                name=f"max_cost_{max_cost_usd}",
+                description=f"Abort if cost > ${max_cost_usd}",
+                check_fn=lambda ctx: ctx.get("cost_usd", 0) > max_cost_usd,
+            )
+        )
 
     def check(self, context: dict[str, Any]) -> AbortCheckResult:
         """Evaluate all conditions against current state.

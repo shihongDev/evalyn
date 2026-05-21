@@ -290,11 +290,11 @@ def progress_bar(
 
 # Unicode icons and their NO_COLOR fallbacks
 _ICONS_UNICODE = {
-    "pass": ("\u2713", green),   # checkmark
-    "fail": ("\u2717", red),     # ballot X
+    "pass": ("\u2713", green),  # checkmark
+    "fail": ("\u2717", red),  # ballot X
     "warn": ("~", yellow),
-    "info": ("\u25cf", blue),    # filled circle
-    "next": ("\u25b8", green),   # right triangle
+    "info": ("\u25cf", blue),  # filled circle
+    "next": ("\u25b8", green),  # right triangle
 }
 
 _ICONS_ASCII = {

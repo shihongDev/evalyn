@@ -38,15 +38,18 @@ from ._shared import calculate_cost
 # crewai.utilities.events.* (older versions).
 # ---------------------------------------------------------------------------
 
+
 def _import_event_bus() -> Any:
     """Import crewai_event_bus from the best available path."""
     try:
         from crewai.events import crewai_event_bus
+
         return crewai_event_bus
     except ImportError:
         pass
     try:
         from crewai.utilities.events.event_listener import crewai_event_bus
+
         return crewai_event_bus
     except ImportError:
         return None
@@ -56,6 +59,7 @@ def _import_base_event_listener() -> Any:
     """Import BaseEventListener from the best available path."""
     try:
         from crewai.events import BaseEventListener
+
         return BaseEventListener
     except ImportError:
         pass
@@ -77,6 +81,7 @@ def _import_core_events() -> dict[str, type] | None:
             ToolUsageFinishedEvent,
             ToolUsageStartedEvent,
         )
+
         return {
             "CrewKickoffStartedEvent": CrewKickoffStartedEvent,
             "CrewKickoffCompletedEvent": CrewKickoffCompletedEvent,
@@ -119,6 +124,7 @@ def _import_core_events() -> dict[str, type] | None:
             ToolUsageFinishedEvent,
             ToolUsageStartedEvent,
         )
+
         return {
             "CrewKickoffStartedEvent": CrewKickoffStartedEvent,
             "CrewKickoffCompletedEvent": CrewKickoffCompletedEvent,
@@ -147,6 +153,7 @@ def _import_optional_events() -> dict[str, type]:
     # Memory events
     try:
         from crewai.events import MemoryQueryCompletedEvent
+
         events["MemoryQueryCompletedEvent"] = MemoryQueryCompletedEvent
     except ImportError:
         try:
@@ -156,6 +163,7 @@ def _import_optional_events() -> dict[str, type]:
                 MemorySaveCompleted,
                 MemorySaveStarted,
             )
+
             events["MemoryQueryStarted"] = MemoryQueryStarted
             events["MemoryQueryCompleted"] = MemoryQueryCompleted
             events["MemorySaveStarted"] = MemorySaveStarted
@@ -169,6 +177,7 @@ def _import_optional_events() -> dict[str, type]:
             KnowledgeRetrievalCompletedEvent,
             KnowledgeRetrievalStartedEvent,
         )
+
         events["KnowledgeRetrievalStartedEvent"] = KnowledgeRetrievalStartedEvent
         events["KnowledgeRetrievalCompletedEvent"] = KnowledgeRetrievalCompletedEvent
     except ImportError:
@@ -177,6 +186,7 @@ def _import_optional_events() -> dict[str, type]:
     # LLM stream chunk event
     try:
         from crewai.events import LLMStreamChunkEvent
+
         events["LLMStreamChunkEvent"] = LLMStreamChunkEvent
     except ImportError:
         pass
@@ -187,6 +197,7 @@ def _import_optional_events() -> dict[str, type]:
             FlowFinishedEvent,
             FlowStartedEvent,
         )
+
         events["FlowStartedEvent"] = FlowStartedEvent
         events["FlowFinishedEvent"] = FlowFinishedEvent
     except ImportError:
@@ -243,6 +254,7 @@ class CrewAIInstrumentor(Instrumentor):
         CrewKickoffFailedEvent = core.get("CrewKickoffFailedEvent")
 
         if CrewKickoffStartedEvent:
+
             @event_bus.on(CrewKickoffStartedEvent)
             def on_crew_start(source: Any, event: Any) -> None:
                 crew_name = getattr(source, "name", None) or "crew"
@@ -259,6 +271,7 @@ class CrewAIInstrumentor(Instrumentor):
                 )
 
         if CrewKickoffCompletedEvent:
+
             @event_bus.on(CrewKickoffCompletedEvent)
             def on_crew_complete(source: Any, event: Any) -> None:
                 output = getattr(event, "output", None)
@@ -272,6 +285,7 @@ class CrewAIInstrumentor(Instrumentor):
                 )
 
         if CrewKickoffFailedEvent:
+
             @event_bus.on(CrewKickoffFailedEvent)
             def on_crew_fail(source: Any, event: Any) -> None:
                 error = getattr(event, "error", None)
@@ -287,6 +301,7 @@ class CrewAIInstrumentor(Instrumentor):
         AgentExecutionErrorEvent = core.get("AgentExecutionErrorEvent")
 
         if AgentExecutionStartedEvent:
+
             @event_bus.on(AgentExecutionStartedEvent)
             def on_agent_start(source: Any, event: Any) -> None:
                 agent = getattr(event, "agent", source)
@@ -304,6 +319,7 @@ class CrewAIInstrumentor(Instrumentor):
                 )
 
         if AgentExecutionCompletedEvent:
+
             @event_bus.on(AgentExecutionCompletedEvent)
             def on_agent_complete(source: Any, event: Any) -> None:
                 output = getattr(event, "output", None)
@@ -316,6 +332,7 @@ class CrewAIInstrumentor(Instrumentor):
                 )
 
         if AgentExecutionErrorEvent:
+
             @event_bus.on(AgentExecutionErrorEvent)
             def on_agent_error(source: Any, event: Any) -> None:
                 error = getattr(event, "error", None)
@@ -331,6 +348,7 @@ class CrewAIInstrumentor(Instrumentor):
         TaskFailedEvent = core.get("TaskFailedEvent")
 
         if TaskStartedEvent:
+
             @event_bus.on(TaskStartedEvent)
             def on_task_start(source: Any, event: Any) -> None:
                 task = getattr(event, "task", source)
@@ -342,13 +360,12 @@ class CrewAIInstrumentor(Instrumentor):
                     attributes={
                         "crewai.type": "task",
                         "crewai.task_description": str(description)[:500],
-                        "crewai.expected_output": str(
-                            getattr(task, "expected_output", "")
-                        )[:500],
+                        "crewai.expected_output": str(getattr(task, "expected_output", ""))[:500],
                     },
                 )
 
         if TaskCompletedEvent:
+
             @event_bus.on(TaskCompletedEvent)
             def on_task_complete(source: Any, event: Any) -> None:
                 output = getattr(event, "output", None)
@@ -361,6 +378,7 @@ class CrewAIInstrumentor(Instrumentor):
                 )
 
         if TaskFailedEvent:
+
             @event_bus.on(TaskFailedEvent)
             def on_task_fail(source: Any, event: Any) -> None:
                 error = getattr(event, "error", None)
@@ -376,11 +394,10 @@ class CrewAIInstrumentor(Instrumentor):
         LLMCallFailedEvent = core.get("LLMCallFailedEvent")
 
         if LLMCallStartedEvent:
+
             @event_bus.on(LLMCallStartedEvent)
             def on_llm_start(source: Any, event: Any) -> None:
-                model = getattr(event, "model", None) or getattr(
-                    source, "model", "unknown"
-                )
+                model = getattr(event, "model", None) or getattr(source, "model", "unknown")
                 messages = getattr(event, "messages", None)
                 call_id = getattr(event, "call_id", None) or id(event)
                 tracker.start_span(
@@ -400,12 +417,11 @@ class CrewAIInstrumentor(Instrumentor):
                 )
 
         if LLMCallCompletedEvent:
+
             @event_bus.on(LLMCallCompletedEvent)
             def on_llm_complete(source: Any, event: Any) -> None:
                 call_id = getattr(event, "call_id", None) or id(event)
-                model = getattr(event, "model", None) or getattr(
-                    source, "model", "unknown"
-                )
+                model = getattr(event, "model", None) or getattr(source, "model", "unknown")
                 response = getattr(event, "response", None)
                 token_usage = getattr(event, "token_usage", None) or {}
 
@@ -438,6 +454,7 @@ class CrewAIInstrumentor(Instrumentor):
                 )
 
         if LLMCallFailedEvent:
+
             @event_bus.on(LLMCallFailedEvent)
             def on_llm_fail(source: Any, event: Any) -> None:
                 call_id = getattr(event, "call_id", None) or id(event)
@@ -454,14 +471,11 @@ class CrewAIInstrumentor(Instrumentor):
         ToolUsageErrorEvent = core.get("ToolUsageErrorEvent")
 
         if ToolUsageStartedEvent:
+
             @event_bus.on(ToolUsageStartedEvent)
             def on_tool_start(source: Any, event: Any) -> None:
-                tool_name = getattr(event, "tool_name", None) or getattr(
-                    event, "name", "unknown"
-                )
-                tool_input = getattr(event, "tool_input", None) or getattr(
-                    event, "input", None
-                )
+                tool_name = getattr(event, "tool_name", None) or getattr(event, "name", "unknown")
+                tool_input = getattr(event, "tool_input", None) or getattr(event, "input", None)
                 tracker.start_span(
                     key=("tool", id(source)),
                     name=str(tool_name),
@@ -474,11 +488,10 @@ class CrewAIInstrumentor(Instrumentor):
                 )
 
         if ToolUsageFinishedEvent:
+
             @event_bus.on(ToolUsageFinishedEvent)
             def on_tool_finish(source: Any, event: Any) -> None:
-                tool_output = getattr(event, "tool_output", None) or getattr(
-                    event, "output", None
-                )
+                tool_output = getattr(event, "tool_output", None) or getattr(event, "output", None)
                 tracker.finish_span(
                     key=("tool", id(source)),
                     status="ok",
@@ -488,6 +501,7 @@ class CrewAIInstrumentor(Instrumentor):
                 )
 
         if ToolUsageErrorEvent:
+
             @event_bus.on(ToolUsageErrorEvent)
             def on_tool_error(source: Any, event: Any) -> None:
                 error = getattr(event, "error", None)
@@ -502,6 +516,7 @@ class CrewAIInstrumentor(Instrumentor):
         # LLM stream chunks
         LLMStreamChunkEvent = optional.get("LLMStreamChunkEvent")
         if LLMStreamChunkEvent:
+
             @event_bus.on(LLMStreamChunkEvent)
             def on_llm_stream_chunk(source: Any, event: Any) -> None:
                 call_id = getattr(event, "call_id", None) or id(source)
@@ -518,6 +533,7 @@ class CrewAIInstrumentor(Instrumentor):
         KnowledgeRetrievalCompletedEvent = optional.get("KnowledgeRetrievalCompletedEvent")
 
         if KnowledgeRetrievalStartedEvent:
+
             @event_bus.on(KnowledgeRetrievalStartedEvent)
             def on_knowledge_retrieval_start(source: Any, event: Any) -> None:
                 query = getattr(event, "query", None) or ""
@@ -532,6 +548,7 @@ class CrewAIInstrumentor(Instrumentor):
                 )
 
         if KnowledgeRetrievalCompletedEvent:
+
             @event_bus.on(KnowledgeRetrievalCompletedEvent)
             def on_knowledge_retrieval_complete(source: Any, event: Any) -> None:
                 results = getattr(event, "results", None)
@@ -551,6 +568,7 @@ class CrewAIInstrumentor(Instrumentor):
         MemoryQueryCompletedEvent = optional.get("MemoryQueryCompletedEvent")
 
         if MemoryQueryStarted:
+
             @event_bus.on(MemoryQueryStarted)
             def on_memory_query_start(source: Any, event: Any) -> None:
                 tracker.start_span(
@@ -564,6 +582,7 @@ class CrewAIInstrumentor(Instrumentor):
                 )
 
         if MemoryQueryCompleted:
+
             @event_bus.on(MemoryQueryCompleted)
             def on_memory_query_complete(source: Any, event: Any) -> None:
                 results = getattr(event, "results", None)
@@ -589,6 +608,7 @@ class CrewAIInstrumentor(Instrumentor):
                 )
 
         if MemorySaveStarted:
+
             @event_bus.on(MemorySaveStarted)
             def on_memory_save_start(source: Any, event: Any) -> None:
                 tracker.start_span(
@@ -599,6 +619,7 @@ class CrewAIInstrumentor(Instrumentor):
                 )
 
         if MemorySaveCompleted:
+
             @event_bus.on(MemorySaveCompleted)
             def on_memory_save_complete(source: Any, event: Any) -> None:
                 tracker.finish_span(
@@ -611,11 +632,13 @@ class CrewAIInstrumentor(Instrumentor):
         FlowFinishedEvent = optional.get("FlowFinishedEvent")
 
         if FlowStartedEvent:
+
             @event_bus.on(FlowStartedEvent)
             def on_flow_start(source: Any, event: Any) -> None:
-                flow_name = getattr(source, "name", None) or getattr(
-                    source, "__class__", type(source)
-                ).__name__
+                flow_name = (
+                    getattr(source, "name", None)
+                    or getattr(source, "__class__", type(source)).__name__
+                )
                 tracker.start_span(
                     key=("flow", id(source)),
                     name=f"flow:{flow_name}",
@@ -627,6 +650,7 @@ class CrewAIInstrumentor(Instrumentor):
                 )
 
         if FlowFinishedEvent:
+
             @event_bus.on(FlowFinishedEvent)
             def on_flow_finish(source: Any, event: Any) -> None:
                 result = getattr(event, "result", None)
@@ -634,9 +658,7 @@ class CrewAIInstrumentor(Instrumentor):
                     key=("flow", id(source)),
                     status="ok",
                     attributes={
-                        "crewai.flow_result": str(result)[:1000]
-                        if result
-                        else None,
+                        "crewai.flow_result": str(result)[:1000] if result else None,
                     },
                 )
 
@@ -676,9 +698,7 @@ class _SpanTracker:
             parent_id=parent_span_id,
         )
         if attributes:
-            span.attributes.update(
-                {k: v for k, v in attributes.items() if v is not None}
-            )
+            span.attributes.update({k: v for k, v in attributes.items() if v is not None})
 
         # Push onto span stack so child events become children
         stack = span_context._span_stack.get()
@@ -701,9 +721,7 @@ class _SpanTracker:
             return
 
         if attributes:
-            open_span.span.attributes.update(
-                {k: v for k, v in attributes.items() if v is not None}
-            )
+            open_span.span.attributes.update({k: v for k, v in attributes.items() if v is not None})
 
         # Restore span stack
         span_context._span_stack.set(open_span.prev_stack)
@@ -732,7 +750,7 @@ class _SpanTracker:
 class _OpenSpan:
     """Internal state for a span that has been started but not finished."""
 
-    __slots__ = ("span", "prev_stack")
+    __slots__ = ("prev_stack", "span")
 
     def __init__(self, span: Span, prev_stack: list) -> None:
         self.span = span

@@ -18,7 +18,9 @@ FREEZE_FILENAME = ".evalyn-metrics-freeze.json"
 class FrozenMetricSet:
     """A frozen snapshot of metric configurations."""
 
-    metrics: dict[str, dict[str, Any]] = field(default_factory=dict)  # id -> {type, version_hash, ...}
+    metrics: dict[str, dict[str, Any]] = field(
+        default_factory=dict
+    )  # id -> {type, version_hash, ...}
     frozen_at: str = ""
     description: str = ""
 

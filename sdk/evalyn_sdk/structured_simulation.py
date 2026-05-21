@@ -202,9 +202,7 @@ def infer_schema(seed_items: list[dict[str, Any]]) -> InputSchema:
 # ---------------------------------------------------------------------------
 
 
-def _generate_field_value(
-    fs: FieldSchema, rng: random.Random, counter: int = 0
-) -> Any:
+def _generate_field_value(fs: FieldSchema, rng: random.Random, counter: int = 0) -> Any:
     """Generate a single field value conforming to the schema."""
     # If choices exist, pick from them
     if fs.choices:
@@ -314,9 +312,7 @@ def mutate_single_field(
     return StructuredInput(data=new_data, mutated_field=field_name)
 
 
-def generate_mutation_suite(
-    base: dict[str, Any], schema: InputSchema
-) -> list[StructuredInput]:
+def generate_mutation_suite(base: dict[str, Any], schema: InputSchema) -> list[StructuredInput]:
     """Generate one mutation per field in the schema."""
     rng = random.Random(42)
     results: list[StructuredInput] = []
@@ -340,9 +336,7 @@ _VALID_TYPES = {
 }
 
 
-def validate_against_schema(
-    item: dict[str, Any], schema: InputSchema
-) -> list[str]:
+def validate_against_schema(item: dict[str, Any], schema: InputSchema) -> list[str]:
     """Return a list of validation errors for item against schema."""
     errors: list[str] = []
 
@@ -357,14 +351,10 @@ def validate_against_schema(
         # Type check - bool must be checked specially since bool is subclass of int
         if fs.field_type == "bool":
             if not isinstance(val, bool):
-                errors.append(
-                    f"Field '{fs.name}': expected bool, got {type(val).__name__}"
-                )
+                errors.append(f"Field '{fs.name}': expected bool, got {type(val).__name__}")
         elif fs.field_type == "int":
             if isinstance(val, bool) or not isinstance(val, int):
-                errors.append(
-                    f"Field '{fs.name}': expected int, got {type(val).__name__}"
-                )
+                errors.append(f"Field '{fs.name}': expected int, got {type(val).__name__}")
         elif fs.field_type in _VALID_TYPES:
             expected = _VALID_TYPES[fs.field_type]
             if not isinstance(val, expected):
@@ -373,21 +363,19 @@ def validate_against_schema(
                 )
 
         # Range check for numeric fields
-        if fs.field_type in ("int", "float") and isinstance(val, (int, float)) and not isinstance(val, bool):
+        if (
+            fs.field_type in ("int", "float")
+            and isinstance(val, (int, float))
+            and not isinstance(val, bool)
+        ):
             if fs.min_val is not None and val < fs.min_val:
-                errors.append(
-                    f"Field '{fs.name}': value {val} below min {fs.min_val}"
-                )
+                errors.append(f"Field '{fs.name}': value {val} below min {fs.min_val}")
             if fs.max_val is not None and val > fs.max_val:
-                errors.append(
-                    f"Field '{fs.name}': value {val} above max {fs.max_val}"
-                )
+                errors.append(f"Field '{fs.name}': value {val} above max {fs.max_val}")
 
         # Choices check
         if fs.choices and val not in fs.choices:
-            errors.append(
-                f"Field '{fs.name}': value {val!r} not in choices {fs.choices}"
-            )
+            errors.append(f"Field '{fs.name}': value {val!r} not in choices {fs.choices}")
 
     return errors
 

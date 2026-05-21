@@ -152,9 +152,7 @@ class EvalynADKCallbacks:
         count = self._llm_call_counts.get(agent_name, 0) + 1
         return f"{agent_name}:llm:{count}"
 
-    def _get_tool_span_key(
-        self, tool: BaseTool, ctx: ToolContext, args: dict[str, Any]
-    ) -> str:
+    def _get_tool_span_key(self, tool: BaseTool, ctx: ToolContext, args: dict[str, Any]) -> str:
         """Generate unique key for tool span tracking."""
         tool_name = getattr(tool, "name", type(tool).__name__)
         args_hash = hash(str(sorted(args.items()))) if args else 0
@@ -169,9 +167,7 @@ class EvalynADKCallbacks:
         texts = [part.text for part in parts if hasattr(part, "text") and part.text]
         return "\n".join(texts)
 
-    def _extract_tool_calls_from_content(
-        self, content: Content | None
-    ) -> list[dict[str, Any]]:
+    def _extract_tool_calls_from_content(self, content: Content | None) -> list[dict[str, Any]]:
         """Extract tool calls from content."""
         if content is None:
             return []
@@ -244,9 +240,7 @@ class EvalynADKCallbacks:
         state = self._agent_spans.pop(span_key, None)
 
         if state:
-            state.span.attributes["duration_ms"] = (
-                time.time() - state.start_time
-            ) * 1000
+            state.span.attributes["duration_ms"] = (time.time() - state.start_time) * 1000
 
             if self._output_text:
                 output = "\n".join(self._output_text)
@@ -319,9 +313,7 @@ class EvalynADKCallbacks:
         state = self._llm_spans.pop(span_key, None)
 
         if state:
-            state.span.attributes["duration_ms"] = (
-                time.time() - state.start_time
-            ) * 1000
+            state.span.attributes["duration_ms"] = (time.time() - state.start_time) * 1000
             content = getattr(llm_response, "content", None)
             response_text = self._extract_text_from_content(content)
 
@@ -339,23 +331,13 @@ class EvalynADKCallbacks:
             usage = getattr(llm_response, "usage_metadata", None)
             if usage:
                 token_usage = self._extract_usage(usage)
-                state.span.attributes["prompt_tokens"] = token_usage.get(
-                    "prompt_tokens", 0
-                )
-                state.span.attributes["completion_tokens"] = token_usage.get(
-                    "completion_tokens", 0
-                )
-                state.span.attributes["total_tokens"] = token_usage.get(
-                    "total_tokens", 0
-                )
+                state.span.attributes["prompt_tokens"] = token_usage.get("prompt_tokens", 0)
+                state.span.attributes["completion_tokens"] = token_usage.get("completion_tokens", 0)
+                state.span.attributes["total_tokens"] = token_usage.get("total_tokens", 0)
                 if token_usage.get("cached_tokens"):
-                    state.span.attributes["cached_tokens"] = token_usage[
-                        "cached_tokens"
-                    ]
+                    state.span.attributes["cached_tokens"] = token_usage["cached_tokens"]
                 if token_usage.get("thoughts_tokens"):
-                    state.span.attributes["thoughts_tokens"] = token_usage[
-                        "thoughts_tokens"
-                    ]
+                    state.span.attributes["thoughts_tokens"] = token_usage["thoughts_tokens"]
 
             model_version = getattr(llm_response, "model_version", None)
             if model_version:
@@ -430,9 +412,7 @@ class EvalynADKCallbacks:
         state = self._tool_spans.pop(span_key, None)
 
         if state:
-            state.span.attributes["duration_ms"] = (
-                time.time() - state.start_time
-            ) * 1000
+            state.span.attributes["duration_ms"] = (time.time() - state.start_time) * 1000
 
             result_str = str(result) if result else ""
             output_size = len(result_str)
@@ -444,9 +424,7 @@ class EvalynADKCallbacks:
 
         return None
 
-    def capture_user_input(
-        self, message: str, session_id: str | None = None
-    ) -> None:
+    def capture_user_input(self, message: str, session_id: str | None = None) -> None:
         """Capture user input message as a span."""
         span = Span.new(
             name="user_input",
@@ -508,9 +486,7 @@ class ADKStreamAdapter:
         self._accumulated_text: list[str] = []
         self._last_usage: dict[str, int] | None = None
 
-    async def wrap_stream(
-        self, events: AsyncIterator[Event]
-    ) -> AsyncIterator[Event]:
+    async def wrap_stream(self, events: AsyncIterator[Event]) -> AsyncIterator[Event]:
         """Wrap an ADK event stream to intercept and instrument events."""
         async for event in events:
             content = getattr(event, "content", None)
@@ -555,7 +531,13 @@ class GoogleADKInstrumentor(Instrumentor):
     _original_run_async: Callable[..., Any] | None = None
     _patched: bool = False
     _callbacks_injected: bool = False
-    _original_properties: dict[str, Any] = {}
+
+    def __init__(self) -> None:
+        # `_original_properties` was previously a class attribute defaulting
+        # to `{}`, which meant every instrumentor instance shared the same
+        # dict (mutable default, RUF012). Moved to instance state so each
+        # tracer's saved properties are isolated.
+        self._original_properties: dict[str, Any] = {}
 
     @property
     def name(self) -> str:
@@ -658,9 +640,7 @@ class GoogleADKInstrumentor(Instrumentor):
                 if message_text:
                     callbacks.capture_user_input(message_text, session_id)
 
-            return await original_run_async(
-                self_runner, user_id, session_id, new_message, **kwargs
-            )
+            return await original_run_async(self_runner, user_id, session_id, new_message, **kwargs)
 
         InMemoryRunner.run_async = patched_run_async
         self._original_run_async = original_run_async

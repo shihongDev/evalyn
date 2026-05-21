@@ -147,8 +147,12 @@ def compute_length_distribution(texts: list[str]) -> DistributionStats:
     """Compute character-length statistics for a list of texts."""
     if not texts:
         return DistributionStats(
-            mean=0.0, std_dev=0.0, min_val=0.0, max_val=0.0,
-            median=0.0, count=0,
+            mean=0.0,
+            std_dev=0.0,
+            min_val=0.0,
+            max_val=0.0,
+            median=0.0,
+            count=0,
         )
     lengths = [float(len(t)) for t in texts]
     mean = _compute_mean(lengths)
@@ -196,10 +200,7 @@ def compare_distributions(
         check_name="distribution_comparison",
         passed=passed,
         score=score,
-        details=(
-            f"mean diff ratio: {mean_diff:.4f}, "
-            f"std_dev diff ratio: {std_diff:.4f}"
-        ),
+        details=(f"mean diff ratio: {mean_diff:.4f}, std_dev diff ratio: {std_diff:.4f}"),
         threshold=tolerance,
     )
 
@@ -209,9 +210,7 @@ def _word_set(text: str) -> set:
     return set(text.lower().split())
 
 
-def compute_vocabulary_overlap(
-    seed_texts: list[str], gen_texts: list[str]
-) -> float:
+def compute_vocabulary_overlap(seed_texts: list[str], gen_texts: list[str]) -> float:
     """Compute Jaccard coefficient of word sets between seed and generated texts."""
     seed_words: set = set()
     for t in seed_texts:
@@ -259,9 +258,7 @@ def find_duplicates(texts: list[str]) -> list[tuple[int, int]]:
     return pairs
 
 
-def find_near_duplicates(
-    texts: list[str], threshold: float = 0.9
-) -> list[tuple[int, int, float]]:
+def find_near_duplicates(texts: list[str], threshold: float = 0.9) -> list[tuple[int, int, float]]:
     """Return pairs with Jaccard word similarity >= threshold."""
     results: list[tuple[int, int, float]] = []
     word_sets = [_word_set(t) for t in texts]
@@ -308,9 +305,7 @@ def check_deduplication(
     )
 
 
-def validate_simulation(
-    seed_texts: list[str], gen_texts: list[str]
-) -> ValidationReport:
+def validate_simulation(seed_texts: list[str], gen_texts: list[str]) -> ValidationReport:
     """Run all validation checks on seed vs generated texts."""
     results: list[ValidationResult] = []
 

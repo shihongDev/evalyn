@@ -77,9 +77,7 @@ class WidgetData:
 DEFAULT_CONFIG = WidgetConfig()
 
 
-def generate_score_bar_svg(
-    metrics: dict[str, float], width: int = 400, height: int = 200
-) -> str:
+def generate_score_bar_svg(metrics: dict[str, float], width: int = 400, height: int = 200) -> str:
     """Generate an SVG bar chart for the given metrics.
 
     Each metric gets an equal-width bar. Bar heights are proportional
@@ -108,8 +106,7 @@ def generate_score_bar_svg(
         escaped_value = html.escape(f"{value:.2f}")
 
         bars.append(
-            f'<rect x="{x}" y="{y}" width="{bar_width}" height="{bar_h}" '
-            f'fill="#4a90d9" rx="2" />'
+            f'<rect x="{x}" y="{y}" width="{bar_width}" height="{bar_h}" fill="#4a90d9" rx="2" />'
         )
         # Label below bar
         label_x = x + bar_width // 2
@@ -194,9 +191,7 @@ def _css_for_theme(theme: str) -> str:
     )
 
 
-def generate_widget_html(
-    data: WidgetData, config: WidgetConfig | None = None
-) -> str:
+def generate_widget_html(data: WidgetData, config: WidgetConfig | None = None) -> str:
     """Generate a minimal self-contained HTML widget.
 
     The output is a complete HTML document suitable for embedding in an iframe.
@@ -209,9 +204,7 @@ def generate_widget_html(
     parts.append('<html lang="en">')
     parts.append("<head>")
     parts.append('<meta charset="utf-8">')
-    parts.append(
-        '<meta name="viewport" content="width=device-width, initial-scale=1">'
-    )
+    parts.append('<meta name="viewport" content="width=device-width, initial-scale=1">')
     parts.append(f"<title>{html.escape(data.title)}</title>")
     parts.append(f"<style>\n{_css_for_theme(cfg.theme)}</style>")
     parts.append("</head>")
@@ -246,15 +239,11 @@ def generate_widget_html(
 
     # Summary
     if data.summary_text:
-        parts.append(
-            f'<div class="summary">{html.escape(data.summary_text)}</div>'
-        )
+        parts.append(f'<div class="summary">{html.escape(data.summary_text)}</div>')
 
     # Footer
     if cfg.show_footer:
-        parts.append(
-            '<div class="footer">Powered by Evalyn</div>'
-        )
+        parts.append('<div class="footer">Powered by Evalyn</div>')
 
     # PostMessage script
     parts.append(generate_postmessage_script())

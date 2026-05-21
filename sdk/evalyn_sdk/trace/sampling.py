@@ -52,9 +52,7 @@ class SamplingDecision:
         }
 
 
-def should_sample(
-    config: SamplingConfig, span: Span | None = None
-) -> SamplingDecision:
+def should_sample(config: SamplingConfig, span: Span | None = None) -> SamplingDecision:
     """Determine if a trace should be captured.
 
     Priority order:
@@ -93,17 +91,13 @@ def create_sampler(
         # Check error priority
         if span is not None and config.always_capture_errors:
             if span.status == "error":
-                return SamplingDecision(
-                    should_capture=True, reason="error_priority"
-                )
+                return SamplingDecision(should_capture=True, reason="error_priority")
 
         # Check slow priority
         if span is not None and config.always_capture_slow:
             duration = span.duration_ms
             if duration is not None and duration >= config.slow_threshold_ms:
-                return SamplingDecision(
-                    should_capture=True, reason="slow_priority"
-                )
+                return SamplingDecision(should_capture=True, reason="slow_priority")
 
         # Rate-based sampling (uses persistent RNG)
         if rng.random() < config.rate:

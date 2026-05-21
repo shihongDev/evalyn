@@ -122,9 +122,7 @@ class PairwiseReport:
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> PairwiseReport:
         results = [PairwiseResult.from_dict(r) for r in data.get("results", [])]
-        ratings = {
-            k: EloRating.from_dict(v) for k, v in data.get("ratings", {}).items()
-        }
+        ratings = {k: EloRating.from_dict(v) for k, v in data.get("ratings", {}).items()}
         return cls(
             results=results,
             ratings=ratings,
@@ -137,9 +135,7 @@ class PairwiseReport:
             "",
             "Elo Ratings:",
         ]
-        sorted_ratings = sorted(
-            self.ratings.values(), key=lambda r: r.rating, reverse=True
-        )
+        sorted_ratings = sorted(self.ratings.values(), key=lambda r: r.rating, reverse=True)
         for r in sorted_ratings:
             lines.append(
                 f"  {r.model:20s}  rating={r.rating:.0f}  "

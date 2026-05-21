@@ -62,9 +62,7 @@ class Rubric:
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> Rubric:
-        criteria = [
-            RubricCriterion.from_dict(c) for c in data.get("criteria", [])
-        ]
+        criteria = [RubricCriterion.from_dict(c) for c in data.get("criteria", [])]
         return cls(
             metric_id=data["metric_id"],
             criteria=criteria,

@@ -86,10 +86,7 @@ class CurriculumPlan:
         ]
         for s in self.stages:
             lo, hi = s.difficulty_range
-            lines.append(
-                f"  Stage {s.stage}: {s.num_items} items "
-                f"(difficulty {lo:.2f}-{hi:.2f})"
-            )
+            lines.append(f"  Stage {s.stage}: {s.num_items} items (difficulty {lo:.2f}-{hi:.2f})")
         return "\n".join(lines)
 
 
@@ -98,9 +95,7 @@ class CurriculumPlan:
 # ---------------------------------------------------------------------------
 
 
-def estimate_difficulty(
-    item_id: str, score: float, confidence: float = 1.0
-) -> DifficultyScore:
+def estimate_difficulty(item_id: str, score: float, confidence: float = 1.0) -> DifficultyScore:
     """Estimate difficulty from score and confidence.
 
     Difficulty = 1 - score (low-scoring items are harder).
@@ -123,9 +118,7 @@ def sort_by_difficulty(
     return sorted(items, key=lambda d: d.difficulty)
 
 
-def create_curriculum(
-    items: list[DifficultyScore], num_stages: int = 3
-) -> CurriculumPlan:
+def create_curriculum(items: list[DifficultyScore], num_stages: int = 3) -> CurriculumPlan:
     """Split sorted items into equal-sized stages.
 
     Stage 1 = easiest items, stage N = hardest items.

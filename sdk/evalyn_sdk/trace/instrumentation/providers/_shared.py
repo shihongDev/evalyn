@@ -187,9 +187,7 @@ _MODEL_CONTEXT_WINDOWS_UNSORTED = {
 }
 
 MODEL_CONTEXT_WINDOWS = dict(
-    sorted(
-        _MODEL_CONTEXT_WINDOWS_UNSORTED.items(), key=lambda x: len(x[0]), reverse=True
-    )
+    sorted(_MODEL_CONTEXT_WINDOWS_UNSORTED.items(), key=lambda x: len(x[0]), reverse=True)
 )
 
 
@@ -211,9 +209,13 @@ def is_model_pricing_known(model: str) -> bool:
 _custom_cost_models: dict[str, dict[str, float]] = {}
 
 
-def register_cost_model(model_name: str, input_cost: float, output_cost: float,
-                        cache_write: float | None = None,
-                        cache_read: float | None = None) -> None:
+def register_cost_model(
+    model_name: str,
+    input_cost: float,
+    output_cost: float,
+    cache_write: float | None = None,
+    cache_read: float | None = None,
+) -> None:
     """Register a custom cost model (per 1M tokens).
 
     Custom models take precedence over built-in pricing. Useful for:
@@ -322,9 +324,7 @@ def calculate_cost_with_cache(
         f"Use register_cost_model() to set accurate pricing.",
         stacklevel=2,
     )
-    total_tokens = (
-        input_tokens + output_tokens + cache_creation_tokens + cache_read_tokens
-    )
+    total_tokens = input_tokens + output_tokens + cache_creation_tokens + cache_read_tokens
     return total_tokens / 1_000_000 * 1.0
 
 

@@ -250,9 +250,7 @@ EDGE_CONDITIONS: dict[str, EdgeCondition] = {
 # ---------------------------------------------------------------------------
 
 
-def _call_generator(
-    generator_name: str, rng: random.Random | None = None
-) -> str:
+def _call_generator(generator_name: str, rng: random.Random | None = None) -> str:
     """Call a generator function by name, passing rng if accepted."""
     fn = _GENERATORS[generator_name]
     # Only generate_null_like uses rng
@@ -301,8 +299,12 @@ def generate_conditional_inputs(
                 combined = config.base_text + " " + combined
             # Use the higher severity
             severity_order = ["low", "medium", "high", "critical"]
-            sev_a = severity_order.index(cond_a.severity) if cond_a.severity in severity_order else 1
-            sev_b = severity_order.index(cond_b.severity) if cond_b.severity in severity_order else 1
+            sev_a = (
+                severity_order.index(cond_a.severity) if cond_a.severity in severity_order else 1
+            )
+            sev_b = (
+                severity_order.index(cond_b.severity) if cond_b.severity in severity_order else 1
+            )
             max_sev = severity_order[max(sev_a, sev_b)]
             results.append(
                 ConditionalInput(
@@ -347,9 +349,7 @@ def format_conditional_report(inputs: list[ConditionalInput]) -> str:
         lines.append("")
 
     # Count combinatorial
-    combo_count = sum(
-        1 for inp in inputs if "combinatorial" in inp.tags
-    )
+    combo_count = sum(1 for inp in inputs if "combinatorial" in inp.tags)
     if combo_count:
         lines.append(f"Combinatorial inputs: {combo_count}")
         lines.append("")

@@ -138,10 +138,12 @@ def _apply_config_defaults(args: argparse.Namespace, config: dict) -> None:
         ("verbose", "pipeline", "verbose", False),
     ]
 
-    for attr, section, key, fallback in defaults:
+    for attr, section_name, key, fallback in defaults:
         if not getattr(args, attr, None):
             setattr(
-                args, attr, get_config_default(config, section, key, default=fallback)
+                args,
+                attr,
+                get_config_default(config, section_name, key, default=fallback),
             )
 
     # Handle defaults with special conditions (argparse defaults are None)
@@ -224,9 +226,7 @@ def _create_output_dir(args: argparse.Namespace) -> Path:
     else:
         version_str = f"-{args.version}" if args.version else ""
         project_root = find_project_root()
-        output_dir = (
-            project_root / "data" / f"{args.project}{version_str}-{timestamp}-oneclick"
-        )
+        output_dir = project_root / "data" / f"{args.project}{version_str}-{timestamp}-oneclick"
     return output_dir
 
 
@@ -283,15 +283,16 @@ def cmd_workflow(args: argparse.Namespace) -> None:
             projects = set()
             for call in calls:
                 if isinstance(call.metadata, dict):
-                    proj = call.metadata.get("project_id") or call.metadata.get(
-                        "project"
-                    )
+                    proj = call.metadata.get("project_id") or call.metadata.get("project")
                     if proj:
                         projects.add(proj)
             if projects:
                 print(f"  You have traces for: {', '.join(sorted(projects))}")
                 next_steps.append(
-                    (f"evalyn build-dataset --project {sorted(projects)[0]}", "Build dataset from traces")
+                    (
+                        f"evalyn build-dataset --project {sorted(projects)[0]}",
+                        "Build dataset from traces",
+                    )
                 )
             else:
                 next_steps.append(("evalyn build-dataset", "Build dataset from traces"))
@@ -326,9 +327,7 @@ def register_commands(subparsers) -> None:
         default=None,
         help="Directory to create config in (default: current directory)",
     )
-    init_parser.add_argument(
-        "--force", action="store_true", help="Overwrite existing config file"
-    )
+    init_parser.add_argument("--force", action="store_true", help="Overwrite existing config file")
     init_parser.set_defaults(func=cmd_init)
 
     # one-click
@@ -336,16 +335,12 @@ def register_commands(subparsers) -> None:
         "one-click",
         help="Run complete evaluation pipeline (dataset -> metrics -> eval -> annotate -> calibrate)",
     )
-    oneclick_parser.add_argument(
-        "--project", required=True, help="Project name to filter traces"
-    )
+    oneclick_parser.add_argument("--project", required=True, help="Project name to filter traces")
     oneclick_parser.add_argument(
         "--target",
         help="Target function (file.py:func or module:func). Optional - if not provided, uses existing trace outputs",
     )
-    oneclick_parser.add_argument(
-        "--version", help="Version filter (default: all versions)"
-    )
+    oneclick_parser.add_argument("--version", help="Version filter (default: all versions)")
     oneclick_parser.add_argument(
         "--production-only", action="store_true", help="Use only production traces"
     )
@@ -366,12 +361,8 @@ def register_commands(subparsers) -> None:
         default=None,
         help=f"Max dataset items (default: {_DEFAULT_DATASET_LIMIT})",
     )
-    oneclick_parser.add_argument(
-        "--since", help="Filter traces since date (ISO format)"
-    )
-    oneclick_parser.add_argument(
-        "--until", help="Filter traces until date (ISO format)"
-    )
+    oneclick_parser.add_argument("--since", help="Filter traces since date (ISO format)")
+    oneclick_parser.add_argument("--until", help="Filter traces until date (ISO format)")
     oneclick_parser.add_argument(
         "--metric-mode",
         choices=["basic", "llm-registry", "llm-brainstorm", "bundle", "all"],

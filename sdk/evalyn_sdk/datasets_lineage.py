@@ -140,9 +140,7 @@ def record_lineage(
     )
 
 
-def build_lineage_chain(
-    item_id: str, records: list[LineageRecord]
-) -> LineageChain:
+def build_lineage_chain(item_id: str, records: list[LineageRecord]) -> LineageChain:
     """Follow parent_item_id chain to build full lineage for an item."""
     by_item: dict[str, LineageRecord] = {}
     for rec in records:
@@ -182,9 +180,7 @@ def build_lineage_report(records: list[LineageRecord]) -> LineageReport:
     )
 
 
-def find_orphaned_items(
-    item_ids: list[str], records: list[LineageRecord]
-) -> list[str]:
+def find_orphaned_items(item_ids: list[str], records: list[LineageRecord]) -> list[str]:
     """Return item IDs that have no lineage records."""
     recorded = {rec.item_id for rec in records}
     return sorted(iid for iid in item_ids if iid not in recorded)

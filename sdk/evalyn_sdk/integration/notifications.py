@@ -23,9 +23,7 @@ class NotificationConfig:
     platform: str = "slack"  # "slack", "discord", "generic"
     webhook_url: str = ""
     channel: str = ""
-    events: list[str] = field(
-        default_factory=lambda: ["completion", "failure", "regression"]
-    )
+    events: list[str] = field(default_factory=lambda: ["completion", "failure", "regression"])
     mention_on_failure: str = ""
 
     def as_dict(self) -> dict[str, Any]:
@@ -89,12 +87,6 @@ class NotificationResult:
 # ---------------------------------------------------------------------------
 # Message Builders
 # ---------------------------------------------------------------------------
-
-_SEVERITY_MAP = {
-    "info": "info",
-    "warning": "warning",
-    "error": "error",
-}
 
 
 def _now_iso() -> str:
@@ -223,9 +215,7 @@ def format_slack_payload(
     if message.fields:
         field_elements = []
         for key, value in message.fields.items():
-            field_elements.append(
-                {"type": "mrkdwn", "text": f"*{key}:* {value}"}
-            )
+            field_elements.append({"type": "mrkdwn", "text": f"*{key}:* {value}"})
         blocks.append({"type": "section", "fields": field_elements})
 
     if config.mention_on_failure and message.severity == "error":

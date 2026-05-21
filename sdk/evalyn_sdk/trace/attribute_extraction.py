@@ -67,12 +67,20 @@ class TokenExtractor:
         total_tokens = self._find(span, self._TOTAL_KEYS)
 
         if input_tokens is not None:
-            attrs.append(ExtractedAttribute(key="input_tokens", value=input_tokens, source="TokenExtractor"))
+            attrs.append(
+                ExtractedAttribute(key="input_tokens", value=input_tokens, source="TokenExtractor")
+            )
         if output_tokens is not None:
-            attrs.append(ExtractedAttribute(key="output_tokens", value=output_tokens, source="TokenExtractor"))
+            attrs.append(
+                ExtractedAttribute(
+                    key="output_tokens", value=output_tokens, source="TokenExtractor"
+                )
+            )
 
         if total_tokens is not None:
-            attrs.append(ExtractedAttribute(key="total_tokens", value=total_tokens, source="TokenExtractor"))
+            attrs.append(
+                ExtractedAttribute(key="total_tokens", value=total_tokens, source="TokenExtractor")
+            )
         elif input_tokens is not None and output_tokens is not None:
             attrs.append(
                 ExtractedAttribute(
@@ -106,8 +114,12 @@ class CostExtractor:
             return [ExtractedAttribute(key="cost", value=cost, source="CostExtractor")]
 
         # Estimate from tokens
-        input_tokens = span.attributes.get("input_tokens") or span.attributes.get("prompt_tokens") or 0
-        output_tokens = span.attributes.get("output_tokens") or span.attributes.get("completion_tokens") or 0
+        input_tokens = (
+            span.attributes.get("input_tokens") or span.attributes.get("prompt_tokens") or 0
+        )
+        output_tokens = (
+            span.attributes.get("output_tokens") or span.attributes.get("completion_tokens") or 0
+        )
 
         if input_tokens or output_tokens:
             estimated = (

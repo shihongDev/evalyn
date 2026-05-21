@@ -21,6 +21,10 @@ def _extract_code_meta(tracer: EvalTracer, fn: Callable[..., Any]) -> dict | Non
     """
     meta = getattr(tracer, "_function_meta_cache", {}).get(id(fn))  # type: ignore[attr-defined]
     if meta:
+        # Hydrate deferred source-reading fields the first time a consumer asks.
+        hydrate = getattr(tracer, "_hydrate_function_meta", None)
+        if callable(hydrate) and not meta.get("_hydrated", True):
+            meta = hydrate(fn)
         return meta
     try:
         source = inspect.getsource(fn)
@@ -60,9 +64,7 @@ def _resolve_dataset_and_metrics(
         if not dataset_file.exists():
             dataset_file = dataset_dir / "dataset.json"
         if not dataset_file.exists():
-            raise FileNotFoundError(
-                f"No dataset.jsonl or dataset.json found in {dataset_dir}"
-            )
+            raise FileNotFoundError(f"No dataset.jsonl or dataset.json found in {dataset_dir}")
     else:
         dataset_file = dataset_path
         dataset_dir = dataset_path.parent
@@ -117,9 +119,7 @@ def _resolve_dataset_and_metrics(
     metric_sets = meta.get("metric_sets", [])
     matching = [m for m in metric_sets if m.get("name") == active_set]
     if not matching:
-        raise ValueError(
-            f"Metric set '{active_set}' not found in meta.json metric_sets."
-        )
+        raise ValueError(f"Metric set '{active_set}' not found in meta.json metric_sets.")
 
     metrics_rel = matching[0].get("file")
     if not metrics_rel:
@@ -173,9 +173,7 @@ def _dataset_has_reference(dataset_path: Path | None) -> bool:
         for item in items:
             # Check for human_label with reference (this is the clear signal)
             if hasattr(item, "human_label") and item.human_label:
-                if isinstance(item.human_label, dict) and item.human_label.get(
-                    "reference"
-                ):
+                if isinstance(item.human_label, dict) and item.human_label.get("reference"):
                     return True
 
             # Check metadata for explicit reference/golden fields

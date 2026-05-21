@@ -284,9 +284,7 @@ def check_completeness(text: str, min_length: int = 50) -> ReferenceFreeScore:
     )
 
 
-def evaluate_reference_free(
-    text: str, min_length: int = 50
-) -> ReferenceFreeReport:
+def evaluate_reference_free(text: str, min_length: int = 50) -> ReferenceFreeReport:
     """Run all reference-free checks and compute overall average."""
     scores = [
         check_fluency(text),

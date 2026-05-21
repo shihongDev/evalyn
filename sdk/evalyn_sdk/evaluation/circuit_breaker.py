@@ -173,9 +173,7 @@ class CircuitBreaker:
         return self._state == "half_open"
 
 
-def create_circuit_breaker(
-    provider: str, failure_threshold: int = 5
-) -> CircuitBreaker:
+def create_circuit_breaker(provider: str, failure_threshold: int = 5) -> CircuitBreaker:
     """Factory: create a circuit breaker with a given failure threshold."""
     config = CircuitBreakerConfig(failure_threshold=failure_threshold)
     return CircuitBreaker(provider, config)

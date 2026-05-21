@@ -93,9 +93,7 @@ class PipelineDefinition:
         for step in self.steps:
             for dep in step.depends_on:
                 if dep not in names:
-                    errors.append(
-                        f"Step '{step.name}' depends on unknown step '{dep}'"
-                    )
+                    errors.append(f"Step '{step.name}' depends on unknown step '{dep}'")
 
         # Check circular dependencies via topological sort attempt
         in_degree: dict[str, int] = {s.name: 0 for s in self.steps}

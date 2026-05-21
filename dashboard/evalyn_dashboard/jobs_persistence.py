@@ -41,6 +41,7 @@ import os
 import sqlite3
 import time
 from pathlib import Path
+from typing import ClassVar
 
 logger = logging.getLogger(__name__)
 
@@ -56,6 +57,7 @@ def _resolve_default_path() -> Path:
     if override:
         return Path(override)
     return DEFAULT_DB_PATH
+
 
 _SCHEMA = """
 CREATE TABLE IF NOT EXISTS jobs (
@@ -74,10 +76,7 @@ CREATE TABLE IF NOT EXISTS jobs (
 );
 """
 
-_INDEX = (
-    "CREATE INDEX IF NOT EXISTS idx_jobs_started_at "
-    "ON jobs(started_at_iso DESC);"
-)
+_INDEX = "CREATE INDEX IF NOT EXISTS idx_jobs_started_at ON jobs(started_at_iso DESC);"
 
 # Composite indexes for the most common filtered+ordered queries on
 # list_recent. Without these, a "?cli_id=run-eval" filter on a table
@@ -90,10 +89,8 @@ _INDEX = (
 # useful for unfiltered list_recent calls and for ?since/?before-only
 # windowed queries.
 _COMPOSITE_INDEXES = (
-    "CREATE INDEX IF NOT EXISTS idx_jobs_cli_id_started_at "
-    "ON jobs(cli_id, started_at_iso DESC);",
-    "CREATE INDEX IF NOT EXISTS idx_jobs_status_started_at "
-    "ON jobs(status, started_at_iso DESC);",
+    "CREATE INDEX IF NOT EXISTS idx_jobs_cli_id_started_at ON jobs(cli_id, started_at_iso DESC);",
+    "CREATE INDEX IF NOT EXISTS idx_jobs_status_started_at ON jobs(status, started_at_iso DESC);",
 )
 
 # Forward migrations for installations whose jobs.sqlite predates a
@@ -176,9 +173,7 @@ class JobPersistence:
                     try:
                         conn.execute(idx_stmt)
                     except sqlite3.OperationalError as exc:
-                        logger.warning(
-                            "JobPersistence index creation failed: %s", exc
-                        )
+                        logger.warning("JobPersistence index creation failed: %s", exc)
                 # Forward migrations for older installations. Each ALTER
                 # is wrapped in its own try/except so a "duplicate column
                 # name" error (already migrated) is silently ignored, and
@@ -191,9 +186,7 @@ class JobPersistence:
                     except sqlite3.OperationalError as exc:
                         msg = str(exc).lower()
                         if "duplicate column name" not in msg:
-                            logger.warning(
-                                "JobPersistence migration skipped (%s): %s", exc, stmt
-                            )
+                            logger.warning("JobPersistence migration skipped (%s): %s", exc, stmt)
                 # WAL gives better concurrent read behaviour. Set once.
                 try:
                     conn.execute("PRAGMA journal_mode=WAL;")
@@ -322,6 +315,15 @@ class JobPersistence:
         except (OSError, sqlite3.Error) as exc:
             logger.warning("JobPersistence patch_status(%s) failed: %s", job_id, exc)
 
+    # Explicit allowlist for `append_output`'s `kind` -> column mapping.
+    # Using a literal dict keeps the SQL identifier interpolation safe
+    # even if a future caller passes an unexpected value: unknown kinds
+    # raise rather than silently default to stderr_tail.
+    _OUTPUT_COLUMNS: ClassVar[dict[str, str]] = {
+        "stdout": "stdout_tail",
+        "stderr": "stderr_tail",
+    }
+
     def append_output(self, job_id: str, kind: str, line: str) -> None:
         """Append a line to stdout_tail or stderr_tail, rolling at the cap.
 
@@ -330,7 +332,12 @@ class JobPersistence:
         """
         if not self._ensure_schema():
             return
-        column = "stdout_tail" if kind == "stdout" else "stderr_tail"
+        try:
+            column = self._OUTPUT_COLUMNS[kind]
+        except KeyError as exc:
+            raise ValueError(
+                f"append_output: kind must be one of {sorted(self._OUTPUT_COLUMNS)}, got {kind!r}"
+            ) from exc
         try:
             with self._connect() as conn:
                 row = conn.execute(
@@ -350,9 +357,7 @@ class JobPersistence:
         except (OSError, sqlite3.Error) as exc:
             logger.warning("JobPersistence append_output(%s) failed: %s", job_id, exc)
 
-    def set_output_tails(
-        self, job_id: str, stdout_tail: str, stderr_tail: str
-    ) -> None:
+    def set_output_tails(self, job_id: str, stdout_tail: str, stderr_tail: str) -> None:
         """Set the full output tails in one write (used at terminal status).
 
         Each stream is truncated to ``MAX_PERSISTED_OUTPUT`` chars (last N).
@@ -382,9 +387,7 @@ class JobPersistence:
             return None
         try:
             with self._connect() as conn:
-                row = conn.execute(
-                    "SELECT * FROM jobs WHERE job_id=?", (job_id,)
-                ).fetchone()
+                row = conn.execute("SELECT * FROM jobs WHERE job_id=?", (job_id,)).fetchone()
         except (OSError, sqlite3.Error) as exc:
             logger.warning("JobPersistence get(%s) failed: %s", job_id, exc)
             return None
@@ -506,27 +509,26 @@ class JobPersistence:
         try:
             from datetime import datetime, timedelta, timezone
 
-            cutoff = datetime.now(timezone.utc) - timedelta(
-                seconds=recent_failure_window_seconds
-            )
+            cutoff = datetime.now(timezone.utc) - timedelta(seconds=recent_failure_window_seconds)
             cutoff_iso = cutoff.isoformat()
             with self._connect() as conn:
-                total = conn.execute(
-                    "SELECT COUNT(*) FROM jobs"
-                ).fetchone()[0] or 0
+                total = conn.execute("SELECT COUNT(*) FROM jobs").fetchone()[0] or 0
                 by_status: dict[str, int] = {}
                 for row in conn.execute(
                     "SELECT status, COUNT(*) FROM jobs GROUP BY status"
                 ).fetchall():
                     by_status[row[0]] = row[1]
-                total_stderr = conn.execute(
-                    "SELECT COALESCE(SUM(stderr_count), 0) FROM jobs"
-                ).fetchone()[0] or 0
-                recent_failures = conn.execute(
-                    "SELECT COUNT(*) FROM jobs "
-                    "WHERE status=? AND started_at_iso > ?",
-                    ("failed", cutoff_iso),
-                ).fetchone()[0] or 0
+                total_stderr = (
+                    conn.execute("SELECT COALESCE(SUM(stderr_count), 0) FROM jobs").fetchone()[0]
+                    or 0
+                )
+                recent_failures = (
+                    conn.execute(
+                        "SELECT COUNT(*) FROM jobs WHERE status=? AND started_at_iso > ?",
+                        ("failed", cutoff_iso),
+                    ).fetchone()[0]
+                    or 0
+                )
             result = {
                 "total": int(total),
                 "by_status": by_status,

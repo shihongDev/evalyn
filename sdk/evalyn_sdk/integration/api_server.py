@@ -229,9 +229,7 @@ def create_default_router() -> APIRouter:
     router = APIRouter()
     router.register("GET", "/health", health_handler, description="Health check")
     router.register("GET", "/runs", _runs_handler, description="List eval runs")
-    router.register(
-        "GET", "/runs/{id}", _run_detail_handler, description="Get eval run by id"
-    )
+    router.register("GET", "/runs/{id}", _run_detail_handler, description="Get eval run by id")
     router.register("POST", "/evaluate", _evaluate_handler, description="Start evaluation")
     router.register("GET", "/metrics", _metrics_handler, description="List metrics")
     return router

@@ -94,9 +94,7 @@ class ClassificationReport:
             f"Trace Classification: {self.classified}/{self.trace_count} "
             f"classified ({self.coverage_rate:.0%})"
         ]
-        for name, count in sorted(
-            self.pattern_counts.items(), key=lambda x: x[1], reverse=True
-        ):
+        for name, count in sorted(self.pattern_counts.items(), key=lambda x: x[1], reverse=True):
             lines.append(f"  {name}: {count}")
         if self.unclassified > 0:
             lines.append(f"  (unclassified): {self.unclassified}")
@@ -248,6 +246,6 @@ def _contiguous_match(
     """Find pattern as a contiguous substring in types."""
     plen = len(pattern)
     for i in range(len(types) - plen + 1):
-        if types[i:i + plen] == pattern:
+        if types[i : i + plen] == pattern:
             return list(range(i, i + plen))
     return None

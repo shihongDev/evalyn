@@ -52,17 +52,23 @@ class AutoCompareResult:
 
         lines = [f"Auto-compare vs baseline {self.baseline_run_id[:8]}:"]
         lines.append(f"  Status: {self.status}")
-        lines.append(f"  Overall delta: {'+' if self.overall_delta >= 0 else ''}{self.overall_delta*100:.1f}%")
+        lines.append(
+            f"  Overall delta: {'+' if self.overall_delta >= 0 else ''}{self.overall_delta * 100:.1f}%"
+        )
 
         if self.regressions:
             lines.append(f"  Regressions ({len(self.regressions)}):")
             for r in self.regressions[:5]:
-                lines.append(f"    {r['metric_id']}: {r['baseline_rate']*100:.0f}% -> {r['current_rate']*100:.0f}% ({r['delta']*100:+.1f}%)")
+                lines.append(
+                    f"    {r['metric_id']}: {r['baseline_rate'] * 100:.0f}% -> {r['current_rate'] * 100:.0f}% ({r['delta'] * 100:+.1f}%)"
+                )
 
         if self.improvements:
             lines.append(f"  Improvements ({len(self.improvements)}):")
             for imp in self.improvements[:5]:
-                lines.append(f"    {imp['metric_id']}: {imp['baseline_rate']*100:.0f}% -> {imp['current_rate']*100:.0f}% ({imp['delta']*100:+.1f}%)")
+                lines.append(
+                    f"    {imp['metric_id']}: {imp['baseline_rate'] * 100:.0f}% -> {imp['current_rate'] * 100:.0f}% ({imp['delta'] * 100:+.1f}%)"
+                )
 
         return "\n".join(lines)
 

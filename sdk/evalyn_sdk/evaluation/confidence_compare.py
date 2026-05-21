@@ -55,7 +55,8 @@ class MethodCalibration:
     def from_dict(cls, data: dict[str, Any]) -> MethodCalibration:
         bins = [
             CalibrationBin(
-                bin_start=b["bin_start"], bin_end=b["bin_end"],
+                bin_start=b["bin_start"],
+                bin_end=b["bin_end"],
                 mean_confidence=b["mean_confidence"],
                 actual_accuracy=b["actual_accuracy"],
                 count=b["count"],
@@ -107,9 +108,7 @@ class ComparisonReport:
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> ComparisonReport:
-        calibrations = [
-            MethodCalibration.from_dict(m) for m in data.get("methods", [])
-        ]
+        calibrations = [MethodCalibration.from_dict(m) for m in data.get("methods", [])]
         return cls(
             calibrations=calibrations,
             recommended_method=data.get("recommended_method", ""),
@@ -167,13 +166,15 @@ def compute_calibration(
         accuracy = sum(1 for _, c in in_bin if c) / len(in_bin)
         bin_count = len(in_bin)
 
-        bins.append(CalibrationBin(
-            bin_start=bin_start,
-            bin_end=bin_end,
-            mean_confidence=mean_conf,
-            actual_accuracy=accuracy,
-            count=bin_count,
-        ))
+        bins.append(
+            CalibrationBin(
+                bin_start=bin_start,
+                bin_end=bin_end,
+                mean_confidence=mean_conf,
+                actual_accuracy=accuracy,
+                count=bin_count,
+            )
+        )
 
         # Calibration error for this bin
         ce = abs(mean_conf - accuracy)
@@ -181,8 +182,7 @@ def compute_calibration(
         max_ce = max(max_ce, ce)
 
     # Brier score
-    brier = sum((conf - (1.0 if correct else 0.0)) ** 2
-                for conf, correct in predictions) / n
+    brier = sum((conf - (1.0 if correct else 0.0)) ** 2 for conf, correct in predictions) / n
 
     return MethodCalibration(
         method=method,

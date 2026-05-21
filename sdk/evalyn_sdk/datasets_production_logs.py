@@ -221,9 +221,7 @@ def import_from_logs(
             continue
 
         input_text, output_text = extract_llm_content(entry)
-        item_id = hashlib.sha256(
-            f"{entry.timestamp}:{entry.url}:{i}".encode()
-        ).hexdigest()[:16]
+        item_id = hashlib.sha256(f"{entry.timestamp}:{entry.url}:{i}".encode()).hexdigest()[:16]
 
         result.items.append(
             ImportedLogItem(
@@ -273,8 +271,6 @@ def detect_log_format(sample: str) -> str:
     return "text"
 
 
-def filter_logs_by_endpoint(
-    logs: list[LogEntry], url_pattern: str
-) -> list[LogEntry]:
+def filter_logs_by_endpoint(logs: list[LogEntry], url_pattern: str) -> list[LogEntry]:
     """Filter log entries by URL substring match."""
     return [log for log in logs if url_pattern in log.url]

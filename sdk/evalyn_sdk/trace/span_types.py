@@ -32,25 +32,32 @@ class SpanTypeInfo:
 
 _BUILTIN_TYPES: dict[str, SpanTypeInfo] = {
     "llm_call": SpanTypeInfo(
-        name="llm_call", description="LLM API call",
+        name="llm_call",
+        description="LLM API call",
     ),
     "tool_call": SpanTypeInfo(
-        name="tool_call", description="Tool/function call",
+        name="tool_call",
+        description="Tool/function call",
     ),
     "retrieval": SpanTypeInfo(
-        name="retrieval", description="RAG retrieval",
+        name="retrieval",
+        description="RAG retrieval",
     ),
     "node": SpanTypeInfo(
-        name="node", description="Graph node execution",
+        name="node",
+        description="Graph node execution",
     ),
     "agent": SpanTypeInfo(
-        name="agent", description="Agent execution",
+        name="agent",
+        description="Agent execution",
     ),
     "custom": SpanTypeInfo(
-        name="custom", description="User-defined span",
+        name="custom",
+        description="User-defined span",
     ),
     "scorer": SpanTypeInfo(
-        name="scorer", description="Metric evaluation",
+        name="scorer",
+        description="Metric evaluation",
     ),
 }
 

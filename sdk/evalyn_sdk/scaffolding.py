@@ -126,6 +126,7 @@ _TEMPLATES: dict[str, ProjectTemplate] = {
 
 # -- Public functions ----------------------------------------------------------
 
+
 def get_template(name: str) -> ProjectTemplate:
     """Look up a built-in template by name. Raises KeyError if not found."""
     if name not in _TEMPLATES:
@@ -166,6 +167,7 @@ def plan_scaffold(config: ScaffoldConfig) -> ScaffoldResult:
     template = get_template(config.template)
 
     import os
+
     project_path = os.path.join(config.output_dir, config.project_name)
 
     # Collect directories

@@ -82,9 +82,7 @@ class AnomalyReport:
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> AnomalyReport:
         return cls(
-            anomalies=[
-                AnomalyPoint(**a) for a in data.get("anomalies", [])
-            ],
+            anomalies=[AnomalyPoint(**a) for a in data.get("anomalies", [])],
             total_points=data.get("total_points", 0),
             anomaly_count=data.get("anomaly_count", 0),
             anomaly_rate=data.get("anomaly_rate", 0.0),
@@ -171,13 +169,15 @@ def detect_anomalies(
         start = max(0, i - config.window_size)
         window = values[start:i]
         expected = sum(window) / len(window) if window else val
-        points.append(AnomalyPoint(
-            index=i,
-            value=val,
-            expected=expected,
-            z_score=z,
-            is_anomaly=abs(z) > config.z_threshold,
-        ))
+        points.append(
+            AnomalyPoint(
+                index=i,
+                value=val,
+                expected=expected,
+                z_score=z,
+                is_anomaly=abs(z) > config.z_threshold,
+            )
+        )
     return points
 
 
@@ -209,9 +209,7 @@ def detect_trend_break(values: list[float], window_size: int = 5) -> int | None:
     return None
 
 
-def detect_sudden_drop(
-    values: list[float], threshold_pct: float = 0.2
-) -> list[int]:
+def detect_sudden_drop(values: list[float], threshold_pct: float = 0.2) -> list[int]:
     """Find indices where value drops > threshold% from previous.
 
     A drop is defined as (previous - current) / |previous| > threshold_pct,

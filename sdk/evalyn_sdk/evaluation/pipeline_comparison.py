@@ -86,9 +86,7 @@ class PipelineComparisonReport:
     def from_dict(cls, data: dict) -> PipelineComparisonReport:
         run_a = RunSummary.from_dict(data["run_a"])
         run_b = RunSummary.from_dict(data["run_b"])
-        metric_deltas = [
-            MetricDelta(**d) for d in data.get("metric_deltas", [])
-        ]
+        metric_deltas = [MetricDelta(**d) for d in data.get("metric_deltas", [])]
         return cls(
             run_a=run_a,
             run_b=run_b,
@@ -134,13 +132,9 @@ def compute_metric_deltas(
     return deltas
 
 
-def compare_runs(
-    run_a: RunSummary, run_b: RunSummary
-) -> PipelineComparisonReport:
+def compare_runs(run_a: RunSummary, run_b: RunSummary) -> PipelineComparisonReport:
     """Compare two pipeline runs and produce a full report."""
-    metric_deltas = compute_metric_deltas(
-        run_a.metrics_scores, run_b.metrics_scores
-    )
+    metric_deltas = compute_metric_deltas(run_a.metrics_scores, run_b.metrics_scores)
     pass_rate_delta = run_b.pass_rate - run_a.pass_rate
     cost_delta = run_b.total_cost_usd - run_a.total_cost_usd
     duration_delta = run_b.duration_ms - run_a.duration_ms
@@ -156,9 +150,7 @@ def compare_runs(
     )
 
 
-def is_regression(
-    report: PipelineComparisonReport, threshold: float = 0.05
-) -> bool:
+def is_regression(report: PipelineComparisonReport, threshold: float = 0.05) -> bool:
     """Return True if pass rate dropped more than threshold."""
     return report.pass_rate_delta < -threshold
 

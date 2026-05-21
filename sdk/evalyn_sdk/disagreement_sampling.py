@@ -88,9 +88,7 @@ class DisagreementResult:
     def from_dict(cls, data: dict[str, Any]) -> DisagreementResult:
         return cls(
             selected_ids=data.get("selected_ids", []),
-            scores=[
-                DisagreementScore.from_dict(s) for s in data.get("scores", [])
-            ],
+            scores=[DisagreementScore.from_dict(s) for s in data.get("scores", [])],
             mean_disagreement=data.get("mean_disagreement", 0.0),
             total_pool=data.get("total_pool", 0),
         )
@@ -240,9 +238,7 @@ def run_disagreement_sampling(
 
     selected = sample_by_disagreement(scores, config.sample_size, config.seed)
 
-    mean_d = (
-        sum(s.score for s in scores) / len(scores) if scores else 0.0
-    )
+    mean_d = sum(s.score for s in scores) / len(scores) if scores else 0.0
 
     return DisagreementResult(
         selected_ids=selected,

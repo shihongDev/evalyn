@@ -64,15 +64,11 @@ class CalibrationMemoryStore:
 
     def get_failed_approaches(self, metric_id: str) -> list[CalibrationAttempt]:
         """Get failed attempts for a metric."""
-        return [
-            a for a in self.attempts if a.metric_id == metric_id and not a.success
-        ]
+        return [a for a in self.attempts if a.metric_id == metric_id and not a.success]
 
     def get_successful_approaches(self, metric_id: str) -> list[CalibrationAttempt]:
         """Get successful attempts for a metric."""
-        return [
-            a for a in self.attempts if a.metric_id == metric_id and a.success
-        ]
+        return [a for a in self.attempts if a.metric_id == metric_id and a.success]
 
     def get_best_approach(self, metric_id: str) -> CalibrationAttempt | None:
         """Return the highest-scoring successful attempt for a metric."""
@@ -83,17 +79,13 @@ class CalibrationMemoryStore:
 
     def has_been_tried(self, metric_id: str, optimizer: str) -> bool:
         """Check if a given optimizer was tried for a metric."""
-        return any(
-            a.metric_id == metric_id and a.optimizer == optimizer
-            for a in self.attempts
-        )
+        return any(a.metric_id == metric_id and a.optimizer == optimizer for a in self.attempts)
 
-    def suggest_next_optimizer(
-        self, metric_id: str, all_optimizers: list[str]
-    ) -> str | None:
+    def suggest_next_optimizer(self, metric_id: str, all_optimizers: list[str]) -> str | None:
         """Return the first untried optimizer for a metric, or None."""
+        tried = {a.optimizer for a in self.attempts if a.metric_id == metric_id}
         for opt in all_optimizers:
-            if not self.has_been_tried(metric_id, opt):
+            if opt not in tried:
                 return opt
         return None
 
@@ -110,9 +102,7 @@ class CalibrationMemoryStore:
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> CalibrationMemoryStore:
         return cls(
-            attempts=[
-                CalibrationAttempt.from_dict(a) for a in data.get("attempts", [])
-            ],
+            attempts=[CalibrationAttempt.from_dict(a) for a in data.get("attempts", [])],
         )
 
     def to_json(self) -> str:

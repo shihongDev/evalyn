@@ -83,9 +83,7 @@ class DecontaminationReport:
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> DecontaminationReport:
         return cls(
-            matches=[
-                ContaminationMatch(**m) for m in data.get("matches", [])
-            ],
+            matches=[ContaminationMatch(**m) for m in data.get("matches", [])],
             clean_count=data.get("clean_count", 0),
             contaminated_count=data.get("contaminated_count", 0),
             contamination_rate=data.get("contamination_rate", 0.0),
@@ -102,15 +100,12 @@ class DecontaminationReport:
             f"Rate: {self.contamination_rate:.1%}"
         )
         if self.benchmarks_checked:
-            lines.append(
-                f"  Benchmarks: {', '.join(self.benchmarks_checked)}"
-            )
+            lines.append(f"  Benchmarks: {', '.join(self.benchmarks_checked)}")
         if self.matches:
             lines.append(f"  Matches ({len(self.matches)}):")
             for m in self.matches:
                 lines.append(
-                    f"    - {m.item_id}: {m.benchmark_name} "
-                    f"(similarity={m.similarity:.2f})"
+                    f"    - {m.item_id}: {m.benchmark_name} (similarity={m.similarity:.2f})"
                 )
         return "\n".join(lines)
 
@@ -206,17 +201,13 @@ def decontaminate_dataset(
 
         for bench_name, bench_texts in benchmarks.items():
             for text in texts_to_check:
-                matches = check_contamination(
-                    text, bench_texts, bench_name, config
-                )
+                matches = check_contamination(text, bench_texts, bench_name, config)
                 for m in matches:
                     m.item_id = str(item_id)
                     all_matches.append(m)
                     contaminated_indices.add(i)
 
-    clean_items = [
-        item for i, item in enumerate(items) if i not in contaminated_indices
-    ]
+    clean_items = [item for i, item in enumerate(items) if i not in contaminated_indices]
     total = len(items)
     contaminated_count = len(contaminated_indices)
     clean_count = total - contaminated_count
@@ -225,9 +216,7 @@ def decontaminate_dataset(
         matches=all_matches,
         clean_count=clean_count,
         contaminated_count=contaminated_count,
-        contamination_rate=(
-            contaminated_count / total if total > 0 else 0.0
-        ),
+        contamination_rate=(contaminated_count / total if total > 0 else 0.0),
         benchmarks_checked=sorted(benchmarks.keys()),
     )
     return clean_items, report

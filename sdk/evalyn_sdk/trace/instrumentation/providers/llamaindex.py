@@ -130,9 +130,7 @@ class EvalynLlamaIndexSpanHandler:
         )
 
         if tags:
-            span.attributes["llamaindex.tags"] = {
-                k: str(v)[:200] for k, v in tags.items()
-            }
+            span.attributes["llamaindex.tags"] = {k: str(v)[:200] for k, v in tags.items()}
 
         if instance:
             span.attributes["llamaindex.class"] = type(instance).__name__
@@ -263,9 +261,7 @@ class EvalynLlamaIndexEventHandler:
                 _format_llm_messages(messages),
             )
         if model_dict:
-            _set_current_span_attr(
-                "llamaindex.llm.model_config", str(model_dict)[:500]
-            )
+            _set_current_span_attr("llamaindex.llm.model_config", str(model_dict)[:500])
 
     def _handle_llm_chat_end(self, event: Any) -> None:
         response = getattr(event, "response", None)
@@ -276,9 +272,7 @@ class EvalynLlamaIndexEventHandler:
         if message:
             content = getattr(message, "content", None)
             if content:
-                _set_current_span_attr(
-                    "llamaindex.llm.response", str(content)[:1000]
-                )
+                _set_current_span_attr("llamaindex.llm.response", str(content)[:1000])
             role = getattr(message, "role", None)
             if role:
                 _set_current_span_attr("llamaindex.llm.response_role", str(role))
@@ -302,16 +296,12 @@ class EvalynLlamaIndexEventHandler:
         if response:
             text = getattr(response, "text", None)
             if text:
-                _set_current_span_attr(
-                    "llamaindex.llm.completion", str(text)[:1000]
-                )
+                _set_current_span_attr("llamaindex.llm.completion", str(text)[:1000])
 
     def _handle_llm_predict_start(self, event: Any) -> None:
         template = getattr(event, "template", None)
         if template:
-            _set_current_span_attr(
-                "llamaindex.llm.template", str(template)[:500]
-            )
+            _set_current_span_attr("llamaindex.llm.template", str(template)[:500])
 
     def _handle_llm_predict_end(self, event: Any) -> None:
         output = getattr(event, "output", None)
@@ -334,9 +324,7 @@ class EvalynLlamaIndexEventHandler:
     def _handle_embedding_start(self, event: Any) -> None:
         model_dict = getattr(event, "model_dict", None)
         if model_dict:
-            _set_current_span_attr(
-                "llamaindex.embedding.model", str(model_dict)[:200]
-            )
+            _set_current_span_attr("llamaindex.embedding.model", str(model_dict)[:200])
 
     def _handle_embedding_end(self, event: Any) -> None:
         chunks = getattr(event, "chunks", None)
@@ -350,9 +338,7 @@ class EvalynLlamaIndexEventHandler:
             tool_name = getattr(tool, "name", None) or str(tool)
             _set_current_span_attr("llamaindex.tool.name", str(tool_name))
         if arguments:
-            _set_current_span_attr(
-                "llamaindex.tool.arguments", str(arguments)[:500]
-            )
+            _set_current_span_attr("llamaindex.tool.arguments", str(arguments)[:500])
 
     def _handle_query_start(self, event: Any) -> None:
         query = getattr(event, "query", None)
@@ -363,6 +349,7 @@ class EvalynLlamaIndexEventHandler:
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def _infer_span_info(
     instance: Any | None,

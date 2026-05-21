@@ -177,9 +177,7 @@ def compare_all_providers(
     comparisons: list[ConsistencyResult] = []
     for i, pa in enumerate(providers):
         for pb in providers[i + 1 :]:
-            result = compute_provider_consistency(
-                provider_scores[pa], provider_scores[pb], pa, pb
-            )
+            result = compute_provider_consistency(provider_scores[pa], provider_scores[pb], pa, pb)
             comparisons.append(result)
 
     most_consistent: tuple[str, str] | None = None
@@ -210,7 +208,7 @@ def normalize_scores(scores: dict[str, float]) -> dict[str, float]:
     variance = sum((v - mean) ** 2 for v in vals) / n
     std = math.sqrt(variance) if variance > 0 else 0.0
     if std == 0:
-        return {k: 0.0 for k in scores}
+        return dict.fromkeys(scores, 0.0)
     return {k: (v - mean) / std for k, v in scores.items()}
 
 

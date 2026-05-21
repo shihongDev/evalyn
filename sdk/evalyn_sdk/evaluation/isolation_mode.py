@@ -122,9 +122,7 @@ class IsolationReport:
                 if r.timed_out:
                     status = "TIMEOUT"
                 score_str = f" score={r.score}" if r.score is not None else ""
-                lines.append(
-                    f"  [{status}] {r.metric_id}{score_str} ({r.duration_ms:.1f}ms)"
-                )
+                lines.append(f"  [{status}] {r.metric_id}{score_str} ({r.duration_ms:.1f}ms)")
                 if r.error:
                     lines.append(f"         error: {r.error}")
         return "\n".join(lines)

@@ -14,6 +14,8 @@
 
 """Academic_Research: Research advice, related literature finding, research area proposals, web knowledge access."""
 
+import os
+
 from google.adk.agents import LlmAgent
 from google.adk.tools.agent_tool import AgentTool
 
@@ -21,7 +23,12 @@ from . import prompt
 from .sub_agents.academic_newresearch import academic_newresearch_agent
 from .sub_agents.academic_websearch import academic_websearch_agent
 
-MODEL = "gemini-2.5-pro"
+# Demo-wide model default. Override with EVALYN_DEMO_MODEL or the
+# coordinator-specific EVALYN_DEMO_COORDINATOR_MODEL.
+MODEL = os.environ.get(
+    "EVALYN_DEMO_COORDINATOR_MODEL",
+    os.environ.get("EVALYN_DEMO_MODEL", "gemini-2.5-pro"),
+)
 
 
 academic_coordinator = LlmAgent(

@@ -161,9 +161,7 @@ def parse_json_response(text: str) -> ParseResult:
     return ParseResult(success=False, raw_text=text, error="no valid JSON found")
 
 
-def validate_against_schema(
-    data: dict[str, Any], schema: OutputSchema
-) -> tuple[bool, list[str]]:
+def validate_against_schema(data: dict[str, Any], schema: OutputSchema) -> tuple[bool, list[str]]:
     """Check required fields are present and types match.
 
     Returns (valid, error_messages).
@@ -199,9 +197,7 @@ def extract_score_from_text(text: str) -> float | None:
     return None
 
 
-def enforce_structured_output(
-    text: str, schema: OutputSchema | None = None
-) -> ParseResult:
+def enforce_structured_output(text: str, schema: OutputSchema | None = None) -> ParseResult:
     """Full pipeline: try JSON parse, validate schema, fallback to regex.
 
     1. Attempt to parse JSON from text.

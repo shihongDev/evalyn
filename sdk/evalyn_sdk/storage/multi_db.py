@@ -59,9 +59,7 @@ class MultiDBConfig:
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> MultiDBConfig:
-        sources = [
-            DatabaseSource.from_dict(s) for s in data.get("sources", [])
-        ]
+        sources = [DatabaseSource.from_dict(s) for s in data.get("sources", [])]
         return cls(
             sources=sources,
             default_source=data.get("default_source", ""),

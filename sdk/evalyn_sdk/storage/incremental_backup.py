@@ -140,9 +140,7 @@ def create_backup_path(config: BackupConfig, backup_id: str) -> str:
     return os.path.join(config.backup_dir, filename)
 
 
-def should_backup(
-    config: BackupConfig, last_backup_time: str | None = None
-) -> bool:
+def should_backup(config: BackupConfig, last_backup_time: str | None = None) -> bool:
     """Return True if enough time has passed since last backup.
 
     If last_backup_time is None, a backup is always needed.
@@ -215,9 +213,7 @@ def list_backups(backup_dir: str) -> list[BackupRecord]:
     return records
 
 
-def cleanup_old_backups(
-    records: list[BackupRecord], max_backups: int = 5
-) -> list[BackupRecord]:
+def cleanup_old_backups(records: list[BackupRecord], max_backups: int = 5) -> list[BackupRecord]:
     """Return records to keep (newest max_backups).
 
     Assumes records are ordered oldest-first. Keeps the last max_backups items.

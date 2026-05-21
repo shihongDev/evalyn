@@ -174,7 +174,5 @@ def format_timing_report(report: TimingReport) -> str:
         )
         lines.append(row)
     lines.append("-" * 72)
-    lines.append(
-        f"Total: {report.total_commands} commands, {report.total_time_seconds:.3f}s"
-    )
+    lines.append(f"Total: {report.total_commands} commands, {report.total_time_seconds:.3f}s")
     return "\n".join(lines)

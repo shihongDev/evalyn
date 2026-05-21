@@ -60,13 +60,15 @@ class WorstCaseReport:
     def from_dict(cls, data: dict[str, Any]) -> WorstCaseReport:
         items = []
         for item_data in data.get("items", []):
-            items.append(WorstCaseItem(
-                item_id=item_data["item_id"],
-                failed_metrics=item_data.get("failed_metrics", []),
-                total_metrics=item_data.get("total_metrics", 0),
-                failure_rate=item_data.get("failure_rate", 0.0),
-                avg_score=item_data.get("avg_score", 0.0),
-            ))
+            items.append(
+                WorstCaseItem(
+                    item_id=item_data["item_id"],
+                    failed_metrics=item_data.get("failed_metrics", []),
+                    total_metrics=item_data.get("total_metrics", 0),
+                    failure_rate=item_data.get("failure_rate", 0.0),
+                    avg_score=item_data.get("avg_score", 0.0),
+                )
+            )
         return cls(
             items=items,
             total_items=data.get("total_items", 0),
@@ -124,13 +126,15 @@ def analyze_item_failures(item_results: list[dict[str, Any]]) -> list[WorstCaseI
         total = len(metrics)
         failure_rate = len(failed) / total if total > 0 else 0.0
 
-        items.append(WorstCaseItem(
-            item_id=item_id,
-            failed_metrics=failed,
-            total_metrics=total,
-            failure_rate=failure_rate,
-            avg_score=avg_score,
-        ))
+        items.append(
+            WorstCaseItem(
+                item_id=item_id,
+                failed_metrics=failed,
+                total_metrics=total,
+                failure_rate=failure_rate,
+                avg_score=avg_score,
+            )
+        )
 
     return items
 
@@ -152,9 +156,7 @@ def build_worst_case_report(items: list[WorstCaseItem]) -> WorstCaseReport:
     )
 
 
-def rank_worst_items(
-    items: list[WorstCaseItem], top_n: int = 10
-) -> list[WorstCaseItem]:
+def rank_worst_items(items: list[WorstCaseItem], top_n: int = 10) -> list[WorstCaseItem]:
     """Return the top N items sorted by failure_rate descending."""
     ranked = sorted(items, key=lambda i: i.failure_rate, reverse=True)
     return ranked[:top_n]
@@ -163,9 +165,7 @@ def rank_worst_items(
 def find_universally_failing(items: list[WorstCaseItem]) -> list[str]:
     """Return item IDs that fail ALL their metrics."""
     return [
-        i.item_id
-        for i in items
-        if i.total_metrics > 0 and len(i.failed_metrics) == i.total_metrics
+        i.item_id for i in items if i.total_metrics > 0 and len(i.failed_metrics) == i.total_metrics
     ]
 
 
@@ -187,9 +187,7 @@ def compute_failure_correlation(
     return dict(pair_counts)
 
 
-def render_worst_case_table(
-    items: list[WorstCaseItem], max_items: int = 10
-) -> str:
+def render_worst_case_table(items: list[WorstCaseItem], max_items: int = 10) -> str:
     """Render an ASCII table of worst-case items.
 
     Columns: Item ID, Failed, Total, Failure Rate, Avg Score
@@ -201,8 +199,7 @@ def render_worst_case_table(
     # Determine column widths
     id_width = max(len("Item ID"), max(len(i.item_id) for i in ranked))
     header = (
-        f"{'Item ID':<{id_width}}  {'Failed':>6}  {'Total':>5}"
-        f"  {'Fail %':>6}  {'Avg Score':>9}"
+        f"{'Item ID':<{id_width}}  {'Failed':>6}  {'Total':>5}  {'Fail %':>6}  {'Avg Score':>9}"
     )
     sep = "-" * len(header)
 

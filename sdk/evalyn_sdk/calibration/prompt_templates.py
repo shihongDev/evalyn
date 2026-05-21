@@ -62,9 +62,7 @@ class TemplateLibrary:
 
     def list_by_category(self, category: str) -> list[PromptTemplate]:
         """List all templates in a given category."""
-        return [
-            t for t in self.templates.values() if t.category == category
-        ]
+        return [t for t in self.templates.values() if t.category == category]
 
     def list_all(self) -> list[PromptTemplate]:
         """List all templates."""
@@ -79,9 +77,7 @@ class TemplateLibrary:
 
     def as_dict(self) -> dict[str, Any]:
         return {
-            "templates": {
-                name: t.as_dict() for name, t in self.templates.items()
-            },
+            "templates": {name: t.as_dict() for name, t in self.templates.items()},
         }
 
     @classmethod

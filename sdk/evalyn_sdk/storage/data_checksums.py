@@ -90,9 +90,7 @@ class ChecksumReport:
 # ---------------------------------------------------------------------------
 
 
-def compute_checksum(
-    data: dict[str, Any], algorithm: str = "sha256"
-) -> str:
+def compute_checksum(data: dict[str, Any], algorithm: str = "sha256") -> str:
     """Compute checksum of a dict by JSON-serializing (sorted keys) and hashing.
 
     Returns the hex digest.
@@ -103,9 +101,7 @@ def compute_checksum(
     return h.hexdigest()
 
 
-def add_checksum(
-    record: dict[str, Any], algorithm: str = "sha256"
-) -> dict[str, Any]:
+def add_checksum(record: dict[str, Any], algorithm: str = "sha256") -> dict[str, Any]:
     """Add a '_checksum' field to a record. Returns a new dict."""
     # Compute checksum on the data without any existing _checksum
     data = {k: v for k, v in record.items() if k != "_checksum"}
@@ -115,9 +111,7 @@ def add_checksum(
     return result
 
 
-def verify_checksum(
-    record: dict[str, Any], algorithm: str = "sha256"
-) -> bool:
+def verify_checksum(record: dict[str, Any], algorithm: str = "sha256") -> bool:
     """Verify that a record's '_checksum' matches the computed checksum."""
     stored = record.get("_checksum")
     if stored is None:
@@ -166,7 +160,4 @@ def strip_checksums(
     records: list[dict[str, Any]],
 ) -> list[dict[str, Any]]:
     """Remove '_checksum' field from all records. Returns a new list."""
-    return [
-        {k: v for k, v in rec.items() if k != "_checksum"}
-        for rec in records
-    ]
+    return [{k: v for k, v in rec.items() if k != "_checksum"} for rec in records]

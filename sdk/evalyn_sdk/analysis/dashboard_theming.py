@@ -44,10 +44,18 @@ class Theme:
     border_strong: str = "#D4CCC4"
 
     # Chart palette (ordered list for multi-series charts)
-    chart_palette: list[str] = field(default_factory=lambda: [
-        "#D4A27F", "#6B8E8E", "#9B8AA6", "#C4836A",
-        "#A89F97", "#8B7355", "#7BA3A3", "#B39DBA",
-    ])
+    chart_palette: list[str] = field(
+        default_factory=lambda: [
+            "#D4A27F",
+            "#6B8E8E",
+            "#9B8AA6",
+            "#C4836A",
+            "#A89F97",
+            "#8B7355",
+            "#7BA3A3",
+            "#B39DBA",
+        ]
+    )
 
     # Custom CSS to inject after theme variables
     custom_css: str = ""
@@ -133,9 +141,16 @@ class Theme:
             text_muted=data.get("text_muted", "#888888"),
             border_light=data.get("border_light", "#E8E0D8"),
             border_strong=data.get("border_strong", "#D4CCC4"),
-            chart_palette=data.get("chart_palette") or [
-                "#D4A27F", "#6B8E8E", "#9B8AA6", "#C4836A",
-                "#A89F97", "#8B7355", "#7BA3A3", "#B39DBA",
+            chart_palette=data.get("chart_palette")
+            or [
+                "#D4A27F",
+                "#6B8E8E",
+                "#9B8AA6",
+                "#C4836A",
+                "#A89F97",
+                "#8B7355",
+                "#7BA3A3",
+                "#B39DBA",
             ],
             custom_css=data.get("custom_css", ""),
         )
@@ -162,8 +177,14 @@ CORPORATE = Theme(
     border_light="#DEE2E6",
     border_strong="#CED4DA",
     chart_palette=[
-        "#0D6EFD", "#198754", "#FFC107", "#DC3545",
-        "#6F42C1", "#0DCAF0", "#FD7E14", "#20C997",
+        "#0D6EFD",
+        "#198754",
+        "#FFC107",
+        "#DC3545",
+        "#6F42C1",
+        "#0DCAF0",
+        "#FD7E14",
+        "#20C997",
     ],
 )
 
@@ -186,8 +207,14 @@ ACADEMIC = Theme(
     border_light="#E0E0E0",
     border_strong="#BDBDBD",
     chart_palette=[
-        "#37474F", "#2E7D32", "#C62828", "#F9A825",
-        "#1565C0", "#6A1B9A", "#00838F", "#EF6C00",
+        "#37474F",
+        "#2E7D32",
+        "#C62828",
+        "#F9A825",
+        "#1565C0",
+        "#6A1B9A",
+        "#00838F",
+        "#EF6C00",
     ],
 )
 
@@ -210,8 +237,14 @@ DARK_MODE = Theme(
     border_light="#2C3E50",
     border_strong="#34495E",
     chart_palette=[
-        "#E94560", "#2ECC71", "#3498DB", "#F39C12",
-        "#9B59B6", "#1ABC9C", "#E67E22", "#E74C3C",
+        "#E94560",
+        "#2ECC71",
+        "#3498DB",
+        "#F39C12",
+        "#9B59B6",
+        "#1ABC9C",
+        "#E67E22",
+        "#E74C3C",
     ],
 )
 
@@ -234,8 +267,14 @@ PRINT_FRIENDLY = Theme(
     border_light="#CCCCCC",
     border_strong="#999999",
     chart_palette=[
-        "#333333", "#006400", "#8B0000", "#8B8000",
-        "#00008B", "#4B0082", "#006666", "#8B4513",
+        "#333333",
+        "#006400",
+        "#8B0000",
+        "#8B8000",
+        "#00008B",
+        "#4B0082",
+        "#006666",
+        "#8B4513",
     ],
 )
 
@@ -281,9 +320,7 @@ def get_theme(
         return BUILTIN_THEMES[name]
 
     available = sorted(set(BUILTIN_THEMES) | set(custom_themes or {}))
-    raise ValueError(
-        f"Unknown theme '{name}'. Available: {', '.join(available)}"
-    )
+    raise ValueError(f"Unknown theme '{name}'. Available: {', '.join(available)}")
 
 
 def list_themes(

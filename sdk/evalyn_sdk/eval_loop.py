@@ -112,9 +112,7 @@ class LoopResult:
 # ---------------------------------------------------------------------------
 
 
-def check_convergence(
-    rounds: list[RoundResult], threshold: float = 0.02
-) -> bool:
+def check_convergence(rounds: list[RoundResult], threshold: float = 0.02) -> bool:
     """True if last 2 rounds have pass rate within threshold of each other."""
     if len(rounds) < 2:
         return False
@@ -185,9 +183,7 @@ def run_eval_loop(
         items_generated = len(items)
         items_evaluated = len(evaluated)
 
-        passing = sum(
-            1 for e in evaluated if e.get("score", 0.0) >= 0.5
-        )
+        passing = sum(1 for e in evaluated if e.get("score", 0.0) >= 0.5)
         pass_rate = passing / items_evaluated if items_evaluated > 0 else 0.0
 
         failure_patterns = extract_round_failure_patterns(evaluated)

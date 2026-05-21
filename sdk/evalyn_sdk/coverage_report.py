@@ -15,16 +15,84 @@ from typing import Any
 # Stop words
 # ---------------------------------------------------------------------------
 
-_STOP_WORDS = frozenset({
-    "the", "a", "an", "and", "or", "but", "in", "on", "at", "to", "for",
-    "of", "with", "by", "from", "is", "it", "as", "was", "are", "be",
-    "this", "that", "not", "has", "had", "have", "been", "will", "can",
-    "do", "does", "did", "if", "so", "no", "up", "out", "its", "all",
-    "my", "we", "he", "she", "they", "you", "me", "us", "him", "her",
-    "who", "what", "when", "how", "which", "where", "there", "here",
-    "then", "than", "also", "just", "about", "into", "over", "after",
-    "more", "some", "any", "each", "very", "too", "own", "same",
-})
+_STOP_WORDS = frozenset(
+    {
+        "the",
+        "a",
+        "an",
+        "and",
+        "or",
+        "but",
+        "in",
+        "on",
+        "at",
+        "to",
+        "for",
+        "of",
+        "with",
+        "by",
+        "from",
+        "is",
+        "it",
+        "as",
+        "was",
+        "are",
+        "be",
+        "this",
+        "that",
+        "not",
+        "has",
+        "had",
+        "have",
+        "been",
+        "will",
+        "can",
+        "do",
+        "does",
+        "did",
+        "if",
+        "so",
+        "no",
+        "up",
+        "out",
+        "its",
+        "all",
+        "my",
+        "we",
+        "he",
+        "she",
+        "they",
+        "you",
+        "me",
+        "us",
+        "him",
+        "her",
+        "who",
+        "what",
+        "when",
+        "how",
+        "which",
+        "where",
+        "there",
+        "here",
+        "then",
+        "than",
+        "also",
+        "just",
+        "about",
+        "into",
+        "over",
+        "after",
+        "more",
+        "some",
+        "any",
+        "each",
+        "very",
+        "too",
+        "own",
+        "same",
+    }
+)
 
 
 # ---------------------------------------------------------------------------
@@ -87,9 +155,7 @@ class CoverageResult:
             overlap_score=data["overlap_score"],
             total_sim_items=data["total_sim_items"],
             total_prod_items=data["total_prod_items"],
-            uncovered_regions=[
-                CoverageRegion.from_dict(r) for r in data["uncovered_regions"]
-            ],
+            uncovered_regions=[CoverageRegion.from_dict(r) for r in data["uncovered_regions"]],
             recommendations=data["recommendations"],
         )
 
@@ -101,10 +167,7 @@ class CoverageResult:
 
 def _tokenize(text: str) -> list[str]:
     """Lowercase, split, filter short words and stop words."""
-    return [
-        w for w in text.lower().split()
-        if len(w) >= 3 and w not in _STOP_WORDS
-    ]
+    return [w for w in text.lower().split() if len(w) >= 3 and w not in _STOP_WORDS]
 
 
 def _vocabulary(texts: list[str]) -> set[str]:
@@ -207,13 +270,15 @@ def identify_coverage_gaps(
         sim_count = sum(sim_counter[w] for w in cluster_words)
         gap = prod_count / max(1, sim_count)
 
-        regions.append(CoverageRegion(
-            region_id=f"region_{idx}",
-            keywords=cluster_words,
-            simulated_count=sim_count,
-            production_count=prod_count,
-            gap=gap,
-        ))
+        regions.append(
+            CoverageRegion(
+                region_id=f"region_{idx}",
+                keywords=cluster_words,
+                simulated_count=sim_count,
+                production_count=prod_count,
+                gap=gap,
+            )
+        )
 
     # Sort by gap descending (largest gaps first)
     regions.sort(key=lambda r: r.gap, reverse=True)
@@ -252,10 +317,7 @@ def suggest_simulation_targets(gaps: list[CoverageRegion]) -> list[str]:
     for region in sorted_gaps:
         top_keywords = region.keywords[:5]
         keyword_str = ", ".join(top_keywords)
-        suggestions.append(
-            f"Add simulations covering: {keyword_str} "
-            f"(gap score: {region.gap:.1f})"
-        )
+        suggestions.append(f"Add simulations covering: {keyword_str} (gap score: {region.gap:.1f})")
     return suggestions
 
 
@@ -313,19 +375,12 @@ def _build_recommendations(
             "Targeted expansion recommended."
         )
     elif overlap < 0.9:
-        recs.append(
-            "Moderate coverage. Fill specific gaps to reach 90%+ overlap."
-        )
+        recs.append("Moderate coverage. Fill specific gaps to reach 90%+ overlap.")
     else:
-        recs.append(
-            "Good coverage (90%+). Focus on edge cases and rare topics."
-        )
+        recs.append("Good coverage (90%+). Focus on edge cases and rare topics.")
 
     for region in gaps[:3]:
         top_kw = ", ".join(region.keywords[:3])
-        recs.append(
-            f"Gap in region '{region.region_id}': "
-            f"add simulations for [{top_kw}]."
-        )
+        recs.append(f"Gap in region '{region.region_id}': add simulations for [{top_kw}].")
 
     return recs

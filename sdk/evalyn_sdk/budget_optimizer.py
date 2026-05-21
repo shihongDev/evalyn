@@ -182,9 +182,7 @@ def estimate_mode_cost(mode: SimulationMode, count: int) -> int:
     return mode.estimated_tokens_per_item * count
 
 
-def compute_plan_diversity(
-    plan: BudgetPlan, modes: list[SimulationMode]
-) -> float:
+def compute_plan_diversity(plan: BudgetPlan, modes: list[SimulationMode]) -> float:
     """Compute weighted diversity score for a budget plan.
 
     Diversity = sum(diversity_weight * item_count / total_items) for each mode.
@@ -240,9 +238,7 @@ def optimize_budget(
 
     # Phase 2: greedy allocation of remaining budget
     # Compute priority ratio for each mode
-    ratios = {
-        m.mode_id: m.diversity_weight / m.estimated_tokens_per_item for m in modes
-    }
+    ratios = {m.mode_id: m.diversity_weight / m.estimated_tokens_per_item for m in modes}
     # Sort modes by ratio descending for greedy allocation
     sorted_modes = sorted(modes, key=lambda m: ratios[m.mode_id], reverse=True)
 
@@ -280,9 +276,7 @@ def optimize_budget(
     return plan
 
 
-def update_budget_report(
-    plan: BudgetPlan, actual_tokens: dict[str, int]
-) -> BudgetReport:
+def update_budget_report(plan: BudgetPlan, actual_tokens: dict[str, int]) -> BudgetReport:
     """Update a budget plan with actual token usage to create a report."""
     # Create new allocations with actual tokens (do not mutate the input plan)
     updated_allocations = [
@@ -333,8 +327,7 @@ def format_budget_plan(plan: BudgetPlan) -> str:
     ]
     for alloc in plan.allocations:
         lines.append(
-            f"  {alloc.mode_id}: {alloc.item_count} items "
-            f"({alloc.estimated_tokens:,} tokens)"
+            f"  {alloc.mode_id}: {alloc.item_count} items ({alloc.estimated_tokens:,} tokens)"
         )
     return "\n".join(lines)
 

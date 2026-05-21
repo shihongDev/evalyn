@@ -93,9 +93,7 @@ class DiversityResult:
     def from_dict(cls, data: dict[str, Any]) -> DiversityResult:
         return cls(
             all_items=data.get("all_items", []),
-            per_provider=[
-                ProviderResult.from_dict(r) for r in data.get("per_provider", [])
-            ],
+            per_provider=[ProviderResult.from_dict(r) for r in data.get("per_provider", [])],
             total_items=data.get("total_items", 0),
             providers_used=data.get("providers_used", 0),
         )

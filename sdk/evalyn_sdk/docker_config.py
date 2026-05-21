@@ -61,9 +61,7 @@ def generate_dockerfile(config: DockerConfig) -> str:
     if config.include_dev_deps:
         lines.append("")
         lines.append("# Install all dependencies including dev")
-        lines.append(
-            "RUN pip install --no-cache-dir -e '.[dev]'"
-        )
+        lines.append("RUN pip install --no-cache-dir -e '.[dev]'")
     else:
         lines.append("")
         lines.append("# Install production dependencies")
@@ -226,9 +224,7 @@ def validate_docker_config(config: DockerConfig) -> list[str]:
     # Validate python version format
     parts = config.python_version.split(".")
     if len(parts) < 2:
-        errors.append(
-            "python_version must be in major.minor format (e.g. '3.11')"
-        )
+        errors.append("python_version must be in major.minor format (e.g. '3.11')")
     else:
         try:
             major = int(parts[0])
@@ -257,9 +253,7 @@ def format_docker_instructions(config: DockerConfig) -> str:
     ]
 
     if config.port > 0:
-        lines.append(
-            f"   docker run -p {config.port}:{config.port} evalyn:latest"
-        )
+        lines.append(f"   docker run -p {config.port}:{config.port} evalyn:latest")
     else:
         lines.append("   docker run evalyn:latest")
 

@@ -122,10 +122,7 @@ class PricingTable:
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> PricingTable:
-        prices = {
-            k: ModelPrice.from_dict(v)
-            for k, v in data.get("prices", {}).items()
-        }
+        prices = {k: ModelPrice.from_dict(v) for k, v in data.get("prices", {}).items()}
         return cls(prices=prices)
 
 
@@ -200,8 +197,7 @@ def compare_model_costs(
     """Compare costs across models, sorted cheapest first."""
     table = get_default_pricing()
     estimates = [
-        estimate_cost(model, input_tokens, output_tokens, pricing=table)
-        for model in models
+        estimate_cost(model, input_tokens, output_tokens, pricing=table) for model in models
     ]
     estimates.sort(key=lambda e: e.estimated_cost_usd)
     return estimates

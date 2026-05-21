@@ -104,8 +104,7 @@ class LatencyReport:
             lines.append("  Suggestions:")
             for s in self.suggestions:
                 lines.append(
-                    f"    [{s.priority}] {s.suggestion} "
-                    f"(~{s.estimated_savings_pct:.0f}% savings)"
+                    f"    [{s.priority}] {s.suggestion} (~{s.estimated_savings_pct:.0f}% savings)"
                 )
         return "\n".join(lines)
 
@@ -123,8 +122,8 @@ def compute_percentile(values: list[float], percentile: float) -> float:
         return sorted_values[0]
     # Rank index (0-based)
     k = (percentile / 100.0) * (n - 1)
-    lower = int(math.floor(k))
-    upper = int(math.ceil(k))
+    lower = math.floor(k)
+    upper = math.ceil(k)
     if lower == upper:
         return sorted_values[lower]
     frac = k - lower

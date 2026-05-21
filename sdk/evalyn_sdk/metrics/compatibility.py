@@ -35,9 +35,9 @@ class CompatibilityMatrix:
     """Matrix of metrics vs unit types."""
 
     entries: list[CompatibilityEntry] = field(default_factory=list)
-    all_unit_types: list[str] = field(default_factory=lambda: [
-        "outcome", "single_turn", "tool_use", "multi_turn", "custom"
-    ])
+    all_unit_types: list[str] = field(
+        default_factory=lambda: ["outcome", "single_turn", "tool_use", "multi_turn", "custom"]
+    )
 
     def get_compatible(self, unit_type: str) -> list[str]:
         """Get metric IDs compatible with a unit type."""
@@ -47,9 +47,7 @@ class CompatibilityMatrix:
         """Get metric IDs NOT compatible with a unit type."""
         return [e.metric_id for e in self.entries if not e.supports(unit_type)]
 
-    def check_selection(
-        self, metric_ids: list[str], unit_type: str
-    ) -> dict[str, Any]:
+    def check_selection(self, metric_ids: list[str], unit_type: str) -> dict[str, Any]:
         """Check if selected metrics are compatible with a unit type.
 
         Returns dict with compatible/incompatible lists and warnings.
@@ -87,9 +85,7 @@ class CompatibilityMatrix:
         # Build matrix: metric_id -> {unit_type: bool}
         matrix = {}
         for e in self.entries:
-            matrix[e.metric_id] = {
-                ut: e.supports(ut) for ut in self.all_unit_types
-            }
+            matrix[e.metric_id] = {ut: e.supports(ut) for ut in self.all_unit_types}
         return {"matrix": matrix, "unit_types": self.all_unit_types}
 
     def format_text(self) -> str:
@@ -116,9 +112,11 @@ def build_compatibility_matrix(metric_specs: list) -> CompatibilityMatrix:
     """
     entries = []
     for spec in metric_specs:
-        entries.append(CompatibilityEntry(
-            metric_id=spec.id,
-            metric_type=spec.type,
-            unit_types=list(getattr(spec, "unit_types", ["outcome"])),
-        ))
+        entries.append(
+            CompatibilityEntry(
+                metric_id=spec.id,
+                metric_type=spec.type,
+                unit_types=list(getattr(spec, "unit_types", ["outcome"])),
+            )
+        )
     return CompatibilityMatrix(entries=entries)

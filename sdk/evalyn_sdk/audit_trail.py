@@ -100,9 +100,7 @@ class AuditLog:
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> AuditLog:
         return cls(
-            entries=[
-                AuditEntry.from_dict(e) for e in data.get("entries", [])
-            ],
+            entries=[AuditEntry.from_dict(e) for e in data.get("entries", [])],
             log_path=data.get("log_path", ""),
         )
 

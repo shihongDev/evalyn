@@ -269,9 +269,7 @@ def transfer_text(
         for match in reversed(matches):
             original_word = match.group()
             replacement = _preserve_case(original_word, target_term)
-            result_text = (
-                result_text[: match.start()] + replacement + result_text[match.end() :]
-            )
+            result_text = result_text[: match.start()] + replacement + result_text[match.end() :]
             substitution_count += 1
 
     return result_text, substitution_count
@@ -293,11 +291,7 @@ def transfer_batch(
 
     # For non-general to non-general transfers, route through general
     # as intermediary to ensure overlapping generic keys
-    if (
-        source_domain != "general"
-        and target_domain != "general"
-        and general_vocab is not None
-    ):
+    if source_domain != "general" and target_domain != "general" and general_vocab is not None:
         source_vocab = general_vocab
         target_vocab = vocabs.get(target_domain)
     else:

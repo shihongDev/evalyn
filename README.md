@@ -102,7 +102,7 @@ evalyn dashboard           # opens http://localhost:7401
 
 See [`dashboard/README.md`](dashboard/README.md) for setup, provider configuration (OpenAI / Anthropic / Ollama), and the agent flow.
 
-Note: the previous `evalyn dashboard` command (a static HTML insights report) is renamed to `evalyn report`. The old name still works as a deprecation alias when `evalyn-dashboard` is not installed.
+Note: the previous static HTML insights report is now `evalyn report`. The `evalyn dashboard` command now launches the localhost web IDE (when `evalyn-dashboard` is installed); when that package is not installed, `evalyn dashboard` falls back to producing the static HTML report as a deprecation alias.
 
 ## Quick Start (Example Gemini Deep Research Agent)
 
@@ -313,7 +313,8 @@ evalyn run-eval --dataset <dataset-path>/simulations/sim-similar-...
 | `evalyn annotate --dataset D` | Human annotation (interactive) |
 | `evalyn calibrate --metric-id X` | Calibrate LLM judge |
 | `evalyn simulate --dataset D` | Generate synthetic test data |
-| `evalyn dashboard --latest` | Open interactive HTML insights dashboard in browser |
+| `evalyn report --latest` | Generate and open the interactive HTML insights report in your browser |
+| `evalyn dashboard` | Launch the localhost web IDE (requires `evalyn-dashboard` package) |
 | `evalyn quickstart` | Guided first-run experience: detect framework, instrument, configure |
 | `evalyn workflow` | Show evaluation workflow and next steps |
 
@@ -344,7 +345,7 @@ evalyn run-eval --dataset <dataset-path>/simulations/sim-similar-...
 | [one-click](docs/clis/one-click.md) | Run full evaluation pipeline |
 | [init](docs/clis/init.md) | Initialize config file |
 | [quickstart](docs/clis/quickstart.md) | Guided first-run experience |
-| [dashboard](docs/clis/dashboard.md) | Open interactive HTML insights dashboard |
+| [dashboard](docs/clis/dashboard.md) | Generate static HTML insights report (deprecated alias for `report` when `evalyn-dashboard` is not installed; launches the localhost web IDE otherwise) |
 | [workflow](docs/clis/workflow.md) | Show evaluation workflow and next steps |
 | [status](docs/clis/status.md) | Show dataset status overview |
 | **Tracing** | |

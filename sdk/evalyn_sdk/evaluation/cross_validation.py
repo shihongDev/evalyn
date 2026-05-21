@@ -43,7 +43,7 @@ class CVReport:
     num_folds: int
     fold_results: list[FoldResult] = field(default_factory=list)
     aggregate_scores: dict[str, float] = field(default_factory=dict)  # metric_id -> mean
-    score_std_devs: dict[str, float] = field(default_factory=dict)   # metric_id -> std dev
+    score_std_devs: dict[str, float] = field(default_factory=dict)  # metric_id -> std dev
     high_variance_items: list[str] = field(default_factory=list)
 
     def as_dict(self) -> dict[str, Any]:

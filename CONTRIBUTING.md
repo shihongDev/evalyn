@@ -114,7 +114,7 @@ evalyn/
 │   ├── evalyn_sdk/                 # 579 modules total
 │   │   ├── cli/                    # CLI module (37 files)
 │   │   │   ├── main.py             # Entry point & command registration
-│   │   │   ├── commands/           # 14 command modules
+│   │   │   ├── commands/           # 15 command modules
 │   │   │   │   ├── analysis.py     # analyze, compare, trend, status, validate
 │   │   │   │   ├── traces.py       # list-calls, show-call, show-trace
 │   │   │   │   ├── runs.py         # list-runs, show-run
@@ -123,7 +123,8 @@ evalyn/
 │   │   │   │   ├── calibration.py  # calibrate, list-calibrations
 │   │   │   │   ├── evaluation.py   # run-eval, suggest-metrics, select-metrics, list-metrics
 │   │   │   │   ├── simulate.py     # simulate
-│   │   │   │   ├── dashboard.py    # dashboard
+│   │   │   │   ├── dashboard_alias.py # dashboard (alias to report when evalyn-dashboard not installed)
+│   │   │   │   ├── report.py       # report (static HTML insights report)
 │   │   │   │   ├── dataset.py      # dataset management commands
 │   │   │   │   ├── insights.py     # insights
 │   │   │   │   ├── infrastructure.py # init, one-click, workflow

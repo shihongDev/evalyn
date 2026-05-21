@@ -236,9 +236,7 @@ def generate_injection_suite(
     patterns_covered = 0
 
     for target in config.targets:
-        generated = generate_from_failure_target(
-            target, n_items=config.items_per_target, rng=rng
-        )
+        generated = generate_from_failure_target(target, n_items=config.items_per_target, rng=rng)
         if generated:
             patterns_covered += 1
         all_items.extend(generated)
@@ -260,9 +258,7 @@ def generate_injection_suite(
 # ---------------------------------------------------------------------------
 
 
-def compute_coverage(
-    report: InjectionReport, all_targets: list[FailureTarget]
-) -> float:
+def compute_coverage(report: InjectionReport, all_targets: list[FailureTarget]) -> float:
     """Fraction of all_targets that have at least one generated item."""
     if not all_targets:
         return 0.0

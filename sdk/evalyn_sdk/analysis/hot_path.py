@@ -67,12 +67,14 @@ class HotPathReport:
     def from_dict(cls, data: dict[str, Any]) -> HotPathReport:
         patterns = []
         for pd in data.get("patterns", []):
-            patterns.append(PathPattern(
-                sequence=tuple(pd["sequence"]),
-                count=pd.get("count", 0),
-                total_duration_ms=pd.get("total_duration_ms", 0.0),
-                avg_duration_ms=pd.get("avg_duration_ms", 0.0),
-            ))
+            patterns.append(
+                PathPattern(
+                    sequence=tuple(pd["sequence"]),
+                    count=pd.get("count", 0),
+                    total_duration_ms=pd.get("total_duration_ms", 0.0),
+                    avg_duration_ms=pd.get("avg_duration_ms", 0.0),
+                )
+            )
         return cls(
             patterns=patterns,
             total_traces=data.get("total_traces", 0),
@@ -120,19 +122,16 @@ def detect_hot_paths(
 
         # Extract sliding windows
         for i in range(len(types) - window_size + 1):
-            seq = tuple(types[i:i + window_size])
+            seq = tuple(types[i : i + window_size])
             pattern_counter[seq] += 1
 
             # Sum durations of spans in this window
-            dur = sum(
-                s.duration_ms or 0.0
-                for s in ordered[i:i + window_size]
-            )
+            dur = sum(s.duration_ms or 0.0 for s in ordered[i : i + window_size])
             pattern_durations[seq].append(dur)
 
             # Save example (up to 3)
             if len(pattern_examples[seq]) < 3:
-                pattern_examples[seq].append(ids[i:i + window_size])
+                pattern_examples[seq].append(ids[i : i + window_size])
 
     # Build patterns list
     patterns = []
@@ -142,13 +141,15 @@ def detect_hot_paths(
         durations = pattern_durations[seq]
         total_dur = sum(durations)
         avg_dur = total_dur / len(durations) if durations else 0.0
-        patterns.append(PathPattern(
-            sequence=seq,
-            count=count,
-            total_duration_ms=total_dur,
-            avg_duration_ms=avg_dur,
-            example_span_ids=pattern_examples[seq],
-        ))
+        patterns.append(
+            PathPattern(
+                sequence=seq,
+                count=count,
+                total_duration_ms=total_dur,
+                avg_duration_ms=avg_dur,
+                example_span_ids=pattern_examples[seq],
+            )
+        )
 
     return HotPathReport(
         patterns=patterns[:max_patterns],

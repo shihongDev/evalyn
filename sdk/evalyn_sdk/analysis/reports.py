@@ -13,9 +13,7 @@ from .core import RunAnalysis
 # =============================================================================
 
 
-def ascii_bar(
-    value: float, max_width: int = 30, fill: str = "█", empty: str = "░"
-) -> str:
+def ascii_bar(value: float, max_width: int = 30, fill: str = "█", empty: str = "░") -> str:
     """Create an ASCII progress bar."""
     filled = int(value * max_width)
     return fill * filled + empty * (max_width - filled)
@@ -70,9 +68,7 @@ def generate_text_report(analysis: RunAnalysis, verbose: bool = False) -> str:
     lines.append("")
     lines.append(f"  Run ID:     {analysis.run_id[:8]}...")
     lines.append(f"  Dataset:    {analysis.dataset_name}")
-    lines.append(
-        f"  Created:    {analysis.created_at[:19] if analysis.created_at else 'unknown'}"
-    )
+    lines.append(f"  Created:    {analysis.created_at[:19] if analysis.created_at else 'unknown'}")
     lines.append(f"  Items:      {analysis.total_items}")
     lines.append(f"  Metrics:    {analysis.total_metrics}")
     lines.append("")
@@ -132,9 +128,7 @@ def generate_text_report(analysis: RunAnalysis, verbose: bool = False) -> str:
         lines.append("-" * 70)
         for item_id in analysis.failed_items[:20]:  # Limit to 20
             item = analysis.item_stats[item_id]
-            failed_metrics = [
-                m for m, r in item.metric_results.items() if r["passed"] is False
-            ]
+            failed_metrics = [m for m, r in item.metric_results.items() if r["passed"] is False]
             lines.append(f"  {item_id[:12]}... failed: {', '.join(failed_metrics)}")
         if len(analysis.failed_items) > 20:
             lines.append(f"  ... and {len(analysis.failed_items) - 20} more")
@@ -163,8 +157,7 @@ def generate_comparison_report(analyses: list[RunAnalysis]) -> str:
     for a in analyses:
         date = a.created_at[:16] if a.created_at else "unknown"
         lines.append(
-            f"  {a.run_id[:12]} {date:<20} {a.total_items:>8} "
-            f"{a.overall_pass_rate * 100:>9.1f}%"
+            f"  {a.run_id[:12]} {date:<20} {a.total_items:>8} {a.overall_pass_rate * 100:>9.1f}%"
         )
     lines.append("")
 

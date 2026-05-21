@@ -45,9 +45,7 @@ def stream_dataset(path: str | Path) -> Generator[DatasetItem, None, None]:
                     row = json.loads(line)
                     yield DatasetItem.from_payload(row)
                 except json.JSONDecodeError as e:
-                    logger.warning(
-                        "Skipping malformed JSONL line %d: %s", line_num, e
-                    )
+                    logger.warning("Skipping malformed JSONL line %d: %s", line_num, e)
 
 
 def load_dataset(path: str | Path) -> list[DatasetItem]:
@@ -90,9 +88,7 @@ def save_dataset_with_meta(
     meta["dataset_hash"] = hasher.hexdigest()
 
     meta_path = dataset_dir / meta_filename
-    meta_path.write_text(
-        json.dumps(meta, indent=2, ensure_ascii=False), encoding="utf-8"
-    )
+    meta_path.write_text(json.dumps(meta, indent=2, ensure_ascii=False), encoding="utf-8")
     return dataset_path
 
 
@@ -178,9 +174,7 @@ def build_dataset_from_storage(
     effective_fetch = fetch_limit if fetch_limit is not None else limit
     project_filter = project_id or project_name
     calls = (
-        storage.list_calls(
-            limit=effective_fetch * 5, project=project_filter, lightweight=True
-        )
+        storage.list_calls(limit=effective_fetch * 5, project=project_filter, lightweight=True)
         if storage
         else []
     )

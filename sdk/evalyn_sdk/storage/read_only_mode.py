@@ -55,9 +55,7 @@ def enable_read_only(reason: str = "") -> ReadOnlyStatus:
     global _READ_ONLY
     _READ_ONLY = True
     ts = _now_iso()
-    _READ_ONLY_HISTORY.append(
-        {"action": "enable", "timestamp": ts, "reason": reason}
-    )
+    _READ_ONLY_HISTORY.append({"action": "enable", "timestamp": ts, "reason": reason})
     return ReadOnlyStatus(enabled=True, since=ts, reason=reason)
 
 

@@ -93,9 +93,7 @@ class ActiveLearningConfig:
 # ---------------------------------------------------------------------------
 
 
-def select_by_uncertainty(
-    items: list[ScoredItem], batch_size: int = 10
-) -> SelectionResult:
+def select_by_uncertainty(items: list[ScoredItem], batch_size: int = 10) -> SelectionResult:
     """Select items with lowest confidence scores.
 
     Sort ascending by confidence, take top batch_size.
@@ -118,9 +116,7 @@ def select_by_uncertainty(
     )
 
 
-def select_by_disagreement(
-    items: list[ScoredItem], batch_size: int = 10
-) -> SelectionResult:
+def select_by_disagreement(items: list[ScoredItem], batch_size: int = 10) -> SelectionResult:
     """Select items where abs(score - heuristic_score) is largest.
 
     Items without heuristic_score are skipped.
@@ -149,9 +145,7 @@ def select_by_disagreement(
     )
 
 
-def select_by_diversity(
-    items: list[ScoredItem], batch_size: int = 10
-) -> SelectionResult:
+def select_by_diversity(items: list[ScoredItem], batch_size: int = 10) -> SelectionResult:
     """Select items spread across the score range.
 
     Divide [0,1] into batch_size bins, pick one item per bin
@@ -193,9 +187,7 @@ def select_by_diversity(
     )
 
 
-def select_for_annotation(
-    items: list[ScoredItem], config: ActiveLearningConfig
-) -> SelectionResult:
+def select_for_annotation(items: list[ScoredItem], config: ActiveLearningConfig) -> SelectionResult:
     """Route to appropriate selection method based on config."""
     if config.method == "uncertainty":
         return select_by_uncertainty(items, config.batch_size)

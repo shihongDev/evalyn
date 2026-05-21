@@ -139,11 +139,13 @@ def detect_distribution_shift(
         a = after_pcts.get(stype, 0.0)
         delta = a - b
         if abs(delta) > threshold:
-            shifts.append({
-                "span_type": stype,
-                "before_pct": round(b, 4),
-                "after_pct": round(a, 4),
-                "delta": round(delta, 4),
-            })
+            shifts.append(
+                {
+                    "span_type": stype,
+                    "before_pct": round(b, 4),
+                    "after_pct": round(a, 4),
+                    "delta": round(delta, 4),
+                }
+            )
 
     return shifts

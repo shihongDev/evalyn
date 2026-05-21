@@ -18,35 +18,35 @@ def process_assistant_message(msg: Any, tracker: Any, transcript: Any) -> None:
     global _tool_just_used
 
     # Update tracker context with parent_tool_use_id from message
-    parent_id = getattr(msg, 'parent_tool_use_id', None)
+    parent_id = getattr(msg, "parent_tool_use_id", None)
     tracker.set_current_context(parent_id)
 
     for block in msg.content:
         block_type = type(block).__name__
 
-        if block_type == 'TextBlock':
+        if block_type == "TextBlock":
             # Add newline if a tool was just used
             if _tool_just_used:
                 transcript.write("\n", end="")
                 _tool_just_used = False
             transcript.write(block.text, end="")
 
-        elif block_type == 'ToolUseBlock':
+        elif block_type == "ToolUseBlock":
             # Mark that a tool was used
             _tool_just_used = True
 
             # Only handle Task tool (subagent spawning)
-            if block.name == 'Task':
-                subagent_type = block.input.get('subagent_type', 'unknown')
-                description = block.input.get('description', 'no description')
-                prompt = block.input.get('prompt', '')
+            if block.name == "Task":
+                subagent_type = block.input.get("subagent_type", "unknown")
+                description = block.input.get("description", "no description")
+                prompt = block.input.get("prompt", "")
 
                 # Register with tracker and get the subagent ID
                 subagent_id = tracker.register_subagent_spawn(
                     tool_use_id=block.id,
                     subagent_type=subagent_type,
                     description=description,
-                    prompt=prompt
+                    prompt=prompt,
                 )
 
                 # User-facing output with subagent ID

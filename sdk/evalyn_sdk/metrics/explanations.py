@@ -89,6 +89,8 @@ def _explain_token_length(result) -> str:
 
 def _explain_latency(result) -> str:
     score = result.score
+    if score is None:
+        return "latency_ms: no latency recorded"
     return f"latency_ms: execution took {score:.0f}ms"
 
 

@@ -79,6 +79,7 @@ def _setup_registry() -> None:
     # Optional OTEL-native instrumentors
     try:
         from .providers.google_adk import GoogleADKInstrumentor
+
         registry.register(GoogleADKInstrumentor())
     except ImportError:
         pass
@@ -86,6 +87,7 @@ def _setup_registry() -> None:
     # Optional hook-based instrumentors
     try:
         from .providers.claude_agent_sdk import ClaudeAgentSDKInstrumentor
+
         registry.register(ClaudeAgentSDKInstrumentor())
     except ImportError:
         pass
@@ -94,24 +96,28 @@ def _setup_registry() -> None:
 def create_adk_callbacks(*args, **kwargs):
     """Create Google ADK callbacks (imports on first call)."""
     from .providers.google_adk import create_adk_callbacks as _create
+
     return _create(*args, **kwargs)
 
 
 def create_adk_stream_adapter(*args, **kwargs):
     """Create ADK stream adapter (imports on first call)."""
     from .providers.google_adk import create_stream_adapter as _create
+
     return _create(*args, **kwargs)
 
 
 def create_agent_hooks(*args, **kwargs):
     """Create Claude Agent SDK hooks (imports on first call)."""
     from .providers.claude_agent_sdk import create_agent_hooks as _create
+
     return _create(*args, **kwargs)
 
 
 def create_stream_adapter(*args, **kwargs):
     """Create Claude Agent SDK stream adapter (imports on first call)."""
     from .providers.claude_agent_sdk import create_stream_adapter as _create
+
     return _create(*args, **kwargs)
 
 

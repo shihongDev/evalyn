@@ -150,12 +150,14 @@ def search_dataset(
             continue
 
         matched = find_matched_terms(query_tokens, item_tokens)
-        hits.append(SearchHit(
-            item_id=item_id,
-            text=text,
-            similarity=sim,
-            matched_terms=matched,
-        ))
+        hits.append(
+            SearchHit(
+                item_id=item_id,
+                text=text,
+                similarity=sim,
+                matched_terms=matched,
+            )
+        )
 
     hits.sort(key=lambda h: h.similarity, reverse=True)
     hits = hits[: config.max_results]
@@ -205,9 +207,7 @@ def format_search_results(result: SearchResult) -> str:
         preview = hit.text[:80]
         if len(hit.text) > 80:
             preview += "..."
-        lines.append(
-            f"  {i}. [{hit.item_id}] (sim={hit.similarity:.3f}) {preview}"
-        )
+        lines.append(f"  {i}. [{hit.item_id}] (sim={hit.similarity:.3f}) {preview}")
         if hit.matched_terms:
             lines.append(f"     matched: {', '.join(hit.matched_terms)}")
 

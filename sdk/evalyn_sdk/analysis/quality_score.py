@@ -14,10 +14,10 @@ from typing import Any
 class QualityScoreBreakdown:
     """Breakdown of the quality score components."""
 
-    pass_rate_score: float = 0.0      # 0-100, based on overall pass rate
-    coverage_score: float = 0.0       # 0-100, based on metric/item coverage
+    pass_rate_score: float = 0.0  # 0-100, based on overall pass rate
+    coverage_score: float = 0.0  # 0-100, based on metric/item coverage
     cost_efficiency_score: float = 0.0  # 0-100, based on cost per item
-    error_rate_score: float = 0.0     # 0-100, inverse of error rate
+    error_rate_score: float = 0.0  # 0-100, inverse of error rate
 
     # Weights for each component
     pass_rate_weight: float = 0.5
@@ -120,6 +120,7 @@ def compute_quality_score(
         cost_per_item = total_cost_usd / total_items
         # Exponential decay: score = 100 * exp(-cost_per_item / 0.02)
         import math
+
         breakdown.cost_efficiency_score = min(100.0, 100.0 * math.exp(-cost_per_item / 0.02))
     else:
         breakdown.cost_efficiency_score = 100.0  # free = perfect

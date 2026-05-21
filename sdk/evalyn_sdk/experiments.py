@@ -35,7 +35,7 @@ class ExperimentComparison:
         for mid, delta in sorted(self.metric_deltas.items()):
             sign = "+" if delta >= 0 else ""
             direction = "B better" if delta > 0.01 else ("A better" if delta < -0.01 else "same")
-            lines.append(f"  {mid:<30} {sign}{delta*100:.1f}% ({direction})")
+            lines.append(f"  {mid:<30} {sign}{delta * 100:.1f}% ({direction})")
         return "\n".join(lines)
 
 

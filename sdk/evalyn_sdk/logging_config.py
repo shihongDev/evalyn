@@ -58,11 +58,7 @@ def configure_logging(
         log_file: Optional file path for log output.
     """
     # Resolve level
-    effective_level = (
-        level
-        or os.environ.get("EVALYN_LOG_LEVEL")
-        or "warning"
-    ).upper()
+    effective_level = (level or os.environ.get("EVALYN_LOG_LEVEL") or "warning").upper()
 
     log_level = getattr(logging, effective_level, logging.WARNING)
 

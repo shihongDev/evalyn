@@ -92,9 +92,7 @@ class IndexTuningReport:
             )
             for s in data.get("suggestions", [])
         ]
-        existing = [
-            ExistingIndex.from_dict(e) for e in data.get("existing", [])
-        ]
+        existing = [ExistingIndex.from_dict(e) for e in data.get("existing", [])]
         return cls(
             suggestions=suggestions,
             existing=existing,
@@ -149,15 +147,41 @@ def parse_query_columns(query: str) -> list[str]:
     # Handles: col = val, col > val, col < val, col >= val, col <= val,
     # col != val, col <> val, col LIKE val, col IN (...), col IS NULL,
     # col BETWEEN val AND val
-    pattern = r'\b(\w+)\s*(?:=|!=|<>|>=|<=|>|<|(?:NOT\s+)?(?:LIKE|IN|BETWEEN|IS)\b)'
+    pattern = r"\b(\w+)\s*(?:=|!=|<>|>=|<=|>|<|(?:NOT\s+)?(?:LIKE|IN|BETWEEN|IS)\b)"
     matches = re.findall(pattern, query, re.IGNORECASE)
 
     # Filter out SQL keywords that might be captured
     sql_keywords = {
-        "and", "or", "not", "where", "select", "from", "join", "on",
-        "set", "insert", "update", "delete", "null", "is", "in", "like",
-        "between", "having", "group", "order", "by", "limit", "offset",
-        "true", "false", "case", "when", "then", "else", "end",
+        "and",
+        "or",
+        "not",
+        "where",
+        "select",
+        "from",
+        "join",
+        "on",
+        "set",
+        "insert",
+        "update",
+        "delete",
+        "null",
+        "is",
+        "in",
+        "like",
+        "between",
+        "having",
+        "group",
+        "order",
+        "by",
+        "limit",
+        "offset",
+        "true",
+        "false",
+        "case",
+        "when",
+        "then",
+        "else",
+        "end",
     }
 
     seen: set[str] = set()

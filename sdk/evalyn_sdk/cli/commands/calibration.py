@@ -40,6 +40,7 @@ ESSENTIAL = {"metric_id", "annotations", "dataset"}
 import argparse
 import json
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from ..utils.command_common import (
     load_eval_run_for_command,
@@ -48,6 +49,10 @@ from ..utils.command_common import (
 from ..utils.config import get_config_default, load_config, resolve_dataset_path
 from ..utils.errors import fatal_error
 from ..utils.formatters import print_token_usage_summary
+
+if TYPE_CHECKING:
+    from ...calibration.engine import CalibrationEngine
+    from ...models import DatasetItem
 from ..utils.hints import HintCollector
 from ..utils.rich import banner, footer
 from ..utils.rich import table as rich_table
@@ -90,13 +95,9 @@ def _apply_calibration_config_defaults(args: argparse.Namespace, config: dict) -
 
     # Basic calibration settings
     if args.optimizer is None:
-        args.optimizer = get_config_default(
-            config, "calibration", "optimizer", default="basic"
-        )
+        args.optimizer = get_config_default(config, "calibration", "optimizer", default="basic")
     if args.threshold is None:
-        args.threshold = get_config_default(
-            config, "calibration", "threshold", default=0.5
-        )
+        args.threshold = get_config_default(config, "calibration", "threshold", default=0.5)
 
     # GEPA settings
     if args.gepa_task_lm is None:
@@ -171,15 +172,27 @@ def _apply_calibration_config_defaults(args: argparse.Namespace, config: dict) -
         )
     if args.gepa_native_max_calls is None:
         args.gepa_native_max_calls = get_config_default(
-            config, "calibration", "gepa_native", "max_calls", default=_DEFAULT_GEPA_NATIVE_MAX_CALLS
+            config,
+            "calibration",
+            "gepa_native",
+            "max_calls",
+            default=_DEFAULT_GEPA_NATIVE_MAX_CALLS,
         )
     if args.gepa_native_initial_candidates is None:
         args.gepa_native_initial_candidates = get_config_default(
-            config, "calibration", "gepa_native", "initial_candidates", default=_DEFAULT_GEPA_NATIVE_INITIAL_CANDIDATES
+            config,
+            "calibration",
+            "gepa_native",
+            "initial_candidates",
+            default=_DEFAULT_GEPA_NATIVE_INITIAL_CANDIDATES,
         )
     if args.gepa_native_batch_size is None:
         args.gepa_native_batch_size = get_config_default(
-            config, "calibration", "gepa_native", "batch_size", default=_DEFAULT_GEPA_NATIVE_BATCH_SIZE
+            config,
+            "calibration",
+            "gepa_native",
+            "batch_size",
+            default=_DEFAULT_GEPA_NATIVE_BATCH_SIZE,
         )
 
 
@@ -233,7 +246,6 @@ def _load_optional_calibration_dataset_context(
 ) -> tuple[Path | None, list[DatasetItem] | None]:
     """Resolve optional dataset context for calibration examples/validation."""
     from ...datasets import load_dataset
-    from ...models import DatasetItem
 
     dataset_items: list[DatasetItem] | None = None
     dataset_dir: Path | None = None
@@ -243,9 +255,7 @@ def _load_optional_calibration_dataset_context(
     resolved_dataset = resolve_dataset_path(dataset_arg, use_latest, config)
 
     if resolved_dataset:
-        resolved = try_resolve_dataset_dir_and_file(
-            dataset_arg, use_latest, config=config
-        )
+        resolved = try_resolve_dataset_dir_and_file(dataset_arg, use_latest, config=config)
         if resolved:
             dataset_dir, dataset_file = resolved
             dataset_items = load_dataset(dataset_file)
@@ -408,12 +418,8 @@ def _print_calibration_alignment_section(record) -> None:
         return
     print("\nConfusion Matrix:")
     print("                   Human PASS  Human FAIL")
-    print(
-        f"  Judge PASS       {cm.get('true_positive', 0):^10}  {cm.get('false_positive', 0):^10}"
-    )
-    print(
-        f"  Judge FAIL       {cm.get('false_negative', 0):^10}  {cm.get('true_negative', 0):^10}"
-    )
+    print(f"  Judge PASS       {cm.get('true_positive', 0):^10}  {cm.get('false_positive', 0):^10}")
+    print(f"  Judge FAIL       {cm.get('false_negative', 0):^10}  {cm.get('true_negative', 0):^10}")
 
 
 def _print_calibration_disagreement_section(args: argparse.Namespace, record) -> None:
@@ -486,9 +492,7 @@ def _print_calibration_prompt_optimization_section(record) -> None:
 
     print("\n--- PROMPT OPTIMIZATION ---")
     print(f"Optimizer:             {optimizer_type.upper()}")
-    print(
-        f"Estimated improvement: {optimization.get('estimated_improvement', 'unknown')}"
-    )
+    print(f"Estimated improvement: {optimization.get('estimated_improvement', 'unknown')}")
 
     reasoning = optimization.get("improvement_reasoning", "")
     if reasoning:
@@ -591,9 +595,7 @@ def _print_calibration_report(args: argparse.Namespace, run, record) -> None:
     print(f"CALIBRATION REPORT: {args.metric_id}")
     print(f"{'=' * 60}")
     print(f"Eval Run: {run.id}")
-    print(
-        f"Samples:  {record.adjustments.get('alignment_metrics', {}).get('total_samples', 0)}"
-    )
+    print(f"Samples:  {record.adjustments.get('alignment_metrics', {}).get('total_samples', 0)}")
 
     _print_calibration_alignment_section(record)
     _print_calibration_disagreement_section(args, record)
@@ -637,9 +639,7 @@ def _print_calibration_postamble(
     dataset_dir: Path | None,
 ) -> None:
     """Print final token usage, footer, and next-step hint."""
-    print_token_usage_summary(
-        record.usage_summary, verbose=getattr(args, "verbose", False)
-    )
+    print_token_usage_summary(record.usage_summary, verbose=getattr(args, "verbose", False))
 
     print(f"\n{'=' * 60}")
 
@@ -734,9 +734,7 @@ def calibrate_metric(
     _, run = _load_calibration_run(args)
     metric_results = _get_calibration_metric_results(run, metric_id)
     anns = import_annotations(annotations_path)
-    current_rubric, current_preamble = _extract_calibration_metric_prompt_context(
-        run, metric_id
-    )
+    current_rubric, current_preamble = _extract_calibration_metric_prompt_context(run, metric_id)
 
     config = load_config()
     _apply_calibration_config_defaults(args, config)
@@ -806,14 +804,10 @@ def cmd_list_calibrations(args: argparse.Namespace) -> None:
                     record = json.load(f)
                     # Parse timestamp from filename (e.g., 20250101_120000_gepa.json)
                     parts = cal_file.stem.split("_")
-                    timestamp = (
-                        f"{parts[0]}_{parts[1]}" if len(parts) >= 2 else "unknown"
-                    )
+                    timestamp = f"{parts[0]}_{parts[1]}" if len(parts) >= 2 else "unknown"
                     optimizer = parts[2] if len(parts) >= 3 else "unknown"
 
-                    alignment = record.get("adjustments", {}).get(
-                        "alignment_metrics", {}
-                    )
+                    alignment = record.get("adjustments", {}).get("alignment_metrics", {})
                     calibrations.append(
                         {
                             "metric_id": metric_id,
@@ -849,15 +843,17 @@ def cmd_list_calibrations(args: argparse.Namespace) -> None:
     align = ["left", "left", "left", "right", "right", "right", "right"]
     rows = []
     for cal in calibrations:
-        rows.append([
-            cal["metric_id"],
-            cal["timestamp"],
-            cal["optimizer"],
-            f"{cal['accuracy']:.1%}",
-            f"{cal['f1']:.1%}",
-            f"{cal['kappa']:.3f}",
-            str(cal["samples"]),
-        ])
+        rows.append(
+            [
+                cal["metric_id"],
+                cal["timestamp"],
+                cal["optimizer"],
+                f"{cal['accuracy']:.1%}",
+                f"{cal['f1']:.1%}",
+                f"{cal['kappa']:.3f}",
+                str(cal["samples"]),
+            ]
+        )
 
     print(banner("CALIBRATIONS"))
     print(rich_table(headers, rows, align=align))
@@ -879,7 +875,12 @@ def cmd_list_calibrations(args: argparse.Namespace) -> None:
 
     # Show hints
     if calibrations:
-        hint_items = [(f"evalyn run-eval --dataset {dataset_path} --use-calibrated", "Re-run with calibrated prompts")]
+        hint_items = [
+            (
+                f"evalyn run-eval --dataset {dataset_path} --use-calibrated",
+                "Re-run with calibrated prompts",
+            )
+        ]
         hint_text = footer(hint_items, quiet=getattr(args, "quiet", False))
         if hint_text:
             print(hint_text)
@@ -921,7 +922,17 @@ def register_commands(subparsers) -> None:
     )
     calibrate_parser.add_argument(
         "--optimizer",
-        choices=["basic", "gepa", "gepa-native", "opro", "ape", "evoprompt", "textgrad", "miprov2", "promptbreeder"],
+        choices=[
+            "basic",
+            "gepa",
+            "gepa-native",
+            "opro",
+            "ape",
+            "evoprompt",
+            "textgrad",
+            "miprov2",
+            "promptbreeder",
+        ],
         default=None,
         help="Optimization method: 'basic' (single-shot), 'ape' (search), 'opro' (trajectory), 'evoprompt' (evolutionary), 'textgrad' (critique-revise), 'miprov2' (instruction+demo), 'promptbreeder' (self-referential)",
     )
@@ -1019,54 +1030,72 @@ def register_commands(subparsers) -> None:
     )
     # EvoPrompt-specific arguments
     calibrate_parser.add_argument(
-        "--evo-population", type=int, default=None,
+        "--evo-population",
+        type=int,
+        default=None,
         help=f"Population size for EvoPrompt (default: {_DEFAULT_EVO_POPULATION})",
     )
     calibrate_parser.add_argument(
-        "--evo-generations", type=int, default=None,
+        "--evo-generations",
+        type=int,
+        default=None,
         help=f"Number of generations for EvoPrompt (default: {_DEFAULT_EVO_GENERATIONS})",
     )
     calibrate_parser.add_argument(
-        "--evo-mutation-rate", type=float, default=None,
+        "--evo-mutation-rate",
+        type=float,
+        default=None,
         help=f"Mutation rate for EvoPrompt (default: {_DEFAULT_EVO_MUTATION_RATE})",
     )
     # TextGrad-specific arguments
     calibrate_parser.add_argument(
-        "--textgrad-iterations", type=int, default=None,
+        "--textgrad-iterations",
+        type=int,
+        default=None,
         help=f"Max iterations for TextGrad (default: {_DEFAULT_TEXTGRAD_ITERATIONS})",
     )
     calibrate_parser.add_argument(
-        "--textgrad-threshold", type=float, default=None,
+        "--textgrad-threshold",
+        type=float,
+        default=None,
         help=f"Min F1 improvement threshold for TextGrad (default: {_DEFAULT_TEXTGRAD_THRESHOLD})",
     )
     # MIPROv2-specific arguments
     calibrate_parser.add_argument(
-        "--mipro-instructions", type=int, default=None,
+        "--mipro-instructions",
+        type=int,
+        default=None,
         help=f"Number of instruction candidates for MIPROv2 (default: {_DEFAULT_MIPRO_INSTRUCTIONS})",
     )
     calibrate_parser.add_argument(
-        "--mipro-demos", type=int, default=None,
+        "--mipro-demos",
+        type=int,
+        default=None,
         help=f"Number of few-shot demos for MIPROv2 (default: {_DEFAULT_MIPRO_DEMOS})",
     )
     calibrate_parser.add_argument(
-        "--mipro-eval-samples", type=int, default=None,
+        "--mipro-eval-samples",
+        type=int,
+        default=None,
         help=f"Evaluation samples per candidate for MIPROv2 (default: {_DEFAULT_MIPRO_EVAL_SAMPLES})",
     )
     # PromptBreeder-specific arguments
     calibrate_parser.add_argument(
-        "--pb-population", type=int, default=None,
+        "--pb-population",
+        type=int,
+        default=None,
         help=f"Population size for PromptBreeder (default: {_DEFAULT_PB_POPULATION})",
     )
     calibrate_parser.add_argument(
-        "--pb-generations", type=int, default=None,
+        "--pb-generations",
+        type=int,
+        default=None,
         help=f"Number of generations for PromptBreeder (default: {_DEFAULT_PB_GENERATIONS})",
     )
     calibrate_parser.add_argument(
         "--show-examples", action="store_true", help="Show example disagreement cases"
     )
-    calibrate_parser.add_argument(
-        "--output", help="Path to save calibration record JSON"
-    )
+    calibrate_parser.add_argument("--output", help="Path to save calibration record JSON")
     calibrate_parser.add_argument(
         "--verbose", "-v", action="store_true", help="Show detailed cost breakdown"
     )

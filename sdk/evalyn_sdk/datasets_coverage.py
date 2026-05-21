@@ -198,11 +198,7 @@ def compute_metric_coverage(
     total_items = len(all_item_ids) if all_item_ids else 1
     result: dict[str, float] = {}
     for metric in all_metrics:
-        covered = {
-            a.get("item_id", "")
-            for a in annotations
-            if a.get("metric_id") == metric
-        }
+        covered = {a.get("item_id", "") for a in annotations if a.get("metric_id") == metric}
         result[metric] = len(covered) / total_items
     return result
 
@@ -227,9 +223,7 @@ def render_coverage_ascii(report: CoverageReport, width: int = 60) -> str:
     pct = f"{rate:.1%}"
     lines: list[str] = []
     lines.append(f"Coverage: [{bar}] {pct}")
-    lines.append(
-        f"  {report.stats.annotated_items}/{report.stats.total_items} items annotated"
-    )
+    lines.append(f"  {report.stats.annotated_items}/{report.stats.total_items} items annotated")
     if report.stats.metrics_coverage:
         lines.append("  Per-metric:")
         for metric, mrate in sorted(report.stats.metrics_coverage.items()):
@@ -258,15 +252,11 @@ def suggest_annotation_targets(report: CoverageReport) -> list[str]:
 
     if report.stats.coverage_rate < 1.0 and report.stats.coverage_rate > 0:
         remaining = report.stats.unannotated_items
-        suggestions.append(
-            f"Annotate {remaining} more items to reach full coverage"
-        )
+        suggestions.append(f"Annotate {remaining} more items to reach full coverage")
 
     if report.stats.metrics_coverage:
         for metric, rate in sorted(report.stats.metrics_coverage.items()):
             if rate < 0.5:
-                suggestions.append(
-                    f"Metric '{metric}' covers only {rate:.0%} of items"
-                )
+                suggestions.append(f"Metric '{metric}' covers only {rate:.0%} of items")
 
     return suggestions

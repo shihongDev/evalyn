@@ -118,9 +118,7 @@ def print_token_usage_summary(usage: dict[str, Any], verbose: bool = False) -> N
     cost_by_metric = usage.get("cost_by_metric", {})
     if verbose and cost_by_metric and len(cost_by_metric) > 1:
         print("\nCost breakdown by metric:")
-        sorted_metrics = sorted(
-            cost_by_metric.items(), key=lambda x: x[1], reverse=True
-        )
+        sorted_metrics = sorted(cost_by_metric.items(), key=lambda x: x[1], reverse=True)
         for metric_id, cost in sorted_metrics:
             pct = (cost / total_cost * 100) if total_cost > 0 else 0
             print(f"  {metric_id:<25} {format_cost(cost):>10}  ({pct:.0f}%)")

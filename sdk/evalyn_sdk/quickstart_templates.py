@@ -88,10 +88,7 @@ TEMPLATES: dict[str, QuickstartTemplate] = {
         "LangChain agent evaluation",
         {
             "evalyn.yaml": (
-                "provider: gemini\n"
-                "metrics:\n"
-                "  - helpfulness\n"
-                "  - tool_call_accuracy\n"
+                "provider: gemini\nmetrics:\n  - helpfulness\n  - tool_call_accuracy\n"
             ),
             "agent.py": "# LangChain agent template\n",
         },
@@ -103,12 +100,7 @@ TEMPLATES: dict[str, QuickstartTemplate] = {
         "langgraph",
         "LangGraph workflow evaluation",
         {
-            "evalyn.yaml": (
-                "provider: gemini\n"
-                "metrics:\n"
-                "  - helpfulness\n"
-                "  - goal_completion\n"
-            ),
+            "evalyn.yaml": ("provider: gemini\nmetrics:\n  - helpfulness\n  - goal_completion\n"),
             "graph.py": "# LangGraph workflow template\n",
         },
         ["langgraph", "evalyn-sdk"],
@@ -120,10 +112,7 @@ TEMPLATES: dict[str, QuickstartTemplate] = {
         "CrewAI multi-agent evaluation",
         {
             "evalyn.yaml": (
-                "provider: gemini\n"
-                "metrics:\n"
-                "  - helpfulness\n"
-                "  - multi_agent_communication\n"
+                "provider: gemini\nmetrics:\n  - helpfulness\n  - multi_agent_communication\n"
             ),
             "crew.py": "# CrewAI template\n",
         },
@@ -135,12 +124,7 @@ TEMPLATES: dict[str, QuickstartTemplate] = {
         "python",
         "Plain Python with Gemini API",
         {
-            "evalyn.yaml": (
-                "provider: gemini\n"
-                "metrics:\n"
-                "  - output_nonempty\n"
-                "  - helpfulness\n"
-            ),
+            "evalyn.yaml": ("provider: gemini\nmetrics:\n  - output_nonempty\n  - helpfulness\n"),
             "main.py": "# Vanilla Python agent template\n",
         },
         ["google-generativeai", "evalyn-sdk"],
@@ -161,9 +145,7 @@ def get_quickstart(name: str) -> QuickstartTemplate:
     """
     if name not in TEMPLATES:
         available = ", ".join(sorted(TEMPLATES.keys()))
-        raise ValueError(
-            f"Unknown quickstart template: {name!r}. Available: {available}"
-        )
+        raise ValueError(f"Unknown quickstart template: {name!r}. Available: {available}")
     return TEMPLATES[name]
 
 

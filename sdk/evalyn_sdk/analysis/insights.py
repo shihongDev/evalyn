@@ -23,6 +23,7 @@ from .core import RunAnalysis
 @dataclass
 class CorrelationResult:
     """Correlation between two metrics' scores across items."""
+
     metric_a: str
     metric_b: str
     pearson: float
@@ -32,6 +33,7 @@ class CorrelationResult:
 @dataclass
 class RegressionAlert:
     """Alert for a metric whose pass rate dropped between runs."""
+
     metric_id: str
     previous_pass_rate: float
     current_pass_rate: float
@@ -42,6 +44,7 @@ class RegressionAlert:
 @dataclass
 class FeatureInsight:
     """Insight linking an input/output feature to pass/fail rates."""
+
     feature_name: str
     finding: str
     affected_items: int
@@ -52,6 +55,7 @@ class FeatureInsight:
 @dataclass
 class DistributionInsight:
     """Insight about unusual score distribution shape for a metric."""
+
     metric_id: str
     shape: Literal["normal", "bimodal", "skewed_low", "skewed_high", "cliff", "uniform"]
     finding: str
@@ -60,6 +64,7 @@ class DistributionInsight:
 @dataclass
 class Recommendation:
     """Prioritized actionable recommendation."""
+
     priority: int
     category: str
     message: str
@@ -69,6 +74,7 @@ class Recommendation:
 @dataclass
 class InsightsReport:
     """Complete insights report combining all analysis types."""
+
     correlations: list[CorrelationResult] = field(default_factory=list)
     regressions: list[RegressionAlert] = field(default_factory=list)
     feature_insights: list[FeatureInsight] = field(default_factory=list)
@@ -129,7 +135,7 @@ def compute_metric_correlations(run_analysis: RunAnalysis) -> list[CorrelationRe
     results: list[CorrelationResult] = []
 
     for i, m_a in enumerate(metric_ids):
-        for m_b in metric_ids[i + 1:]:
+        for m_b in metric_ids[i + 1 :]:
             # Find common items
             common_items = set(metric_scores[m_a].keys()) & set(metric_scores[m_b].keys())
             if len(common_items) < MIN_ITEMS_FOR_CORRELATION:
@@ -144,12 +150,14 @@ def compute_metric_correlations(run_analysis: RunAnalysis) -> list[CorrelationRe
 
             rel = _classify_correlation(r)
             if rel != "independent":
-                results.append(CorrelationResult(
-                    metric_a=m_a,
-                    metric_b=m_b,
-                    pearson=round(r, 3),
-                    relationship=rel,
-                ))
+                results.append(
+                    CorrelationResult(
+                        metric_a=m_a,
+                        metric_b=m_b,
+                        pearson=round(r, 3),
+                        relationship=rel,
+                    )
+                )
 
     results.sort(key=lambda c: abs(c.pearson), reverse=True)
     return results
@@ -160,7 +168,7 @@ def compute_metric_correlations(run_analysis: RunAnalysis) -> list[CorrelationRe
 # ---------------------------------------------------------------------------
 
 CRITICAL_THRESHOLD = 0.15  # 15 percentage point drop
-WARNING_THRESHOLD = 0.05   # 5 percentage point drop
+WARNING_THRESHOLD = 0.05  # 5 percentage point drop
 
 _SEVERITY_ORDER = {"critical": 0, "warning": 1, "info": 2}
 
@@ -207,13 +215,15 @@ def detect_regressions(
         else:
             severity = "info"
 
-        alerts.append(RegressionAlert(
-            metric_id=metric_id,
-            previous_pass_rate=round(prev_rate, 4),
-            current_pass_rate=round(current_rate, 4),
-            delta=round(delta, 4),
-            severity=severity,
-        ))
+        alerts.append(
+            RegressionAlert(
+                metric_id=metric_id,
+                previous_pass_rate=round(prev_rate, 4),
+                current_pass_rate=round(current_rate, 4),
+                delta=round(delta, 4),
+                severity=severity,
+            )
+        )
 
     alerts.sort(key=lambda a: (_SEVERITY_ORDER[a.severity], a.delta))
     return alerts
@@ -264,8 +274,7 @@ def analyze_input_features(
         return []
 
     item_passed: dict[str, bool] = {
-        item_id: ist.all_passed
-        for item_id, ist in run_analysis.item_stats.items()
+        item_id: ist.all_passed for item_id, ist in run_analysis.item_stats.items()
     }
 
     item_lookup: dict[str, dict[str, Any]] = {}
@@ -310,17 +319,23 @@ def analyze_input_features(
 
         median_val = data_points[mid][0]
         if high_pass < low_pass:
-            direction = f"Items with {feature_name.replace('_', ' ')} > {median_val} chars fail more"
+            direction = (
+                f"Items with {feature_name.replace('_', ' ')} > {median_val} chars fail more"
+            )
         else:
-            direction = f"Items with {feature_name.replace('_', ' ')} > {median_val} chars pass more"
+            direction = (
+                f"Items with {feature_name.replace('_', ' ')} > {median_val} chars pass more"
+            )
 
-        results.append(FeatureInsight(
-            feature_name=feature_name,
-            finding=f"{direction} ({low_pass:.0%} vs {high_pass:.0%} pass rate)",
-            affected_items=len(data_points),
-            pass_rate_low=round(low_pass, 4),
-            pass_rate_high=round(high_pass, 4),
-        ))
+        results.append(
+            FeatureInsight(
+                feature_name=feature_name,
+                finding=f"{direction} ({low_pass:.0%} vs {high_pass:.0%} pass rate)",
+                affected_items=len(data_points),
+                pass_rate_low=round(low_pass, 4),
+                pass_rate_high=round(high_pass, 4),
+            )
+        )
 
     return results
 
@@ -394,51 +409,75 @@ def analyze_score_distributions(
         at_zero = sum(1 for s in scores if s == 0.0) / n
         at_one = sum(1 for s in scores if s == 1.0) / n
         if at_zero > _CLIFF_FRACTION:
-            results.append(DistributionInsight(
-                metric_id=metric_id, shape="cliff",
-                finding=f"{at_zero:.0%} of scores at 0.0 - most items fail completely",
-            ))
+            results.append(
+                DistributionInsight(
+                    metric_id=metric_id,
+                    shape="cliff",
+                    finding=f"{at_zero:.0%} of scores at 0.0 - most items fail completely",
+                )
+            )
             continue
         if at_one > _CLIFF_FRACTION:
-            results.append(DistributionInsight(
-                metric_id=metric_id, shape="cliff",
-                finding=f"{at_one:.0%} of scores at 1.0 - metric may be too lenient",
-            ))
+            results.append(
+                DistributionInsight(
+                    metric_id=metric_id,
+                    shape="cliff",
+                    finding=f"{at_one:.0%} of scores at 1.0 - metric may be too lenient",
+                )
+            )
             continue
 
         # bimodal: significant mass in both tails with thin middle
         low_frac = sum(1 for s in scores if s <= _BIMODAL_LOW_THRESHOLD) / n
         high_frac = sum(1 for s in scores if s >= (1 - _BIMODAL_HIGH_THRESHOLD)) / n
-        mid_frac = sum(1 for s in scores if _BIMODAL_LOW_THRESHOLD < s < (1 - _BIMODAL_HIGH_THRESHOLD)) / n
-        if low_frac > _BIMODAL_LOW_THRESHOLD and high_frac > _BIMODAL_HIGH_THRESHOLD and mid_frac < _BIMODAL_MID_CEILING:
-            results.append(DistributionInsight(
-                metric_id=metric_id, shape="bimodal",
-                finding=f"Split outcomes: {low_frac:.0%} low, {high_frac:.0%} high - review rubric",
-            ))
+        mid_frac = (
+            sum(1 for s in scores if _BIMODAL_LOW_THRESHOLD < s < (1 - _BIMODAL_HIGH_THRESHOLD)) / n
+        )
+        if (
+            low_frac > _BIMODAL_LOW_THRESHOLD
+            and high_frac > _BIMODAL_HIGH_THRESHOLD
+            and mid_frac < _BIMODAL_MID_CEILING
+        ):
+            results.append(
+                DistributionInsight(
+                    metric_id=metric_id,
+                    shape="bimodal",
+                    finding=f"Split outcomes: {low_frac:.0%} low, {high_frac:.0%} high - review rubric",
+                )
+            )
             continue
 
         # skewed_low
         if mean < _SKEWED_LOW_MEAN and std > _SKEWED_LOW_MIN_STD:
-            results.append(DistributionInsight(
-                metric_id=metric_id, shape="skewed_low",
-                finding=f"Mean score {mean:.2f} - most items score poorly",
-            ))
+            results.append(
+                DistributionInsight(
+                    metric_id=metric_id,
+                    shape="skewed_low",
+                    finding=f"Mean score {mean:.2f} - most items score poorly",
+                )
+            )
             continue
 
         # skewed_high
         if mean > _SKEWED_HIGH_MEAN and std < _SKEWED_HIGH_MAX_STD:
-            results.append(DistributionInsight(
-                metric_id=metric_id, shape="skewed_high",
-                finding=f"Mean score {mean:.2f} with low variance - may be too lenient",
-            ))
+            results.append(
+                DistributionInsight(
+                    metric_id=metric_id,
+                    shape="skewed_high",
+                    finding=f"Mean score {mean:.2f} with low variance - may be too lenient",
+                )
+            )
             continue
 
         # uniform
         if std > _UNIFORM_MIN_STD and all(b <= _UNIFORM_BUCKET_CEILING for b in buckets):
-            results.append(DistributionInsight(
-                metric_id=metric_id, shape="uniform",
-                finding="Scores spread uniformly - metric may lack discriminative power",
-            ))
+            results.append(
+                DistributionInsight(
+                    metric_id=metric_id,
+                    shape="uniform",
+                    finding="Scores spread uniformly - metric may lack discriminative power",
+                )
+            )
             continue
 
     return results
@@ -471,94 +510,111 @@ def generate_recommendations(
     # 1. Critical regressions
     for reg in regressions:
         if reg.severity == "critical":
-            recs.append(Recommendation(
-                priority=priority,
-                category="regression",
-                message=f"Investigate {reg.metric_id} regression: {abs(reg.delta) * 100:.0f}% drop ({reg.previous_pass_rate * 100:.0f}% -> {reg.current_pass_rate * 100:.0f}%)",
-                action=f"evalyn analyze {dataset_flag}",
-            ))
+            recs.append(
+                Recommendation(
+                    priority=priority,
+                    category="regression",
+                    message=f"Investigate {reg.metric_id} regression: {abs(reg.delta) * 100:.0f}% drop ({reg.previous_pass_rate * 100:.0f}% -> {reg.current_pass_rate * 100:.0f}%)",
+                    action=f"evalyn analyze {dataset_flag}",
+                )
+            )
             priority += 1
 
     # 2. Redundant metrics
     for corr in correlations:
         if corr.relationship == "redundant":
-            recs.append(Recommendation(
-                priority=priority,
-                category="metric_config",
-                message=f"Consider removing one of: {corr.metric_a}, {corr.metric_b} (r={corr.pearson})",
-                action=f"evalyn list-metrics {dataset_flag}",
-            ))
+            recs.append(
+                Recommendation(
+                    priority=priority,
+                    category="metric_config",
+                    message=f"Consider removing one of: {corr.metric_a}, {corr.metric_b} (r={corr.pearson})",
+                    action=f"evalyn list-metrics {dataset_flag}",
+                )
+            )
             priority += 1
 
     # 3. Cliff distributions at 1.0 (too lenient)
     for dist in distribution_insights:
         if dist.shape == "cliff" and "lenient" in dist.finding:
-            recs.append(Recommendation(
-                priority=priority,
-                category="metric_config",
-                message=f"{dist.metric_id}: {dist.finding}",
-                action=f"evalyn calibrate --metric-id {dist.metric_id} {dataset_flag}",
-            ))
+            recs.append(
+                Recommendation(
+                    priority=priority,
+                    category="metric_config",
+                    message=f"{dist.metric_id}: {dist.finding}",
+                    action=f"evalyn calibrate --metric-id {dist.metric_id} {dataset_flag}",
+                )
+            )
             priority += 1
 
     # 4. Bimodal distributions
     for dist in distribution_insights:
         if dist.shape == "bimodal":
-            recs.append(Recommendation(
-                priority=priority,
-                category="calibration",
-                message=f"{dist.metric_id} has split outcomes - review rubric or calibrate",
-                action=f"evalyn calibrate --metric-id {dist.metric_id} {dataset_flag}",
-            ))
+            recs.append(
+                Recommendation(
+                    priority=priority,
+                    category="calibration",
+                    message=f"{dist.metric_id} has split outcomes - review rubric or calibrate",
+                    action=f"evalyn calibrate --metric-id {dist.metric_id} {dataset_flag}",
+                )
+            )
             priority += 1
 
     # 5. Feature insights
     for feat in feature_insights:
-        recs.append(Recommendation(
-            priority=priority,
-            category="data_quality",
-            message=feat.finding,
-            action=f"evalyn cluster-failures {dataset_flag}",
-        ))
+        recs.append(
+            Recommendation(
+                priority=priority,
+                category="data_quality",
+                message=feat.finding,
+                action=f"evalyn cluster-failures {dataset_flag}",
+            )
+        )
         priority += 1
 
     # 6. Tradeoff metrics
     for corr in correlations:
         if corr.relationship == "tradeoff":
-            recs.append(Recommendation(
-                priority=priority,
-                category="metric_config",
-                message=f"{corr.metric_a} and {corr.metric_b} trade off (r={corr.pearson}) - decide which matters more",
-                action=f"evalyn list-metrics {dataset_flag}",
-            ))
+            recs.append(
+                Recommendation(
+                    priority=priority,
+                    category="metric_config",
+                    message=f"{corr.metric_a} and {corr.metric_b} trade off (r={corr.pearson}) - decide which matters more",
+                    action=f"evalyn list-metrics {dataset_flag}",
+                )
+            )
             priority += 1
 
     # 7. Problem metrics needing calibration
     problem_metrics = [
-        mid for mid, ms in run_analysis.metric_stats.items()
+        mid
+        for mid, ms in run_analysis.metric_stats.items()
         if ms.pass_rate is not None and ms.pass_rate < _LOW_PASS_RATE
     ]
     already_mentioned = {r.metric_id for r in regressions if r.severity == "critical"}
     for mid in problem_metrics:
         if mid not in already_mentioned:
-            recs.append(Recommendation(
-                priority=priority,
-                category="calibration",
-                message=f"{mid} has low pass rate ({run_analysis.metric_stats[mid].pass_rate * 100:.0f}%)",
-                action=f"evalyn calibrate --metric-id {mid} {dataset_flag}",
-            ))
+            recs.append(
+                Recommendation(
+                    priority=priority,
+                    category="calibration",
+                    message=f"{mid} has low pass rate ({run_analysis.metric_stats[mid].pass_rate * 100:.0f}%)",
+                    action=f"evalyn calibrate --metric-id {mid} {dataset_flag}",
+                )
+            )
             priority += 1
             break  # Only suggest one
 
     # 8. Warning regressions
     for reg in regressions:
         if reg.severity == "warning":
-            recs.append(Recommendation(
-                priority=priority,
-                category="regression",
-                message=f"{reg.metric_id} dropped {abs(reg.delta) * 100:.0f}%",
-                action=f"evalyn compare {dataset_flag}",
-            ))
+            recs.append(
+                Recommendation(
+                    priority=priority,
+                    category="regression",
+                    message=f"{reg.metric_id} dropped {abs(reg.delta) * 100:.0f}%",
+                    action=f"evalyn compare {dataset_flag}",
+                )
+            )
             priority += 1
 
     return recs

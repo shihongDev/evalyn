@@ -225,9 +225,7 @@ def check_python_version() -> PropagationTest:
         return PropagationTest(
             name="python_version",
             passed=True,
-            details=(
-                f"Python {version_str} - use copy_context() for thread propagation"
-            ),
+            details=(f"Python {version_str} - use copy_context() for thread propagation"),
             context_type="sync",
         )
     return PropagationTest(
@@ -258,17 +256,11 @@ def run_diagnostics() -> DiagnosticsReport:
 
     recommendations: list[str] = []
     if not thread_ok:
-        recommendations.append(
-            "Consider using copy_context() before spawning threads"
-        )
+        recommendations.append("Consider using copy_context() before spawning threads")
     if not async_ok:
-        recommendations.append(
-            "Ensure async tasks are created within the correct context"
-        )
+        recommendations.append("Ensure async tasks are created within the correct context")
     if not sync_ok:
-        recommendations.append(
-            "Basic ContextVar operations failed - check Python installation"
-        )
+        recommendations.append("Basic ContextVar operations failed - check Python installation")
 
     return DiagnosticsReport(
         tests=tests,

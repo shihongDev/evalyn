@@ -14,7 +14,7 @@ from typing import Any
 class WarmupConfig:
     """Configuration for evaluation warm-up."""
 
-    warmup_count: int = 5       # number of initial items to warm up on
+    warmup_count: int = 5  # number of initial items to warm up on
     discard_warmup: bool = True  # if True, re-evaluate warmup items after priming
     enabled: bool = False
 

@@ -99,9 +99,7 @@ class PIISafetyReport:
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> PIISafetyReport:
         return cls(
-            results=[
-                PIIDetectionResult.from_dict(r) for r in data.get("results", [])
-            ],
+            results=[PIIDetectionResult.from_dict(r) for r in data.get("results", [])],
             total_items=data.get("total_items", 0),
             items_with_pii=data.get("items_with_pii", 0),
             items_at_risk=data.get("items_at_risk", 0),
@@ -184,8 +182,9 @@ def detect_pii(
     return found
 
 
-def _compute_risk_level(pii_found: list[str], has_embedding: bool,
-                        patterns: list[PIIPattern]) -> str:
+def _compute_risk_level(
+    pii_found: list[str], has_embedding: bool, patterns: list[PIIPattern]
+) -> str:
     """Determine risk level from PII findings and embedding presence."""
     if not pii_found:
         return "none"
@@ -210,8 +209,7 @@ def _compute_risk_level(pii_found: list[str], has_embedding: bool,
         return "low"
 
 
-def _build_recommendations(risk_level: str, pii_found: list[str],
-                           has_embedding: bool) -> list[str]:
+def _build_recommendations(risk_level: str, pii_found: list[str], has_embedding: bool) -> list[str]:
     """Build contextual recommendations for a single item."""
     recs: list[str] = []
 
@@ -231,25 +229,16 @@ def _build_recommendations(risk_level: str, pii_found: list[str],
         )
 
     if "email" in pii_found or "phone" in pii_found:
-        recs.append(
-            "Replace identifiable contact information with synthetic "
-            "placeholders."
-        )
+        recs.append("Replace identifiable contact information with synthetic placeholders.")
 
     if "ip_address" in pii_found:
         recs.append("Anonymize IP addresses before storing embeddings.")
 
     if "date_of_birth" in pii_found:
-        recs.append(
-            "Generalize dates of birth to age ranges to reduce "
-            "re-identification risk."
-        )
+        recs.append("Generalize dates of birth to age ranges to reduce re-identification risk.")
 
     if has_embedding and risk_level in ("critical", "high"):
-        recs.append(
-            "Consider using differential-privacy noise injection on "
-            "embeddings."
-        )
+        recs.append("Consider using differential-privacy noise injection on embeddings.")
 
     return recs
 
@@ -299,9 +288,7 @@ def check_dataset_pii_safety(
         results.append(result)
 
     items_with_pii = sum(1 for r in results if r.pii_count > 0)
-    items_at_risk = sum(
-        1 for r in results if r.risk_level in ("critical", "high")
-    )
+    items_at_risk = sum(1 for r in results if r.risk_level in ("critical", "high"))
 
     risk_counts: dict[str, int] = {}
     pattern_counts: dict[str, int] = {}
@@ -354,10 +341,7 @@ def format_pii_report(report: PIISafetyReport) -> str:
     if at_risk:
         lines.append("Items requiring attention:")
         for r in at_risk:
-            lines.append(
-                f"  [{r.risk_level.upper()}] {r.text_id} - "
-                f"PII: {', '.join(r.pii_found)}"
-            )
+            lines.append(f"  [{r.risk_level.upper()}] {r.text_id} - PII: {', '.join(r.pii_found)}")
             for rec in r.recommendations:
                 lines.append(f"    - {rec}")
         lines.append("")
@@ -375,23 +359,18 @@ def suggest_mitigations(result: PIIDetectionResult) -> list[str]:
 
     if result.risk_level in ("critical", "high"):
         suggestions.append(
-            "Priority: redact or remove PII from source text before "
-            "embedding generation."
+            "Priority: redact or remove PII from source text before embedding generation."
         )
 
     if result.has_embedding:
         suggestions.append(
-            "Apply differential-privacy mechanisms (e.g., noise injection) "
-            "to stored embeddings."
+            "Apply differential-privacy mechanisms (e.g., noise injection) to stored embeddings."
         )
-        suggestions.append(
-            "Limit embedding dimensionality to reduce information leakage."
-        )
+        suggestions.append("Limit embedding dimensionality to reduce information leakage.")
 
     if "ssn" in result.pii_found or "credit_card" in result.pii_found:
         suggestions.append(
-            "Remove highly sensitive fields entirely rather than attempting "
-            "redaction."
+            "Remove highly sensitive fields entirely rather than attempting redaction."
         )
 
     if "email" in result.pii_found:

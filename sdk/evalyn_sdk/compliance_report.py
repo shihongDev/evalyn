@@ -192,54 +192,62 @@ def build_eu_ai_act_sections(
     fw = "eu_ai_act"
     sections = []
 
-    sections.append(ComplianceSection(
-        section_id="eu_1_system_description",
-        title="System Description",
-        content=(
-            f"{system_name} is an AI system evaluated under the EU AI Act framework. "
-            f"The evaluation methodology used is: {methodology.method_name}. "
-            f"{methodology.description}"
-        ),
-        references=["EU AI Act, Article 9 - Risk Management System"],
-        framework=fw,
-    ))
+    sections.append(
+        ComplianceSection(
+            section_id="eu_1_system_description",
+            title="System Description",
+            content=(
+                f"{system_name} is an AI system evaluated under the EU AI Act framework. "
+                f"The evaluation methodology used is: {methodology.method_name}. "
+                f"{methodology.description}"
+            ),
+            references=["EU AI Act, Article 9 - Risk Management System"],
+            framework=fw,
+        )
+    )
 
-    sections.append(ComplianceSection(
-        section_id="eu_2_risk_classification",
-        title="Risk Classification",
-        content=(
-            f"Risk classification for {system_name} should be determined based on "
-            "the intended use case and deployment context as specified in Annex III "
-            "of the EU AI Act. This report provides evaluation evidence to support "
-            "that classification."
-        ),
-        references=[
-            "EU AI Act, Article 6 - Classification Rules",
-            "EU AI Act, Annex III - High-Risk AI Systems",
-        ],
-        framework=fw,
-    ))
+    sections.append(
+        ComplianceSection(
+            section_id="eu_2_risk_classification",
+            title="Risk Classification",
+            content=(
+                f"Risk classification for {system_name} should be determined based on "
+                "the intended use case and deployment context as specified in Annex III "
+                "of the EU AI Act. This report provides evaluation evidence to support "
+                "that classification."
+            ),
+            references=[
+                "EU AI Act, Article 6 - Classification Rules",
+                "EU AI Act, Annex III - High-Risk AI Systems",
+            ],
+            framework=fw,
+        )
+    )
 
-    sections.append(ComplianceSection(
-        section_id="eu_3_evaluation_methodology",
-        title="Evaluation Methodology",
-        content=(
-            f"Method: {methodology.method_name}\n\n"
-            f"{methodology.description}\n\n"
-            f"Dataset: {methodology.dataset_description}\n\n"
-            f"{_metrics_summary(methodology)}"
-        ),
-        references=["EU AI Act, Article 9(7) - Testing Procedures"],
-        framework=fw,
-    ))
+    sections.append(
+        ComplianceSection(
+            section_id="eu_3_evaluation_methodology",
+            title="Evaluation Methodology",
+            content=(
+                f"Method: {methodology.method_name}\n\n"
+                f"{methodology.description}\n\n"
+                f"Dataset: {methodology.dataset_description}\n\n"
+                f"{_metrics_summary(methodology)}"
+            ),
+            references=["EU AI Act, Article 9(7) - Testing Procedures"],
+            framework=fw,
+        )
+    )
 
-    sections.append(ComplianceSection(
-        section_id="eu_4_benchmark_results",
-        title="Benchmark Results",
-        content=_benchmark_summary(benchmarks),
-        references=["EU AI Act, Article 9(8) - Performance Metrics"],
-        framework=fw,
-    ))
+    sections.append(
+        ComplianceSection(
+            section_id="eu_4_benchmark_results",
+            title="Benchmark Results",
+            content=_benchmark_summary(benchmarks),
+            references=["EU AI Act, Article 9(8) - Performance Metrics"],
+            framework=fw,
+        )
+    )
 
     limitations_content = (
         f"Known limitations: {methodology.limitations}"
@@ -248,45 +256,51 @@ def build_eu_ai_act_sections(
     )
     failed = [b for b in benchmarks if not b.passed]
     if failed:
-        limitations_content += (
-            "\n\nFailed benchmarks requiring attention:\n"
-            + "\n".join(f"- {b.benchmark_name}: scored {b.score:.3f} below threshold {b.threshold:.3f}" for b in failed)
+        limitations_content += "\n\nFailed benchmarks requiring attention:\n" + "\n".join(
+            f"- {b.benchmark_name}: scored {b.score:.3f} below threshold {b.threshold:.3f}"
+            for b in failed
         )
 
-    sections.append(ComplianceSection(
-        section_id="eu_5_limitations",
-        title="Limitations and Risks",
-        content=limitations_content,
-        references=[
-            "EU AI Act, Article 13 - Transparency",
-            "EU AI Act, Article 9(4) - Risk Identification",
-        ],
-        framework=fw,
-    ))
+    sections.append(
+        ComplianceSection(
+            section_id="eu_5_limitations",
+            title="Limitations and Risks",
+            content=limitations_content,
+            references=[
+                "EU AI Act, Article 13 - Transparency",
+                "EU AI Act, Article 9(4) - Risk Identification",
+            ],
+            framework=fw,
+        )
+    )
 
-    sections.append(ComplianceSection(
-        section_id="eu_6_data_governance",
-        title="Data Governance",
-        content=(
-            f"Evaluation dataset: {methodology.dataset_description}\n\n"
-            "Data governance practices should be documented separately covering "
-            "data collection, labeling, preprocessing, and bias assessment."
-        ),
-        references=["EU AI Act, Article 10 - Data and Data Governance"],
-        framework=fw,
-    ))
+    sections.append(
+        ComplianceSection(
+            section_id="eu_6_data_governance",
+            title="Data Governance",
+            content=(
+                f"Evaluation dataset: {methodology.dataset_description}\n\n"
+                "Data governance practices should be documented separately covering "
+                "data collection, labeling, preprocessing, and bias assessment."
+            ),
+            references=["EU AI Act, Article 10 - Data and Data Governance"],
+            framework=fw,
+        )
+    )
 
-    sections.append(ComplianceSection(
-        section_id="eu_7_human_oversight",
-        title="Human Oversight",
-        content=(
-            "Human oversight mechanisms should be documented for production deployment. "
-            "This evaluation report provides baseline performance evidence to inform "
-            "oversight requirements."
-        ),
-        references=["EU AI Act, Article 14 - Human Oversight"],
-        framework=fw,
-    ))
+    sections.append(
+        ComplianceSection(
+            section_id="eu_7_human_oversight",
+            title="Human Oversight",
+            content=(
+                "Human oversight mechanisms should be documented for production deployment. "
+                "This evaluation report provides baseline performance evidence to inform "
+                "oversight requirements."
+            ),
+            references=["EU AI Act, Article 14 - Human Oversight"],
+            framework=fw,
+        )
+    )
 
     return sections
 
@@ -303,63 +317,73 @@ def build_nist_rmf_sections(
     fw = "nist_rmf"
     sections = []
 
-    sections.append(ComplianceSection(
-        section_id="nist_1_map",
-        title="Map",
-        content=(
-            f"System: {system_name}\n\n"
-            f"Evaluation scope: {methodology.method_name}\n\n"
-            f"{methodology.description}\n\n"
-            "Context mapping should identify intended users, deployment environment, "
-            "and potential impacts of the AI system."
-        ),
-        references=["NIST AI RMF 1.0, Map Function"],
-        framework=fw,
-    ))
+    sections.append(
+        ComplianceSection(
+            section_id="nist_1_map",
+            title="Map",
+            content=(
+                f"System: {system_name}\n\n"
+                f"Evaluation scope: {methodology.method_name}\n\n"
+                f"{methodology.description}\n\n"
+                "Context mapping should identify intended users, deployment environment, "
+                "and potential impacts of the AI system."
+            ),
+            references=["NIST AI RMF 1.0, Map Function"],
+            framework=fw,
+        )
+    )
 
-    sections.append(ComplianceSection(
-        section_id="nist_2_measure",
-        title="Measure",
-        content=(
-            f"{_metrics_summary(methodology)}\n\n"
-            f"Dataset: {methodology.dataset_description}\n\n"
-            f"{_benchmark_summary(benchmarks)}"
-        ),
-        references=["NIST AI RMF 1.0, Measure Function"],
-        framework=fw,
-    ))
+    sections.append(
+        ComplianceSection(
+            section_id="nist_2_measure",
+            title="Measure",
+            content=(
+                f"{_metrics_summary(methodology)}\n\n"
+                f"Dataset: {methodology.dataset_description}\n\n"
+                f"{_benchmark_summary(benchmarks)}"
+            ),
+            references=["NIST AI RMF 1.0, Measure Function"],
+            framework=fw,
+        )
+    )
 
     manage_items = []
     failed = [b for b in benchmarks if not b.passed]
     if failed:
         manage_items.append(
             "Action items for failed benchmarks:\n"
-            + "\n".join(f"- Address {b.benchmark_name} (gap: {b.threshold - b.score:.3f})" for b in failed)
+            + "\n".join(
+                f"- Address {b.benchmark_name} (gap: {b.threshold - b.score:.3f})" for b in failed
+            )
         )
     if methodology.limitations:
         manage_items.append(f"Documented limitations: {methodology.limitations}")
     if not manage_items:
         manage_items.append("All benchmarks passed. Continue monitoring for drift.")
 
-    sections.append(ComplianceSection(
-        section_id="nist_3_manage",
-        title="Manage",
-        content="\n\n".join(manage_items),
-        references=["NIST AI RMF 1.0, Manage Function"],
-        framework=fw,
-    ))
+    sections.append(
+        ComplianceSection(
+            section_id="nist_3_manage",
+            title="Manage",
+            content="\n\n".join(manage_items),
+            references=["NIST AI RMF 1.0, Manage Function"],
+            framework=fw,
+        )
+    )
 
-    sections.append(ComplianceSection(
-        section_id="nist_4_govern",
-        title="Govern",
-        content=(
-            "Governance policies should define roles, responsibilities, and processes "
-            "for ongoing AI risk management. This evaluation provides evidence for "
-            "governance review and decision-making."
-        ),
-        references=["NIST AI RMF 1.0, Govern Function"],
-        framework=fw,
-    ))
+    sections.append(
+        ComplianceSection(
+            section_id="nist_4_govern",
+            title="Govern",
+            content=(
+                "Governance policies should define roles, responsibilities, and processes "
+                "for ongoing AI risk management. This evaluation provides evidence for "
+                "governance review and decision-making."
+            ),
+            references=["NIST AI RMF 1.0, Govern Function"],
+            framework=fw,
+        )
+    )
 
     return sections
 
@@ -510,15 +534,15 @@ def format_report_html(report: ComplianceReport) -> str:
 
     parts: list[str] = []
     parts.append("<!DOCTYPE html>")
-    parts.append("<html lang=\"en\">")
+    parts.append('<html lang="en">')
     parts.append("<head>")
-    parts.append(f"<meta charset=\"utf-8\"><title>{e(report.title)}</title>")
+    parts.append(f'<meta charset="utf-8"><title>{e(report.title)}</title>')
     parts.append(f"<style>{style}</style>")
     parts.append("</head>")
     parts.append("<body>")
 
     parts.append(f"<h1>{e(report.title)}</h1>")
-    parts.append("<div class=\"meta\">")
+    parts.append('<div class="meta">')
     parts.append(f"<p>Report ID: {e(report.report_id)}</p>")
     parts.append(f"<p>System: {e(report.system_name)} v{e(report.system_version)}</p>")
     parts.append(f"<p>Generated: {e(report.generated_at)}</p>")
@@ -533,14 +557,10 @@ def format_report_html(report: ComplianceReport) -> str:
     parts.append(f"<p><strong>Dataset:</strong> {e(report.methodology.dataset_description)}</p>")
     if report.methodology.metrics_used:
         parts.append(
-            "<p><strong>Metrics:</strong> "
-            + e(", ".join(report.methodology.metrics_used))
-            + "</p>"
+            "<p><strong>Metrics:</strong> " + e(", ".join(report.methodology.metrics_used)) + "</p>"
         )
     if report.methodology.limitations:
-        parts.append(
-            f"<p><strong>Limitations:</strong> {e(report.methodology.limitations)}</p>"
-        )
+        parts.append(f"<p><strong>Limitations:</strong> {e(report.methodology.limitations)}</p>")
 
     # Benchmarks
     parts.append("<h2>Benchmark Results</h2>")
@@ -554,7 +574,7 @@ def format_report_html(report: ComplianceReport) -> str:
                 f"<tr><td>{e(b.benchmark_name)}</td>"
                 f"<td>{b.score:.3f}</td>"
                 f"<td>{b.threshold:.3f}</td>"
-                f"<td class=\"{css_class}\">{status}</td></tr>"
+                f'<td class="{css_class}">{status}</td></tr>'
             )
         parts.append("</table>")
     else:
@@ -562,12 +582,12 @@ def format_report_html(report: ComplianceReport) -> str:
 
     # Sections
     for section in report.sections:
-        parts.append("<div class=\"section\">")
+        parts.append('<div class="section">')
         parts.append(f"<h2>{e(section.title)}</h2>")
         # Preserve line breaks in content
         parts.append(f"<p>{e(section.content).replace(chr(10), '<br>')}</p>")
         if section.references:
-            parts.append("<div class=\"ref\"><strong>References:</strong><ul>")
+            parts.append('<div class="ref"><strong>References:</strong><ul>')
             for ref in section.references:
                 parts.append(f"<li>{e(ref)}</li>")
             parts.append("</ul></div>")
@@ -647,9 +667,6 @@ def validate_report(report: ComplianceReport) -> list[str]:
     # Flag failed benchmarks
     failed = [b for b in report.benchmarks if not b.passed]
     for b in failed:
-        errors.append(
-            f"Benchmark '{b.benchmark_name}' failed: "
-            f"{b.score:.3f} < {b.threshold:.3f}."
-        )
+        errors.append(f"Benchmark '{b.benchmark_name}' failed: {b.score:.3f} < {b.threshold:.3f}.")
 
     return errors

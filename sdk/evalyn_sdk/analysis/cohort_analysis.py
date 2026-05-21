@@ -84,13 +84,9 @@ class CohortReport:
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> CohortReport:
-        cohorts = [
-            CohortStats(**c) for c in data.get("cohorts", [])
-        ]
+        cohorts = [CohortStats(**c) for c in data.get("cohorts", [])]
         comparisons_raw = data.get("comparisons", [])
-        comparisons = [
-            CohortComparison(**c) for c in comparisons_raw
-        ]
+        comparisons = [CohortComparison(**c) for c in comparisons_raw]
         return cls(
             cohorts=cohorts,
             comparisons=comparisons,
@@ -167,6 +163,7 @@ def define_cohort_by_length(
         val = item.get(input_field, "")
         if isinstance(val, dict):
             import json as _json
+
             lengths.append(len(_json.dumps(val)))
         elif isinstance(val, str):
             lengths.append(len(val))
@@ -243,9 +240,7 @@ def compute_cohort_stats(
     )
 
 
-def compare_cohorts(
-    stats_a: CohortStats, stats_b: CohortStats
-) -> CohortComparison:
+def compare_cohorts(stats_a: CohortStats, stats_b: CohortStats) -> CohortComparison:
     """Pairwise comparison. Significant if |score_delta| > 0.1."""
     score_delta = stats_a.avg_score - stats_b.avg_score
     pass_rate_delta = stats_a.pass_rate - stats_b.pass_rate

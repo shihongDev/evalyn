@@ -124,9 +124,7 @@ def check_version_mismatch(spans: list[Span]) -> list[str]:
     for provider, vers in sorted(provider_versions.items()):
         if len(vers) > 1:
             ver_list = ", ".join(sorted(vers))
-            mismatches.append(
-                f"{provider}: multiple versions found ({ver_list})"
-            )
+            mismatches.append(f"{provider}: multiple versions found ({ver_list})")
     return mismatches
 
 
@@ -137,10 +135,6 @@ def inject_version_info(span: Span) -> Span:
     """
     new_span = copy.deepcopy(span)
     report = detect_all_versions()
-    installed = {
-        v.package_name: v.version
-        for v in report.versions
-        if v.installed
-    }
+    installed = {v.package_name: v.version for v in report.versions if v.installed}
     new_span.attributes["evalyn.sdk_versions"] = installed
     return new_span

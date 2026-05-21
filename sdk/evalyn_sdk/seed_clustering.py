@@ -15,16 +15,84 @@ from typing import Any
 # Stop words
 # ---------------------------------------------------------------------------
 
-_STOP_WORDS = frozenset({
-    "the", "a", "an", "and", "or", "but", "in", "on", "at", "to", "for",
-    "of", "with", "by", "from", "is", "it", "as", "was", "are", "be",
-    "this", "that", "not", "has", "had", "have", "been", "will", "can",
-    "do", "does", "did", "if", "so", "no", "up", "out", "its", "all",
-    "my", "we", "he", "she", "they", "you", "me", "us", "him", "her",
-    "who", "what", "when", "how", "which", "where", "there", "here",
-    "then", "than", "also", "just", "about", "into", "over", "after",
-    "more", "some", "any", "each", "very", "too", "own", "same",
-})
+_STOP_WORDS = frozenset(
+    {
+        "the",
+        "a",
+        "an",
+        "and",
+        "or",
+        "but",
+        "in",
+        "on",
+        "at",
+        "to",
+        "for",
+        "of",
+        "with",
+        "by",
+        "from",
+        "is",
+        "it",
+        "as",
+        "was",
+        "are",
+        "be",
+        "this",
+        "that",
+        "not",
+        "has",
+        "had",
+        "have",
+        "been",
+        "will",
+        "can",
+        "do",
+        "does",
+        "did",
+        "if",
+        "so",
+        "no",
+        "up",
+        "out",
+        "its",
+        "all",
+        "my",
+        "we",
+        "he",
+        "she",
+        "they",
+        "you",
+        "me",
+        "us",
+        "him",
+        "her",
+        "who",
+        "what",
+        "when",
+        "how",
+        "which",
+        "where",
+        "there",
+        "here",
+        "then",
+        "than",
+        "also",
+        "just",
+        "about",
+        "into",
+        "over",
+        "after",
+        "more",
+        "some",
+        "any",
+        "each",
+        "very",
+        "too",
+        "own",
+        "same",
+    }
+)
 
 
 # ---------------------------------------------------------------------------
@@ -34,10 +102,7 @@ _STOP_WORDS = frozenset({
 
 def _tokenize(text: str) -> set[str]:
     """Lowercase, split on whitespace, filter short words and stop words."""
-    return {
-        w for w in text.lower().split()
-        if len(w) >= 3 and w not in _STOP_WORDS
-    }
+    return {w for w in text.lower().split() if len(w) >= 3 and w not in _STOP_WORDS}
 
 
 def _jaccard_similarity(a: set[str], b: set[str]) -> float:
@@ -160,9 +225,7 @@ def cluster_seeds(
         actual_k = 1
 
     # Precompute word sets
-    word_sets: dict[str, set[str]] = {
-        sid: _tokenize(seeds[sid]) for sid in seed_ids
-    }
+    word_sets: dict[str, set[str]] = {sid: _tokenize(seeds[sid]) for sid in seed_ids}
 
     # Step 1: Initialize centroids by picking evenly-spaced seeds
     step = max(1, n // actual_k)
@@ -194,11 +257,7 @@ def cluster_seeds(
 
         # Step 3: Update centroids
         for c_idx in range(actual_k):
-            members = [
-                word_sets[seed_ids[i]]
-                for i in range(n)
-                if assignments[i] == c_idx
-            ]
+            members = [word_sets[seed_ids[i]] for i in range(n) if assignments[i] == c_idx]
             if members:
                 centroids[c_idx] = _compute_centroid(members)
 
@@ -212,12 +271,14 @@ def cluster_seeds(
         members = cluster_members[c_idx]
         if not members:
             continue
-        clusters.append(SeedCluster(
-            cluster_id=c_idx,
-            seed_ids=members,
-            centroid_keywords=sorted(centroids[c_idx])[:10],
-            size=len(members),
-        ))
+        clusters.append(
+            SeedCluster(
+                cluster_id=c_idx,
+                seed_ids=members,
+                centroid_keywords=sorted(centroids[c_idx])[:10],
+                size=len(members),
+            )
+        )
 
     # Compute silhouette score
     sil = _compute_silhouette(seed_ids, word_sets, assignments, actual_k)

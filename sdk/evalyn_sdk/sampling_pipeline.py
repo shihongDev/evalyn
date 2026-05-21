@@ -78,9 +78,7 @@ class PipelineResult:
     def from_dict(cls, data: dict[str, Any]) -> PipelineResult:
         return cls(
             final_ids=list(data.get("final_ids", [])),
-            stage_results=[
-                PipelineStage.from_dict(s) for s in data.get("stage_results", [])
-            ],
+            stage_results=[PipelineStage.from_dict(s) for s in data.get("stage_results", [])],
             total_input=data.get("total_input", 0),
             total_output=data.get("total_output", 0),
         )

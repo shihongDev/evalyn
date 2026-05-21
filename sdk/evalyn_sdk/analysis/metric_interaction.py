@@ -102,9 +102,7 @@ def compute_joint_pass_rate(scores_a: list[bool], scores_b: list[bool]) -> float
     return both / n
 
 
-def compute_conditional_pass_rate(
-    scores_a: list[bool], scores_b: list[bool]
-) -> float:
+def compute_conditional_pass_rate(scores_a: list[bool], scores_b: list[bool]) -> float:
     """P(B passes | A passes). Returns 0.0 if A never passes."""
     if not scores_a or not scores_b:
         return 0.0
@@ -160,10 +158,7 @@ def detect_interaction(
             metric_b=metric_b,
             interaction_type="conflict",
             strength=strength,
-            description=(
-                f"P(B|A) ({conditional_b_given_a:.4f}) is lower than "
-                f"P(B) ({rate_b:.4f})"
-            ),
+            description=(f"P(B|A) ({conditional_b_given_a:.4f}) is lower than P(B) ({rate_b:.4f})"),
         )
 
     return InteractionEffect(
@@ -200,23 +195,15 @@ def detect_all_interactions(
     )
 
 
-def find_strongest_synergies(
-    report: InteractionReport, top_n: int = 5
-) -> list[InteractionEffect]:
+def find_strongest_synergies(report: InteractionReport, top_n: int = 5) -> list[InteractionEffect]:
     """Return the top N synergies by strength."""
-    synergy_effects = [
-        e for e in report.effects if e.interaction_type == "synergy"
-    ]
+    synergy_effects = [e for e in report.effects if e.interaction_type == "synergy"]
     synergy_effects.sort(key=lambda e: e.strength, reverse=True)
     return synergy_effects[:top_n]
 
 
-def find_strongest_conflicts(
-    report: InteractionReport, top_n: int = 5
-) -> list[InteractionEffect]:
+def find_strongest_conflicts(report: InteractionReport, top_n: int = 5) -> list[InteractionEffect]:
     """Return the top N conflicts by strength."""
-    conflict_effects = [
-        e for e in report.effects if e.interaction_type == "conflict"
-    ]
+    conflict_effects = [e for e in report.effects if e.interaction_type == "conflict"]
     conflict_effects.sort(key=lambda e: e.strength, reverse=True)
     return conflict_effects[:top_n]

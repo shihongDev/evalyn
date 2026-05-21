@@ -101,10 +101,7 @@ class _PatchedStateProxy:
 
     def copy(self) -> dict[str, bool]:
         registry = get_registry()
-        return {
-            name: registry.is_instrumented(name)
-            for name in registry.list_instrumentors()
-        }
+        return {name: registry.is_instrumented(name) for name in registry.list_instrumentors()}
 
 
 _patched = _PatchedStateProxy()

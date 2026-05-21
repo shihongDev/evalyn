@@ -32,10 +32,10 @@ class WhatIfScenario:
     def format_text(self) -> str:
         lines = [f"What-If: {self.description}"]
         for mid, change in self.changes.items():
-            lines.append(f"  {mid}: {change*100:+.1f}%")
+            lines.append(f"  {mid}: {change * 100:+.1f}%")
         lines.append(f"  Current:   {self.current_pass_rate:.1%}")
         lines.append(f"  Projected: {self.projected_pass_rate:.1%}")
-        lines.append(f"  Delta:     {self.delta*100:+.1f}%")
+        lines.append(f"  Delta:     {self.delta * 100:+.1f}%")
         return "\n".join(lines)
 
 
@@ -107,8 +107,9 @@ def find_minimum_improvement(
     while improvement <= max_improvement:
         improvement += step
         scenario = simulate_improvement(
-            current_rates, {metric_id: improvement},
-            description=f"Improve {metric_id} by {improvement*100:.0f}%",
+            current_rates,
+            {metric_id: improvement},
+            description=f"Improve {metric_id} by {improvement * 100:.0f}%",
         )
         if scenario.projected_pass_rate >= target_pass_rate:
             return scenario
@@ -138,8 +139,9 @@ def find_best_metric_to_improve(
     best = None
     for mid in current_rates:
         scenario = simulate_improvement(
-            current_rates, {mid: improvement},
-            description=f"Improve {mid} by {improvement*100:.0f}%",
+            current_rates,
+            {mid: improvement},
+            description=f"Improve {mid} by {improvement * 100:.0f}%",
         )
         if best is None or scenario.projected_pass_rate > best.projected_pass_rate:
             best = scenario

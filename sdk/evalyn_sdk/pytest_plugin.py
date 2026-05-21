@@ -90,9 +90,7 @@ def evalyn_assert(
             result = metric.evaluate(call, item)
             results.append(result)
             if result.passed is False:
-                failures.append(
-                    f"{metric_id}: FAIL (score={result.score})"
-                )
+                failures.append(f"{metric_id}: FAIL (score={result.score})")
             elif result.score is not None and result.score < threshold:
                 failures.append(
                     f"{metric_id}: below threshold (score={result.score:.3f} < {threshold})"

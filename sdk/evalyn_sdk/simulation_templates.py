@@ -96,8 +96,7 @@ class TemplateLibrary:
     def from_dict(cls, data: dict[str, Any]) -> TemplateLibrary:
         return cls(
             templates={
-                k: SimulationTemplate.from_dict(v)
-                for k, v in data.get("templates", {}).items()
+                k: SimulationTemplate.from_dict(v) for k, v in data.get("templates", {}).items()
             },
         )
 
@@ -106,73 +105,75 @@ class TemplateLibrary:
 # Built-in templates
 # ---------------------------------------------------------------------------
 
-BUILTIN_TEMPLATES = TemplateLibrary(templates={
-    "customer_support": SimulationTemplate(
-        template_id="customer_support",
-        name="Customer Support",
-        description="Simulate customer support interactions across skill levels",
-        persona_mix=[
-            PersonaMix(persona_id="novice", weight=0.4),
-            PersonaMix(persona_id="power_user", weight=0.3),
-            PersonaMix(persona_id="adversarial", weight=0.2),
-            PersonaMix(persona_id="non_native", weight=0.1),
-        ],
-        edge_case_types=["empty", "special_chars"],
-        output_format="text",
-        topics=["refund", "billing", "account", "password reset"],
-        min_turns=1,
-        max_turns=1,
-        constraints=[],
-    ),
-    "rag_qa": SimulationTemplate(
-        template_id="rag_qa",
-        name="RAG QA",
-        description="Simulate retrieval-augmented generation question answering",
-        persona_mix=[
-            PersonaMix(persona_id="novice", weight=0.3),
-            PersonaMix(persona_id="expert", weight=0.5),
-            PersonaMix(persona_id="adversarial", weight=0.2),
-        ],
-        edge_case_types=["unicode", "max_length"],
-        output_format="text",
-        topics=["knowledge retrieval", "fact checking", "source citation"],
-        min_turns=1,
-        max_turns=1,
-        constraints=[],
-    ),
-    "code_review": SimulationTemplate(
-        template_id="code_review",
-        name="Code Review",
-        description="Simulate code review interactions for various quality aspects",
-        persona_mix=[
-            PersonaMix(persona_id="expert", weight=0.6),
-            PersonaMix(persona_id="novice", weight=0.2),
-            PersonaMix(persona_id="adversarial", weight=0.2),
-        ],
-        edge_case_types=["special_chars", "max_length"],
-        output_format="text",
-        topics=["bug detection", "style", "security", "performance"],
-        min_turns=1,
-        max_turns=1,
-        constraints=[],
-    ),
-    "multi_step_agent": SimulationTemplate(
-        template_id="multi_step_agent",
-        name="Multi-Step Agent",
-        description="Simulate multi-turn agent interactions requiring planning",
-        persona_mix=[
-            PersonaMix(persona_id="power_user", weight=0.5),
-            PersonaMix(persona_id="expert", weight=0.3),
-            PersonaMix(persona_id="adversarial", weight=0.2),
-        ],
-        edge_case_types=["boundary", "contradiction"],
-        output_format="text",
-        topics=["research", "planning", "tool use"],
-        min_turns=2,
-        max_turns=6,
-        constraints=[],
-    ),
-})
+BUILTIN_TEMPLATES = TemplateLibrary(
+    templates={
+        "customer_support": SimulationTemplate(
+            template_id="customer_support",
+            name="Customer Support",
+            description="Simulate customer support interactions across skill levels",
+            persona_mix=[
+                PersonaMix(persona_id="novice", weight=0.4),
+                PersonaMix(persona_id="power_user", weight=0.3),
+                PersonaMix(persona_id="adversarial", weight=0.2),
+                PersonaMix(persona_id="non_native", weight=0.1),
+            ],
+            edge_case_types=["empty", "special_chars"],
+            output_format="text",
+            topics=["refund", "billing", "account", "password reset"],
+            min_turns=1,
+            max_turns=1,
+            constraints=[],
+        ),
+        "rag_qa": SimulationTemplate(
+            template_id="rag_qa",
+            name="RAG QA",
+            description="Simulate retrieval-augmented generation question answering",
+            persona_mix=[
+                PersonaMix(persona_id="novice", weight=0.3),
+                PersonaMix(persona_id="expert", weight=0.5),
+                PersonaMix(persona_id="adversarial", weight=0.2),
+            ],
+            edge_case_types=["unicode", "max_length"],
+            output_format="text",
+            topics=["knowledge retrieval", "fact checking", "source citation"],
+            min_turns=1,
+            max_turns=1,
+            constraints=[],
+        ),
+        "code_review": SimulationTemplate(
+            template_id="code_review",
+            name="Code Review",
+            description="Simulate code review interactions for various quality aspects",
+            persona_mix=[
+                PersonaMix(persona_id="expert", weight=0.6),
+                PersonaMix(persona_id="novice", weight=0.2),
+                PersonaMix(persona_id="adversarial", weight=0.2),
+            ],
+            edge_case_types=["special_chars", "max_length"],
+            output_format="text",
+            topics=["bug detection", "style", "security", "performance"],
+            min_turns=1,
+            max_turns=1,
+            constraints=[],
+        ),
+        "multi_step_agent": SimulationTemplate(
+            template_id="multi_step_agent",
+            name="Multi-Step Agent",
+            description="Simulate multi-turn agent interactions requiring planning",
+            persona_mix=[
+                PersonaMix(persona_id="power_user", weight=0.5),
+                PersonaMix(persona_id="expert", weight=0.3),
+                PersonaMix(persona_id="adversarial", weight=0.2),
+            ],
+            edge_case_types=["boundary", "contradiction"],
+            output_format="text",
+            topics=["research", "planning", "tool use"],
+            min_turns=2,
+            max_turns=6,
+            constraints=[],
+        ),
+    }
+)
 
 
 # ---------------------------------------------------------------------------
@@ -262,10 +263,7 @@ def customize_template(
     for key, value in overrides.items():
         if key == "persona_mix" and isinstance(value, list):
             # Accept list of dicts or list of PersonaMix
-            data["persona_mix"] = [
-                v.as_dict() if isinstance(v, PersonaMix) else v
-                for v in value
-            ]
+            data["persona_mix"] = [v.as_dict() if isinstance(v, PersonaMix) else v for v in value]
         else:
             data[key] = value
     return SimulationTemplate.from_dict(data)

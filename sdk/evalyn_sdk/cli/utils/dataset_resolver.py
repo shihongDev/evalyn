@@ -104,9 +104,7 @@ def _load_info(path: Path) -> DatasetInfo:
 
     # Load meta if available
     meta_file = path / "meta.json"
-    meta = (
-        json.loads(meta_file.read_text(encoding="utf-8")) if meta_file.exists() else {}
-    )
+    meta = json.loads(meta_file.read_text(encoding="utf-8")) if meta_file.exists() else {}
 
     return DatasetInfo(
         path=path,

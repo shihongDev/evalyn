@@ -14,13 +14,14 @@ from typing import Any
 # Dataclasses
 # ---------------------------------------------------------------------------
 
+
 @dataclass
 class GoalResult:
     """Result of a single goal check."""
 
     goal_id: str
     achieved: bool
-    score: float        # 0-1
+    score: float  # 0-1
     method: str
     details: dict[str, Any] = field(default_factory=dict)
 
@@ -73,8 +74,10 @@ class GoalReport:
     def format_text(self) -> str:
         """Format report as plain text."""
         lines: list[str] = []
-        lines.append(f"Goal Completion: {self.achieved_count}/{self.total_goals}"
-                      f" ({self.achievement_rate:.0%})")
+        lines.append(
+            f"Goal Completion: {self.achieved_count}/{self.total_goals}"
+            f" ({self.achievement_rate:.0%})"
+        )
         lines.append("")
         for r in self.results:
             status = "PASS" if r.achieved else "FAIL"
@@ -85,6 +88,7 @@ class GoalReport:
 # ---------------------------------------------------------------------------
 # LCS helper
 # ---------------------------------------------------------------------------
+
 
 def _lcs_length(a: list[str], b: list[str]) -> int:
     """Longest common subsequence length (dynamic programming)."""
@@ -107,6 +111,7 @@ def _lcs_length(a: list[str], b: list[str]) -> int:
 # ---------------------------------------------------------------------------
 # Goal check functions
 # ---------------------------------------------------------------------------
+
 
 def check_tool_call_accuracy(
     expected_calls: list[str],
@@ -185,7 +190,7 @@ def check_tool_call_f1(
 def check_topic_adherence(
     output: str,
     allowed_topics: list[str],
-    forbidden_topics: list[str] = None,
+    forbidden_topics: list[str] | None = None,
 ) -> GoalResult:
     """Check if output mentions allowed topics and avoids forbidden ones.
 
@@ -206,7 +211,9 @@ def check_topic_adherence(
         score = 1.0
     else:
         allowed_score = len(allowed_found) / len(allowed_topics) if allowed_topics else 1.0
-        forbidden_penalty = len(forbidden_found) / len(forbidden_topics) if forbidden_topics else 0.0
+        forbidden_penalty = (
+            len(forbidden_found) / len(forbidden_topics) if forbidden_topics else 0.0
+        )
         score = max(0.0, min(1.0, allowed_score - forbidden_penalty))
 
     achieved = len(forbidden_found) == 0 and len(allowed_found) == len(allowed_topics)

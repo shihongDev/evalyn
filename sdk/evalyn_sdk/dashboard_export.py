@@ -61,9 +61,7 @@ class ExportBundle:
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> ExportBundle:
         return cls(
-            charts=[
-                ExportableChart.from_dict(c) for c in data.get("charts", [])
-            ],
+            charts=[ExportableChart.from_dict(c) for c in data.get("charts", [])],
             summary=data.get("summary", {}),
             generated_at=data.get("generated_at", ""),
         )
@@ -87,9 +85,7 @@ def chart_to_json(chart: ExportableChart) -> str:
     )
 
 
-def generate_download_button_html(
-    chart: ExportableChart, fmt: str = "csv"
-) -> str:
+def generate_download_button_html(chart: ExportableChart, fmt: str = "csv") -> str:
     """Generate an HTML button that triggers a JavaScript download.
 
     Uses data: URI scheme. All content is html.escaped.
@@ -122,20 +118,12 @@ def generate_copy_button_html(text: str, label: str = "Copy") -> str:
     """Generate an HTML button that copies text to clipboard via JS."""
     # JS-escape first: backslash, single quote, newline, carriage return
     js_escaped = (
-        text.replace("\\", "\\\\")
-        .replace("'", "\\'")
-        .replace("\n", "\\n")
-        .replace("\r", "\\r")
+        text.replace("\\", "\\\\").replace("'", "\\'").replace("\n", "\\n").replace("\r", "\\r")
     )
     # Then HTML-escape the entire JS expression for the attribute context
     attr_safe = html.escape(f"navigator.clipboard.writeText('{js_escaped}')")
     safe_label = html.escape(label)
-    return (
-        f'<button class="copy-btn" '
-        f'onclick="{attr_safe}">'
-        f"{safe_label}"
-        f"</button>"
-    )
+    return f'<button class="copy-btn" onclick="{attr_safe}">{safe_label}</button>'
 
 
 def generate_export_panel_html(bundle: ExportBundle) -> str:
@@ -160,9 +148,7 @@ def generate_export_panel_html(bundle: ExportBundle) -> str:
     summary_text = json.dumps(bundle.summary, indent=2)
     parts.append('  <div class="export-summary-section">')
     parts.append("    <h4>Summary</h4>")
-    parts.append(
-        f"    {generate_copy_button_html(summary_text, 'Copy Summary')}"
-    )
+    parts.append(f"    {generate_copy_button_html(summary_text, 'Copy Summary')}")
     parts.append("  </div>")
     parts.append("</div>")
 
@@ -182,9 +168,7 @@ def build_export_bundle(
     charts: list[ExportableChart] = []
 
     # Metrics overview chart
-    metrics_rows = [
-        {"metric": name, "score": score} for name, score in metrics.items()
-    ]
+    metrics_rows = [{"metric": name, "score": score} for name, score in metrics.items()]
     charts.append(
         ExportableChart(
             chart_id="metrics_overview",

@@ -80,8 +80,10 @@ class CrossReferenceReport:
         if self.bundles:
             lines.append("\n  Bundles:")
             for b in sorted(self.bundles, key=lambda x: x.bundle_name):
-                lines.append(f"    {b.bundle_name}: {b.total_metrics} metrics "
-                           f"({b.objective_count} obj, {b.subjective_count} subj)")
+                lines.append(
+                    f"    {b.bundle_name}: {b.total_metrics} metrics "
+                    f"({b.objective_count} obj, {b.subjective_count} subj)"
+                )
         return "\n".join(lines)
 
 
@@ -114,30 +116,34 @@ def build_cross_reference(
             metric_bundles.setdefault(mid, set()).add(bundle_name)
 
     # Build metric cross-refs
-    all_metrics = sorted(set(
-        mid for mids in bundles.values() for mid in mids
-    ) | set(metric_types.keys()))
+    all_metrics = sorted(
+        set(mid for mids in bundles.values() for mid in mids) | set(metric_types.keys())
+    )
 
     metrics = []
     for mid in all_metrics:
-        metrics.append(MetricCrossRef(
-            metric_id=mid,
-            metric_type=metric_types.get(mid, "unknown"),
-            bundles=sorted(metric_bundles.get(mid, set())),
-            category=metric_categories.get(mid, ""),
-        ))
+        metrics.append(
+            MetricCrossRef(
+                metric_id=mid,
+                metric_type=metric_types.get(mid, "unknown"),
+                bundles=sorted(metric_bundles.get(mid, set())),
+                category=metric_categories.get(mid, ""),
+            )
+        )
 
     # Build bundle cross-refs
     bundle_refs = []
     for bname, mids in sorted(bundles.items()):
         obj_count = sum(1 for m in mids if metric_types.get(m) == "objective")
         subj_count = sum(1 for m in mids if metric_types.get(m) == "subjective")
-        bundle_refs.append(BundleCrossRef(
-            bundle_name=bname,
-            metrics=sorted(mids),
-            objective_count=obj_count,
-            subjective_count=subj_count,
-        ))
+        bundle_refs.append(
+            BundleCrossRef(
+                bundle_name=bname,
+                metrics=sorted(mids),
+                objective_count=obj_count,
+                subjective_count=subj_count,
+            )
+        )
 
     return CrossReferenceReport(metrics=metrics, bundles=bundle_refs)
 
@@ -146,6 +152,7 @@ def _load_default_bundles() -> dict[str, list[str]]:
     """Load built-in metric bundles."""
     try:
         from ..cli.constants import BUNDLES
+
         return {name: list(metrics) for name, metrics in BUNDLES.items()}
     except (ImportError, AttributeError):
         return {}

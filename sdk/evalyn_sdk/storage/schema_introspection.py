@@ -89,9 +89,7 @@ class SchemaReport:
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> SchemaReport:
-        tables = [
-            TableSchema.from_dict(t) for t in data.get("tables", [])
-        ]
+        tables = [TableSchema.from_dict(t) for t in data.get("tables", [])]
         return cls(
             tables=tables,
             total_tables=data.get("total_tables", 0),
@@ -166,13 +164,9 @@ def render_schema_ascii(report: SchemaReport) -> str:
     sep = "-" * len(header)
     lines = [header, sep]
     for table in report.tables:
-        lines.append(
-            f"{table.name:<20} {len(table.columns):>8} {table.row_count:>10}"
-        )
+        lines.append(f"{table.name:<20} {len(table.columns):>8} {table.row_count:>10}")
     lines.append(sep)
-    lines.append(
-        f"{'TOTAL':<20} {report.total_columns:>8} {report.total_rows:>10}"
-    )
+    lines.append(f"{'TOTAL':<20} {report.total_columns:>8} {report.total_rows:>10}")
     return "\n".join(lines)
 
 
@@ -199,13 +193,15 @@ def compare_schemas(
         added_cols = sorted(cols_b - cols_a)
         removed_cols = sorted(cols_a - cols_b)
         if added_cols or removed_cols or ta.row_count != tb.row_count:
-            changed.append({
-                "table": name,
-                "added_columns": added_cols,
-                "removed_columns": removed_cols,
-                "row_count_a": ta.row_count,
-                "row_count_b": tb.row_count,
-            })
+            changed.append(
+                {
+                    "table": name,
+                    "added_columns": added_cols,
+                    "removed_columns": removed_cols,
+                    "row_count_a": ta.row_count,
+                    "row_count_b": tb.row_count,
+                }
+            )
 
     return {
         "added_tables": added,
@@ -224,9 +220,7 @@ def suggest_schema_optimizations(report: SchemaReport) -> list[str]:
             )
         has_pk = any(c.primary_key for c in table.columns)
         if not has_pk and table.columns:
-            suggestions.append(
-                f"Table '{table.name}' has no primary key column"
-            )
+            suggestions.append(f"Table '{table.name}' has no primary key column")
         all_nullable = all(c.nullable for c in table.columns) if table.columns else False
         if all_nullable and len(table.columns) > 1:
             suggestions.append(

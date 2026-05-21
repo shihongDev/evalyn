@@ -26,17 +26,15 @@ from typing import TYPE_CHECKING, Any
 if TYPE_CHECKING:
     from ..models import FunctionCall, Span
 
-# Context variables for span hierarchy
-_span_stack: ContextVar[list[str]] = ContextVar("_span_stack", default=[])
-_active_call: ContextVar[FunctionCall | None] = ContextVar(
-    "_active_call", default=None
-)
+# Context variables for span hierarchy.
+# Default is None (not []) so the same list isn't shared across contexts —
+# each context that needs a stack calls `.set([...])` with its own list.
+_span_stack: ContextVar[list[str] | None] = ContextVar("_span_stack", default=None)
+_active_call: ContextVar[FunctionCall | None] = ContextVar("_active_call", default=None)
 
 # Sentinel to detect uninitialized collector (for context propagation detection)
 _UNSET_COLLECTOR: list[Span] = []
-_span_collector: ContextVar[list[Span]] = ContextVar(
-    "_span_collector", default=_UNSET_COLLECTOR
-)
+_span_collector: ContextVar[list[Span]] = ContextVar("_span_collector", default=_UNSET_COLLECTOR)
 
 # Thread-safe global collector fallback (for threads that don't inherit ContextVar)
 _global_lock = threading.Lock()
@@ -181,7 +179,7 @@ def span(
     )
 
     # Push onto stack
-    stack = _span_stack.get()
+    stack = _span_stack.get() or []
     new_stack = stack + [span_id]
     token = _span_stack.set(new_stack)
 
@@ -196,5 +194,3 @@ def span(
         _span_stack.reset(token)
         # Add to collector
         _add_span_to_collector(span_obj)
-
-

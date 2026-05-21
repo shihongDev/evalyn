@@ -60,9 +60,7 @@ class MetricForecast:
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> MetricForecast:
-        forecasted = [
-            ForecastPoint.from_dict(f) for f in data.get("forecasted", [])
-        ]
+        forecasted = [ForecastPoint.from_dict(f) for f in data.get("forecasted", [])]
         return cls(
             metric_id=data["metric_id"],
             method=data.get("method", "linear"),
@@ -73,9 +71,7 @@ class MetricForecast:
     def format_text(self) -> str:
         lines = [f"{self.metric_id} ({self.method}):"]
         for fp in self.forecasted:
-            lines.append(
-                f"  +{fp.step}: {fp.value:.4f} [{fp.lower:.4f}, {fp.upper:.4f}]"
-            )
+            lines.append(f"  +{fp.step}: {fp.value:.4f} [{fp.lower:.4f}, {fp.upper:.4f}]")
         for alert in self.alerts:
             lines.append(f"  ALERT: {alert}")
         return "\n".join(lines)
@@ -194,14 +190,21 @@ def forecast_all(
     """
     results = []
     for mid, values in sorted(series_by_metric.items()):
-        results.append(forecast_metric(
-            mid, values, horizon, method,
-            confidence=confidence, threshold=threshold,
-        ))
+        results.append(
+            forecast_metric(
+                mid,
+                values,
+                horizon,
+                method,
+                confidence=confidence,
+                threshold=threshold,
+            )
+        )
     return ForecastReport(results=results)
 
 
 # ---- Internal helpers ----
+
 
 def _linear_slope_intercept(values: list[float]) -> tuple:
     """Return (slope, intercept) of linear fit."""
@@ -252,12 +255,14 @@ def _linear_forecast(
         else:
             margin = z * se
 
-        points.append(ForecastPoint(
-            step=step,
-            value=y,
-            lower=y - margin,
-            upper=y + margin,
-        ))
+        points.append(
+            ForecastPoint(
+                step=step,
+                value=y,
+                lower=y - margin,
+                upper=y + margin,
+            )
+        )
     return points
 
 
@@ -301,12 +306,14 @@ def _exponential_smoothing_forecast(
         y = level + trend * step
         # Confidence band widens with forecast horizon
         margin = z * se * math.sqrt(step)
-        points.append(ForecastPoint(
-            step=step,
-            value=y,
-            lower=y - margin,
-            upper=y + margin,
-        ))
+        points.append(
+            ForecastPoint(
+                step=step,
+                value=y,
+                lower=y - margin,
+                upper=y + margin,
+            )
+        )
     return points
 
 

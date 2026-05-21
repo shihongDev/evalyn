@@ -148,9 +148,7 @@ class DelegationManager:
         rules = self._matching_rules(item_tags)
         return rules[0].rule_id if rules else ""
 
-    def _score_annotator(
-        self, profile: AnnotatorProfile, required: list[str]
-    ) -> tuple[int, int]:
+    def _score_annotator(self, profile: AnnotatorProfile, required: list[str]) -> tuple[int, int]:
         """Return (expertise_overlap, negative_assigned) for sorting.
 
         Higher overlap is better; fewer assigned items is better.
@@ -158,16 +156,10 @@ class DelegationManager:
         overlap = len(set(profile.expertise_tags) & set(required))
         return (overlap, -profile.items_assigned)
 
-    def _pick_annotator(
-        self, item_tags: list[str]
-    ) -> AnnotatorProfile | None:
+    def _pick_annotator(self, item_tags: list[str]) -> AnnotatorProfile | None:
         """Select the best available annotator for the given item tags."""
         required = self._required_expertise(item_tags)
-        candidates = [
-            p
-            for p in self.annotators.values()
-            if p.items_assigned < p.max_daily_items
-        ]
+        candidates = [p for p in self.annotators.values() if p.items_assigned < p.max_daily_items]
         if not candidates:
             return None
         # If no rules matched, required is empty - just pick least loaded
@@ -180,9 +172,7 @@ class DelegationManager:
 
     # -- public API ----------------------------------------------------------
 
-    def assign_item(
-        self, item_id: str, item_tags: list[str]
-    ) -> Assignment | None:
+    def assign_item(self, item_id: str, item_tags: list[str]) -> Assignment | None:
         """Assign a single item to the best-matching annotator.
 
         Returns None if no annotator has capacity.
@@ -202,9 +192,7 @@ class DelegationManager:
         annotator.items_assigned += 1
         return assignment
 
-    def assign_batch(
-        self, items: list[tuple[str, list[str]]]
-    ) -> list[Assignment]:
+    def assign_batch(self, items: list[tuple[str, list[str]]]) -> list[Assignment]:
         """Assign a batch of (item_id, tags) pairs."""
         results: list[Assignment] = []
         for item_id, tags in items:
@@ -221,9 +209,7 @@ class DelegationManager:
         return {
             "assigned": profile.items_assigned,
             "completed": profile.items_completed,
-            "remaining_capacity": max(
-                0, profile.max_daily_items - profile.items_assigned
-            ),
+            "remaining_capacity": max(0, profile.max_daily_items - profile.items_assigned),
         }
 
     def get_assignments(
@@ -250,9 +236,7 @@ class DelegationManager:
                 return True
         return False
 
-    def rebalance(
-        self, items: list[tuple[str, list[str]]]
-    ) -> list[Assignment]:
+    def rebalance(self, items: list[tuple[str, list[str]]]) -> list[Assignment]:
         """Redistribute unfinished assignments for better balance.
 
         Removes all non-completed assignments, resets annotator counts
@@ -291,14 +275,16 @@ def compute_workload_balance(manager: DelegationManager) -> dict[str, Any]:
     total = sum(counts)
     mean = total / n if n else 0.0
 
-    # Gini coefficient
-    if total == 0:
+    # Gini coefficient via the sort-once linear formula:
+    #   G = (2·Σ i·x_i) / (n·Σ x_i) - (n+1)/n   for x sorted ascending
+    # Equivalent to the O(n²) pairwise-absolute-difference formula but
+    # avoids the nested loop, which dominates for large annotator pools.
+    if total == 0 or n == 0:
         gini = 0.0
     else:
-        abs_diffs = sum(
-            abs(counts[i] - counts[j]) for i in range(n) for j in range(n)
-        )
-        gini = abs_diffs / (2 * n * total)
+        sorted_counts = sorted(counts)
+        weighted_sum = sum((i + 1) * x for i, x in enumerate(sorted_counts))
+        gini = (2 * weighted_sum) / (n * total) - (n + 1) / n
 
     return {
         "min": min(counts),
@@ -317,9 +303,7 @@ def format_delegation_dashboard(manager: DelegationManager) -> str:
     lines.append(header)
     lines.append("-" * 60)
 
-    for profile in sorted(
-        manager.annotators.values(), key=lambda p: p.annotator_id
-    ):
+    for profile in sorted(manager.annotators.values(), key=lambda p: p.annotator_id):
         remaining = max(0, profile.max_daily_items - profile.items_assigned)
         row = (
             f"{profile.name:<20} "

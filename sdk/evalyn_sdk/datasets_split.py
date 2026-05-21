@@ -74,7 +74,9 @@ def split_dataset(
         return SplitResult()
 
     if stratify_by:
-        return _stratified_split(items, train_ratio, test_ratio, validation_ratio, seed, stratify_by)
+        return _stratified_split(
+            items, train_ratio, test_ratio, validation_ratio, seed, stratify_by
+        )
 
     return _random_split(items, train_ratio, test_ratio, seed)
 

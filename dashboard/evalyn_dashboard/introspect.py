@@ -53,9 +53,7 @@ _RANGE_MIN_MAX_RE = re.compile(
     r"\brange[:=]?\s*(-?\d+(?:\.\d+)?)\s*(?:-|to|\.\.|,)\s*(-?\d+(?:\.\d+)?)",
     re.IGNORECASE,
 )
-_RANGE_PAREN_RE = re.compile(
-    r"\(\s*(-?\d+(?:\.\d+)?)\s*(?:-|to|\.\.)\s*(-?\d+(?:\.\d+)?)\s*\)"
-)
+_RANGE_PAREN_RE = re.compile(r"\(\s*(-?\d+(?:\.\d+)?)\s*(?:-|to|\.\.)\s*(-?\d+(?:\.\d+)?)\s*\)")
 _RANGE_GE_LE_RE = re.compile(
     r"(>=|>|min[:=]?\s*)\s*(-?\d+(?:\.\d+)?)\b.*?(<=|<|max[:=]?\s*)\s*(-?\d+(?:\.\d+)?)\b",
     re.IGNORECASE | re.DOTALL,

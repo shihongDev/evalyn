@@ -286,9 +286,7 @@ def format_plain_text(commands: list[CommandDoc]) -> str:
     return "\n".join(lines)
 
 
-def generate_reference(
-    parser: argparse.ArgumentParser, fmt: str = "markdown"
-) -> str:
+def generate_reference(parser: argparse.ArgumentParser, fmt: str = "markdown") -> str:
     """Generate CLI reference documentation from an argparse parser.
 
     Args:

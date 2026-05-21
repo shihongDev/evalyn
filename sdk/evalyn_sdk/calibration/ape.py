@@ -159,9 +159,7 @@ class APEOptimizer:
             accumulator: Optional TokenAccumulator to track token usage
         """
         # Format rubric for context
-        rubric_text = (
-            "\n".join([f"- {r}" for r in rubric]) if rubric else "(no rubric defined)"
-        )
+        rubric_text = "\n".join([f"- {r}" for r in rubric]) if rubric else "(no rubric defined)"
 
         # Format false positive examples
         fp_examples = ""
@@ -305,8 +303,8 @@ Provide your verdict:"""
                     ucb = mean + exploration
                 ucb_scores.append(ucb)
 
-            # Select candidate with highest UCB score
-            selected_idx = ucb_scores.index(max(ucb_scores))
+            # Select candidate with highest UCB score (single-pass argmax).
+            selected_idx = max(range(len(ucb_scores)), key=ucb_scores.__getitem__)
 
             # Sample examples for evaluation
             sample_size = min(self.config.eval_samples_per_round, len(val_examples))
@@ -315,9 +313,7 @@ Provide your verdict:"""
             sample = random.sample(val_examples, sample_size)
 
             # Evaluate selected candidate
-            score = self._score_candidate(
-                candidates[selected_idx], rubric, sample, accumulator
-            )
+            score = self._score_candidate(candidates[selected_idx], rubric, sample, accumulator)
             scores[selected_idx].append(score)
 
             # Update progress bar with current best mean
@@ -410,9 +406,7 @@ Provide your verdict:"""
         )
 
         # Evaluate seed on same examples for comparison
-        seed_score = self._score_candidate(
-            seed_preamble, current_rubric, valset, accumulator
-        )
+        seed_score = self._score_candidate(seed_preamble, current_rubric, valset, accumulator)
 
         # Determine improvement
         improvement_delta = best_score - seed_score

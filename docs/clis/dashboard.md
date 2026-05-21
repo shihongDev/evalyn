@@ -19,7 +19,7 @@ evalyn dashboard --output report.html
 | `--run ID` | Eval run ID to analyze |
 | `--dataset PATH` | Dataset path (uses latest run in that dataset) |
 | `--latest` | Use the most recently modified dataset |
-| `--output PATH` | Output file path (default: .evalyn/dashboard.html) |
+| `--output PATH` | Output file path (default: .evalyn/report.html) |
 
 ## Description
 

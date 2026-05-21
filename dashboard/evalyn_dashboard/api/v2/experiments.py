@@ -179,7 +179,7 @@ async def list_experiments() -> JSONResponse:
         by_dataset[r["_dataset"]].append(r)
 
     rows: list[dict] = []
-    for _dataset, drs in by_dataset.items():
+    for drs in by_dataset.values():
         for idx, r in enumerate(drs):
             prev = drs[idx - 1] if idx > 0 else None
             rows.append(_serialize_row(r, prev))
@@ -317,7 +317,7 @@ async def get_lineage() -> JSONResponse:
 
     out_runs: list[dict] = []
     pass_rates: list[float] = []
-    for _dataset, drs in by_dataset.items():
+    for drs in by_dataset.values():
         for idx, r in enumerate(drs):
             prev = drs[idx - 1] if idx > 0 else None
             pr = run_pass_rate(r)
@@ -348,9 +348,7 @@ async def get_lineage() -> JSONResponse:
     if pass_rates:
         s = sorted(pass_rates)
         n = len(s)
-        median_pass = (
-            s[n // 2] if n % 2 else round((s[n // 2 - 1] + s[n // 2]) / 2.0, 1)
-        )
+        median_pass = s[n // 2] if n % 2 else round((s[n // 2 - 1] + s[n // 2]) / 2.0, 1)
 
     pulse = _lineage_pulse_spark(runs)
 
@@ -420,13 +418,15 @@ def _headline(run: dict, baseline: dict | None) -> list[dict]:
     if pr is not None:
         delta = round(100.0 * (pr - base_pr), 1) if base_pr is not None else 0.0
         sign = "+" if delta >= 0 else ""
-        cards.append({
-            "label": "Pass rate",
-            "value": f"{round(pr * 100, 1)}%",
-            "delta": f"{sign}{delta}" if base_pr is not None else "baseline",
-            "delta_kind": "pass" if delta >= 0 else "fail",
-            "sub": "weighted across metrics",
-        })
+        cards.append(
+            {
+                "label": "Pass rate",
+                "value": f"{round(pr * 100, 1)}%",
+                "delta": f"{sign}{delta}" if base_pr is not None else "baseline",
+                "delta_kind": "pass" if delta >= 0 else "fail",
+                "sub": "weighted across metrics",
+            }
+        )
 
     metrics = summary.get("metrics") or {}
     base_metrics = base_summary.get("metrics") or {}
@@ -439,13 +439,15 @@ def _headline(run: dict, baseline: dict | None) -> list[dict]:
         base_avg = (base_metrics.get(hallucin_id, {}) or {}).get("avg_score")
         delta = round(100.0 * ((1.0 - avg) - (1.0 - base_avg)), 1) if base_avg is not None else 0.0
         sign = "+" if delta >= 0 else ""
-        cards.append({
-            "label": "Hallucination",
-            "value": f"{rate}%",
-            "delta": f"{sign}{delta}" if base_avg is not None else "baseline",
-            "delta_kind": "pass" if delta <= 0 else "fail",
-            "sub": "lower is better",
-        })
+        cards.append(
+            {
+                "label": "Hallucination",
+                "value": f"{rate}%",
+                "delta": f"{sign}{delta}" if base_avg is not None else "baseline",
+                "delta_kind": "pass" if delta <= 0 else "fail",
+                "sub": "lower is better",
+            }
+        )
 
     # Tool-call accuracy.
     tool_id = next((m for m in metrics if m.lower().startswith("tool")), None)
@@ -455,13 +457,15 @@ def _headline(run: dict, baseline: dict | None) -> list[dict]:
             base_tool = (base_metrics.get(tool_id, {}) or {}).get("pass_rate")
             delta = round(100.0 * (pr_tool - base_tool), 1) if base_tool is not None else 0.0
             sign = "+" if delta >= 0 else ""
-            cards.append({
-                "label": "Tool-call accuracy",
-                "value": f"{round(100.0 * pr_tool, 1)}%",
-                "delta": f"{sign}{delta}" if base_tool is not None else "baseline",
-                "delta_kind": "pass" if delta >= 0 else "fail",
-                "sub": tool_id,
-            })
+            cards.append(
+                {
+                    "label": "Tool-call accuracy",
+                    "value": f"{round(100.0 * pr_tool, 1)}%",
+                    "delta": f"{sign}{delta}" if base_tool is not None else "baseline",
+                    "delta_kind": "pass" if delta >= 0 else "fail",
+                    "sub": tool_id,
+                }
+            )
 
     # Median latency from details.latency_ms.
     latencies: list[float] = []
@@ -472,13 +476,15 @@ def _headline(run: dict, baseline: dict | None) -> list[dict]:
     if latencies:
         latencies.sort()
         median = latencies[len(latencies) // 2]
-        cards.append({
-            "label": "Median latency",
-            "value": f"{int(median)} ms",
-            "delta": "info",
-            "delta_kind": "info",
-            "sub": f"n={len(latencies)}",
-        })
+        cards.append(
+            {
+                "label": "Median latency",
+                "value": f"{int(median)} ms",
+                "delta": "info",
+                "delta_kind": "info",
+                "sub": f"n={len(latencies)}",
+            }
+        )
 
     return cards
 
@@ -526,13 +532,15 @@ def _failure_clusters(run: dict, baseline: dict | None) -> dict:
         sorted(clusters_now.items(), key=lambda kv: -len(kv[1]))
     ):
         baseline_count = len(clusters_base.get(metric_id, []))
-        cluster_list.append({
-            "id": f"metric-{metric_id}",
-            "label": metric_id,
-            "count": len(items),
-            "color_kind": palette[idx % len(palette)],
-            "regression": len(items) > baseline_count,
-        })
+        cluster_list.append(
+            {
+                "id": f"metric-{metric_id}",
+                "label": metric_id,
+                "count": len(items),
+                "color_kind": palette[idx % len(palette)],
+                "regression": len(items) > baseline_count,
+            }
+        )
 
     item_ids = {mr.get("item_id") for mr in run.get("metric_results") or []}
     failed_ids = {iid for iid, mids in _failed_metric_ids_per_item(run).items() if mids}
@@ -554,17 +562,20 @@ def _sub_metrics_detail(run: dict, baseline: dict | None) -> list[dict]:
         bpr = (base_metrics.get(mid, {}) or {}).get("pass_rate")
         if bpr is None:
             bpr = (base_metrics.get(mid, {}) or {}).get("avg_score")
-        out.append({
-            "label": mid,
-            "value": round(100.0 * float(pr), 1),
-            "baseline": round(100.0 * float(bpr), 1) if bpr is not None else None,
-            "inverse": is_inverse_metric(mid),
-        })
+        out.append(
+            {
+                "label": mid,
+                "value": round(100.0 * float(pr), 1),
+                "baseline": round(100.0 * float(bpr), 1) if bpr is not None else None,
+                "inverse": is_inverse_metric(mid),
+            }
+        )
     return out
 
 
 def _confusion(run: dict, baseline: dict) -> dict:
     """Compute 2x2 confusion of item-level pass/fail vs baseline."""
+
     def item_pass(d: dict) -> dict[str, bool]:
         out: dict[str, bool] = {}
         for r in d.get("metric_results") or []:
@@ -704,9 +715,7 @@ def _seconds_label(run: dict) -> str:
     return run_id(run)[:12]
 
 
-def _build_cluster_trend(
-    dataset_runs: list[dict], metric_id: str
-) -> tuple[list[int], list[str]]:
+def _build_cluster_trend(dataset_runs: list[dict], metric_id: str) -> tuple[list[int], list[str]]:
     """Build a cluster-size trend across recent runs.
 
     Returns ``([], [])`` when fewer than 3 runs exist in the dataset - a 1- or
@@ -741,7 +750,7 @@ async def get_cluster(exp_id: str, cluster_id: str) -> JSONResponse:
 
     if not cluster_id.startswith("metric-"):
         raise HTTPException(404, f"cluster {cluster_id} not found")
-    metric_id = cluster_id[len("metric-"):]
+    metric_id = cluster_id[len("metric-") :]
 
     clusters = _cluster_run(run)
     if metric_id not in clusters:
@@ -775,8 +784,7 @@ async def get_cluster(exp_id: str, cluster_id: str) -> JSONResponse:
             triggers_counter[tg] += 1
 
     triggers = [
-        {"phrase": " ".join(tg), "count": cnt}
-        for tg, cnt in triggers_counter.most_common(4)
+        {"phrase": " ".join(tg), "count": cnt} for tg, cnt in triggers_counter.most_common(4)
     ]
 
     # Trend across last 4 runs in this dataset (dataset_runs is oldest first).

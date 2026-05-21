@@ -136,9 +136,7 @@ class AnthropicInstrumentor(Instrumentor):
                                         )
                                 return chunk
 
-                        wrapper = AnthropicStreamWrapper(
-                            response, request_start_time=start
-                        )
+                        wrapper = AnthropicStreamWrapper(response, request_start_time=start)
 
                         def _on_exhaust(w):
                             duration_ms = (time.time() - start) * 1000
@@ -208,14 +206,14 @@ class AnthropicInstrumentor(Instrumentor):
                                 if msg:
                                     usage = getattr(msg, "usage", None)
                                     if usage:
-                                        wrapper.accumulated_input_tokens = (
-                                            getattr(usage, "input_tokens", 0)
+                                        wrapper.accumulated_input_tokens = getattr(
+                                            usage, "input_tokens", 0
                                         )
                             elif event_type == "message_delta":
                                 usage = getattr(chunk, "usage", None)
                                 if usage:
-                                    wrapper.accumulated_output_tokens = (
-                                        getattr(usage, "output_tokens", 0)
+                                    wrapper.accumulated_output_tokens = getattr(
+                                        usage, "output_tokens", 0
                                     )
 
                         class AnthropicAsyncStreamWrapper(AsyncLoggingWrapper):

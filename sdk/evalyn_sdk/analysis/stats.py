@@ -78,8 +78,11 @@ def bootstrap_confidence_interval(
     """
     if not values:
         return ConfidenceInterval(
-            estimate=0.0, lower=0.0, upper=0.0,
-            confidence_level=confidence_level, method="bootstrap",
+            estimate=0.0,
+            lower=0.0,
+            upper=0.0,
+            confidence_level=confidence_level,
+            method="bootstrap",
             sample_size=0,
         )
 
@@ -100,8 +103,8 @@ def bootstrap_confidence_interval(
     bootstrap_stats.sort()
 
     alpha = 1 - confidence_level
-    lower_idx = int(math.floor(alpha / 2 * n_resamples))
-    upper_idx = int(math.ceil((1 - alpha / 2) * n_resamples)) - 1
+    lower_idx = math.floor(alpha / 2 * n_resamples)
+    upper_idx = math.ceil((1 - alpha / 2) * n_resamples) - 1
     lower_idx = max(0, min(lower_idx, n_resamples - 1))
     upper_idx = max(0, min(upper_idx, n_resamples - 1))
 
@@ -134,8 +137,11 @@ def normal_approx_confidence_interval(
     """
     if total == 0:
         return ConfidenceInterval(
-            estimate=0.0, lower=0.0, upper=0.0,
-            confidence_level=confidence_level, method="normal_approx",
+            estimate=0.0,
+            lower=0.0,
+            upper=0.0,
+            confidence_level=confidence_level,
+            method="normal_approx",
             sample_size=0,
         )
 
@@ -181,9 +187,14 @@ def two_proportion_z_test(
     if baseline_total == 0 or current_total == 0:
         return SignificanceTest(
             metric_id=metric_id,
-            baseline_rate=0.0, current_rate=0.0, delta=0.0,
-            z_statistic=0.0, p_value=1.0, significant=False,
-            alpha=alpha, effect_size=0.0,
+            baseline_rate=0.0,
+            current_rate=0.0,
+            delta=0.0,
+            z_statistic=0.0,
+            p_value=1.0,
+            significant=False,
+            alpha=alpha,
+            effect_size=0.0,
         )
 
     p1 = baseline_successes / baseline_total
@@ -270,9 +281,7 @@ def compute_power(
     # Recommended sample size for 80% power
     z_beta = 0.842  # z for 80% power
     p_avg = (p1 + p2) / 2
-    recommended_n = math.ceil(
-        2 * p_avg * (1 - p_avg) * ((z_alpha + z_beta) / target_effect) ** 2
-    )
+    recommended_n = math.ceil(2 * p_avg * (1 - p_avg) * ((z_alpha + z_beta) / target_effect) ** 2)
 
     return PowerAnalysis(
         current_sample_size=sample_size,

@@ -97,7 +97,7 @@ def assign_difficulty_weights(
         if method == "inverse":
             item.weight = 1.0 + item.difficulty
         elif method == "exponential":
-            item.weight = 2.0 ** item.difficulty
+            item.weight = 2.0**item.difficulty
         elif method == "equal":
             item.weight = 1.0
         else:

@@ -150,7 +150,11 @@ def track_all_fixes(item_results: dict[str, list[bool]]) -> TimeToFixReport:
         TimeToFixReport with aggregate statistics.
     """
     items = [track_item_fixes(iid, results) for iid, results in item_results.items()]
-    fixed = [item for item in items if not item.still_failing and item.runs_to_fix is not None and item.runs_to_fix > 0]
+    fixed = [
+        item
+        for item in items
+        if not item.still_failing and item.runs_to_fix is not None and item.runs_to_fix > 0
+    ]
     still_failing = [item for item in items if item.still_failing]
 
     fix_times = [item.runs_to_fix for item in fixed if item.runs_to_fix is not None]
@@ -249,7 +253,9 @@ def render_fix_timeline(history: ItemFixHistory, total_runs: int) -> str:
 
     chars = []
     for i in range(total_runs):
-        if i < history.first_failed_run or history.first_fixed_run is not None and i >= history.first_fixed_run:
+        if i < history.first_failed_run or (
+            history.first_fixed_run is not None and i >= history.first_fixed_run
+        ):
             chars.append("P")
         else:
             chars.append("F")

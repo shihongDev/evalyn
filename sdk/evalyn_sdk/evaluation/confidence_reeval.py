@@ -49,9 +49,7 @@ class ReEvalPlan:
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> ReEvalPlan:
-        items = [
-            UncertainItem(**item) for item in data.get("uncertain_items", [])
-        ]
+        items = [UncertainItem(**item) for item in data.get("uncertain_items", [])]
         return cls(
             uncertain_items=items,
             target_model=data.get("target_model", ""),
@@ -113,9 +111,7 @@ class ReEvalReport:
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> ReEvalReport:
-        results = [
-            ReEvalResult(**r) for r in data.get("results", [])
-        ]
+        results = [ReEvalResult(**r) for r in data.get("results", [])]
         return cls(
             results=results,
             total_re_evaluated=data.get("total_re_evaluated", 0),

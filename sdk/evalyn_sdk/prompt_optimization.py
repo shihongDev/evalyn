@@ -142,7 +142,7 @@ def detect_cycles(edges: list[tuple[str, str]]) -> bool:
         nodes.add(dst)
 
     # Kahn's algorithm: if we can't consume all nodes, there's a cycle
-    in_degree: dict[str, int] = {n: 0 for n in nodes}
+    in_degree: dict[str, int] = dict.fromkeys(nodes, 0)
     for _src, dst in edges:
         in_degree[dst] += 1
 
@@ -169,7 +169,7 @@ def topological_sort(dag: PromptDAG) -> list[str]:
 
     # Build adjacency and in-degree from edges
     graph: dict[str, list[str]] = {sid: [] for sid in section_ids}
-    in_degree: dict[str, int] = {sid: 0 for sid in section_ids}
+    in_degree: dict[str, int] = dict.fromkeys(section_ids, 0)
     for src, dst in dag.edges:
         if src in id_set and dst in id_set:
             graph[src].append(dst)
@@ -269,11 +269,7 @@ def apply_drop_mutation(dag: PromptDAG, section_id: str) -> PromptDAG:
         raise ValueError(f"section '{section_id}' is not optional")
 
     new_sections = [s for s in dag.sections if s.section_id != section_id]
-    new_edges = [
-        (src, dst)
-        for src, dst in dag.edges
-        if src != section_id and dst != section_id
-    ]
+    new_edges = [(src, dst) for src, dst in dag.edges if src != section_id and dst != section_id]
     return PromptDAG(
         sections=new_sections,
         edges=new_edges,
@@ -281,9 +277,7 @@ def apply_drop_mutation(dag: PromptDAG, section_id: str) -> PromptDAG:
     )
 
 
-def apply_reorder_mutation(
-    dag: PromptDAG, new_order: list[str]
-) -> PromptDAG:
+def apply_reorder_mutation(dag: PromptDAG, new_order: list[str]) -> PromptDAG:
     """Reorder sections according to new_order.
 
     Raises ValueError if new_order does not match the existing section ids.
@@ -302,9 +296,7 @@ def apply_reorder_mutation(
     )
 
 
-def apply_merge_mutation(
-    dag: PromptDAG, section_ids: list[str], new_id: str
-) -> PromptDAG:
+def apply_merge_mutation(dag: PromptDAG, section_ids: list[str], new_id: str) -> PromptDAG:
     """Merge multiple sections into one combined section.
 
     The merged section inherits the section_type of the first section.
@@ -317,9 +309,7 @@ def apply_merge_mutation(
             raise ValueError(f"section '{sid}' not found")
 
     merge_set = set(section_ids)
-    merged_content = "\n\n".join(
-        section_map[sid].content for sid in section_ids
-    )
+    merged_content = "\n\n".join(section_map[sid].content for sid in section_ids)
     first = section_map[section_ids[0]]
     merged_section = PromptSection(
         section_id=new_id,
@@ -361,9 +351,7 @@ def apply_merge_mutation(
     )
 
 
-def apply_split_mutation(
-    dag: PromptDAG, section_id: str, split_point: int
-) -> PromptDAG:
+def apply_split_mutation(dag: PromptDAG, section_id: str, split_point: int) -> PromptDAG:
     """Split a section at a character position into two sections.
 
     Creates section_id + "_a" and section_id + "_b".
@@ -376,9 +364,7 @@ def apply_split_mutation(
 
     original = section_map[section_id]
     if split_point <= 0 or split_point >= len(original.content):
-        raise ValueError(
-            f"split_point must be between 1 and {len(original.content) - 1}"
-        )
+        raise ValueError(f"split_point must be between 1 and {len(original.content) - 1}")
 
     id_a = section_id + "_a"
     id_b = section_id + "_b"
@@ -447,8 +433,7 @@ def format_dag_summary(dag: PromptDAG) -> str:
     for s in dag.sections:
         opt = " (optional)" if s.optional else ""
         lines.append(
-            f"  [{s.section_id}] {s.section_type} - "
-            f"{len(s.content)} chars, weight={s.weight}{opt}"
+            f"  [{s.section_id}] {s.section_type} - {len(s.content)} chars, weight={s.weight}{opt}"
         )
     if dag.edges:
         lines.append("  Edges:")

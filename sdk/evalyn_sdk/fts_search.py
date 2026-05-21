@@ -85,9 +85,7 @@ class SearchIndex:
         )
         self._conn.commit()
 
-    def add_document(
-        self, item_id: str, content: str, source_field: str = "input"
-    ) -> None:
+    def add_document(self, item_id: str, content: str, source_field: str = "input") -> None:
         """Add a single document to the index."""
         self._conn.execute(
             "INSERT INTO documents(item_id, content, source_field) VALUES (?, ?, ?)",
@@ -130,9 +128,7 @@ class SearchIndex:
             )
         return results
 
-    def search_with_highlight(
-        self, query: str, limit: int = 20
-    ) -> list[SearchResult]:
+    def search_with_highlight(self, query: str, limit: int = 20) -> list[SearchResult]:
         """Search with highlighted snippets using FTS5 snippet().
 
         Snippet markers use [[B]]/[[/B]] internally to avoid XSS.
@@ -166,9 +162,7 @@ class SearchIndex:
 
     def count(self) -> int:
         """Total number of documents in the index."""
-        cursor = self._conn.execute(
-            "SELECT COUNT(*) FROM documents"
-        )
+        cursor = self._conn.execute("SELECT COUNT(*) FROM documents")
         return cursor.fetchone()[0]
 
     def clear(self) -> None:

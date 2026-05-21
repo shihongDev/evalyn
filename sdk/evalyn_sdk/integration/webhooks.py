@@ -149,9 +149,7 @@ class WebhookReport:
             lines.append("")
             lines.append("  Deliveries:")
             for d in self.deliveries:
-                lines.append(
-                    f"    [{d.status}] {d.event.event_type} -> {d.url}"
-                )
+                lines.append(f"    [{d.status}] {d.event.event_type} -> {d.url}")
         return "\n".join(lines)
 
 
@@ -160,9 +158,7 @@ class WebhookReport:
 # ---------------------------------------------------------------------------
 
 
-def create_event(
-    event_type: str, payload: dict[str, Any] | None = None
-) -> WebhookEvent:
+def create_event(event_type: str, payload: dict[str, Any] | None = None) -> WebhookEvent:
     """Create a webhook event with the current UTC timestamp."""
     return WebhookEvent(
         event_type=event_type,
@@ -190,9 +186,7 @@ def build_delivery_payload(event: WebhookEvent) -> str:
     return json.dumps(event.as_dict(), sort_keys=True)
 
 
-def simulate_delivery(
-    event: WebhookEvent, config: WebhookConfig
-) -> WebhookDelivery:
+def simulate_delivery(event: WebhookEvent, config: WebhookConfig) -> WebhookDelivery:
     """Simulate a webhook delivery (no actual HTTP).
 
     Marks as 'delivered' if the URL is non-empty, otherwise 'failed'.

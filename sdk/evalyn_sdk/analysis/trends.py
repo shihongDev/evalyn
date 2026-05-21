@@ -52,17 +52,11 @@ class TrendAnalysis:
 
     @property
     def regressing_metrics(self) -> list[str]:
-        return [
-            m for m, d in self.metric_deltas.items() if d is not None and d < -0.001
-        ]
+        return [m for m, d in self.metric_deltas.items() if d is not None and d < -0.001]
 
     @property
     def stable_metrics(self) -> list[str]:
-        return [
-            m
-            for m, d in self.metric_deltas.items()
-            if d is not None and abs(d) <= 0.001
-        ]
+        return [m for m, d in self.metric_deltas.items() if d is not None and abs(d) <= 0.001]
 
 
 def analyze_trends(runs: list[EvalRun]) -> TrendAnalysis:
@@ -171,10 +165,12 @@ def _trend_run_overview_lines(trend: TrendAnalysis, section_fn=None) -> list[str
         lines = [section_fn("RUN OVERVIEW")]
     else:
         lines = ["-" * 70, "  RUN OVERVIEW", "-" * 70]
-    lines.extend([
-        f"  {'Run ID':<14} {'Date':<18} {'Items':>8} {'Pass Rate':>12} {'Delta':>10}",
-        f"  {'-' * 14} {'-' * 18} {'-' * 8} {'-' * 12} {'-' * 10}",
-    ])
+    lines.extend(
+        [
+            f"  {'Run ID':<14} {'Date':<18} {'Items':>8} {'Pass Rate':>12} {'Delta':>10}",
+            f"  {'-' * 14} {'-' * 18} {'-' * 8} {'-' * 12} {'-' * 10}",
+        ]
+    )
 
     prev_rate = None
     for run in trend.runs:
@@ -277,9 +273,7 @@ def _trend_summary_lines(trend: TrendAnalysis, section_fn=None) -> list[str]:
         last_rate = trend.overall_trends[-1] * 100
         overall_delta = last_rate - first_rate
         change_str = _format_pct_delta(overall_delta, neutral="no change")
-        lines.append(
-            f"  Overall change: {change_str} ({first_rate:.1f}% to {last_rate:.1f}%)"
-        )
+        lines.append(f"  Overall change: {change_str} ({first_rate:.1f}% to {last_rate:.1f}%)")
     elif len(trend.overall_trends) == 1:
         lines.append(f"  Overall pass rate: {trend.overall_trends[0] * 100:.1f}%")
     else:
@@ -287,13 +281,9 @@ def _trend_summary_lines(trend: TrendAnalysis, section_fn=None) -> list[str]:
 
     lines.append("")
     lines.extend(
-        _trend_metric_group_summary(
-            "Metrics improving", trend.improving_metrics, align_pad=" "
-        )
+        _trend_metric_group_summary("Metrics improving", trend.improving_metrics, align_pad=" ")
     )
-    lines.extend(
-        _trend_metric_group_summary("Metrics regressing", trend.regressing_metrics)
-    )
+    lines.extend(_trend_metric_group_summary("Metrics regressing", trend.regressing_metrics))
     lines.extend(
         _trend_metric_group_summary("Metrics stable", trend.stable_metrics, align_pad="    ")
     )
@@ -305,7 +295,5 @@ def _trend_summary_lines(trend: TrendAnalysis, section_fn=None) -> list[str]:
         item_delta = last_items - first_items
         if item_delta != 0:
             sign = "+" if item_delta > 0 else ""
-            lines.append(
-                f"  Item count change: {sign}{item_delta} ({first_items} to {last_items})"
-            )
+            lines.append(f"  Item count change: {sign}{item_delta} ({first_items} to {last_items})")
     return lines

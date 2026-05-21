@@ -177,9 +177,7 @@ def filter_catalog(
     if search:
         term = search.lower()
         filtered = [
-            e
-            for e in filtered
-            if term in e.metric_id.lower() or term in e.description.lower()
+            e for e in filtered if term in e.metric_id.lower() or term in e.description.lower()
         ]
 
     return MetricCatalog(
@@ -232,9 +230,7 @@ def format_catalog_markdown(catalog: MetricCatalog) -> str:
             lines.append(f"- **Scope**: {entry.scope}")
             lines.append(f"- **Rubric levels**: {entry.rubric_levels}")
             if entry.bundle_memberships:
-                lines.append(
-                    f"- **Bundles**: {', '.join(entry.bundle_memberships)}"
-                )
+                lines.append(f"- **Bundles**: {', '.join(entry.bundle_memberships)}")
             if entry.recommended_use:
                 lines.append(f"- **Recommended use**: {entry.recommended_use}")
             lines.append("")
@@ -252,9 +248,9 @@ def format_catalog_html(catalog: MetricCatalog) -> str:
 
     parts: list[str] = []
     parts.append("<!DOCTYPE html>")
-    parts.append("<html lang=\"en\">")
+    parts.append('<html lang="en">')
     parts.append("<head>")
-    parts.append("<meta charset=\"utf-8\">")
+    parts.append('<meta charset="utf-8">')
     parts.append("<title>Metric Catalog</title>")
     parts.append("<style>")
     parts.append("body { font-family: sans-serif; margin: 2em; }")
@@ -268,23 +264,19 @@ def format_catalog_html(catalog: MetricCatalog) -> str:
     parts.append("</head>")
     parts.append("<body>")
     parts.append(f"<h1>Metric Catalog ({h(str(catalog.total_count))} metrics)</h1>")
-    parts.append(
-        f"<p>Generated: {h(catalog.generated_at)}</p>"
-    )
+    parts.append(f"<p>Generated: {h(catalog.generated_at)}</p>")
 
     # Category filter links
     cats = sorted(set(e.category for e in catalog.entries))
     if cats:
-        parts.append("<div class=\"filter-links\">")
+        parts.append('<div class="filter-links">')
         parts.append("<strong>Filter by category:</strong> ")
         for cat in cats:
-            parts.append(f"<a href=\"#{h(cat)}\">{h(cat)}</a>")
+            parts.append(f'<a href="#{h(cat)}">{h(cat)}</a>')
         parts.append("</div>")
 
     # Search hint
-    parts.append(
-        "<p class=\"search-hint\">Use browser search (Ctrl+F) to find specific metrics.</p>"
-    )
+    parts.append('<p class="search-hint">Use browser search (Ctrl+F) to find specific metrics.</p>')
 
     # Table
     parts.append("<table>")
@@ -296,10 +288,10 @@ def format_catalog_html(catalog: MetricCatalog) -> str:
     parts.append("<tbody>")
 
     for entry in sorted(catalog.entries, key=lambda e: (e.category, e.metric_id)):
-        parts.append(f"<tr id=\"{h(entry.metric_id)}\">")
+        parts.append(f'<tr id="{h(entry.metric_id)}">')
         parts.append(f"<td>{h(entry.metric_id)}</td>")
         parts.append(f"<td>{h(entry.metric_type)}</td>")
-        parts.append(f"<td id=\"{h(entry.category)}\">{h(entry.category)}</td>")
+        parts.append(f'<td id="{h(entry.category)}">{h(entry.category)}</td>')
         parts.append(f"<td>{h(entry.scope)}</td>")
         parts.append(f"<td>{h(entry.description)}</td>")
         parts.append(f"<td>{entry.rubric_levels}</td>")

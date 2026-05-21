@@ -19,7 +19,7 @@ class MetricTokenEstimate:
 
     metric_id: str
     metric_type: str
-    prompt_tokens: int = 0       # estimated prompt/system tokens
+    prompt_tokens: int = 0  # estimated prompt/system tokens
     input_tokens_per_item: int = 0  # estimated per-item input tokens
     output_tokens_per_item: int = 0  # estimated per-item output tokens
     total_per_item: int = 0
@@ -32,7 +32,9 @@ class MetricTokenEstimate:
         """Estimate total tokens for a dataset."""
         if self.is_free:
             return 0
-        return (self.prompt_tokens + self.input_tokens_per_item + self.output_tokens_per_item) * item_count
+        return (
+            self.prompt_tokens + self.input_tokens_per_item + self.output_tokens_per_item
+        ) * item_count
 
     def as_dict(self) -> dict[str, Any]:
         return {

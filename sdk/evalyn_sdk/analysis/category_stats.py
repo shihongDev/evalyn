@@ -67,7 +67,9 @@ class CategoryReport:
         lines = ["Category Pass Rates:"]
         for c in sorted(self.categories, key=lambda x: x.pass_rate):
             bar = "#" * int(c.pass_rate * 20)
-            lines.append(f"  {c.category:<20} {bar:<20} {c.pass_rate:.0%} ({c.metric_count} metrics)")
+            lines.append(
+                f"  {c.category:<20} {bar:<20} {c.pass_rate:.0%} ({c.metric_count} metrics)"
+            )
         if self.weakest_category:
             lines.append(f"\n  Weakest: {self.weakest_category}")
         return "\n".join(lines)
@@ -126,6 +128,7 @@ def _load_default_categories() -> dict[str, str]:
 
     try:
         from ..metrics.objective import OBJECTIVE_REGISTRY
+
         for m in OBJECTIVE_REGISTRY:
             categories[m["id"]] = m.get("category", "uncategorized")
     except ImportError:
@@ -133,6 +136,7 @@ def _load_default_categories() -> dict[str, str]:
 
     try:
         from ..metrics.subjective import SUBJECTIVE_REGISTRY
+
         for m in SUBJECTIVE_REGISTRY:
             categories[m["id"]] = m.get("category", "uncategorized")
     except ImportError:

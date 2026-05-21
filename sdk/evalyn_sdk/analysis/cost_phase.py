@@ -93,9 +93,7 @@ class CostBreakdown:
                 f"{p.percentage_cost:5.1f}%"
             )
         lines.append("-" * 40)
-        lines.append(
-            f"  Total: ${self.total_cost_usd:.4f}  {self.total_tokens} tok"
-        )
+        lines.append(f"  Total: ${self.total_cost_usd:.4f}  {self.total_tokens} tok")
         lines.append(f"  Dominant phase: {self.dominant_phase}")
         return "\n".join(lines)
 

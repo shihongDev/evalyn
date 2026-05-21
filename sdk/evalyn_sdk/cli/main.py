@@ -276,9 +276,7 @@ For more info on a command: evalyn <command> --help
 """,
     )
     parser.add_argument("--version", action="store_true", help="Show version and exit")
-    parser.add_argument(
-        "-q", "--quiet", action="store_true", help="Suppress hint messages"
-    )
+    parser.add_argument("-q", "--quiet", action="store_true", help="Suppress hint messages")
     return parser
 
 
@@ -346,10 +344,13 @@ def main(argv: list[str] | None = None) -> None:
         args.func(args)
     except BrokenPipeError:
         # Allow piping to tools that close stdout early (e.g., `head`, `Select-Object -First`).
+        # `sys.stdout.close()` may itself raise (the pipe is gone) — swallow that too,
+        # since there's nothing useful to do at this point.
         try:
             sys.stdout.close()
-        finally:
-            return
+        except Exception:
+            pass
+        return
 
 
 if __name__ == "__main__":

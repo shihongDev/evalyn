@@ -196,9 +196,7 @@ def generate_workflow_yaml(config: ActionInput) -> str:
         lines.append("")
         lines.append("      - name: Compare with baseline")
         lines.append("        run: |")
-        lines.append(
-            f"          evalyn compare --threshold {config.regression_threshold}"
-        )
+        lines.append(f"          evalyn compare --threshold {config.regression_threshold}")
 
     return "\n".join(lines) + "\n"
 
@@ -258,12 +256,8 @@ def parse_action_inputs(env_vars: dict[str, str]) -> ActionInput:
     provider = env_vars.get("INPUT_PROVIDER", "gemini")
     profile = env_vars.get("INPUT_PROFILE", "smoke-test")
     fail_on_regression = env_vars.get("INPUT_FAIL_ON_REGRESSION", "true").lower() == "true"
-    regression_threshold = float(
-        env_vars.get("INPUT_REGRESSION_THRESHOLD", "0.05")
-    )
-    compare_with_baseline = (
-        env_vars.get("INPUT_COMPARE_WITH_BASELINE", "true").lower() == "true"
-    )
+    regression_threshold = float(env_vars.get("INPUT_REGRESSION_THRESHOLD", "0.05"))
+    compare_with_baseline = env_vars.get("INPUT_COMPARE_WITH_BASELINE", "true").lower() == "true"
 
     return ActionInput(
         dataset_path=dataset_path,

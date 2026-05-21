@@ -196,9 +196,7 @@ def compute_session_stats(session: PlaygroundSession) -> dict[str, Any]:
             metric_sums[metric] = metric_sums.get(metric, 0.0) + score
             metric_counts[metric] = metric_counts.get(metric, 0) + 1
 
-    avg_scores = {
-        m: metric_sums[m] / metric_counts[m] for m in metric_sums
-    }
+    avg_scores = {m: metric_sums[m] / metric_counts[m] for m in metric_sums}
 
     # Best/worst by average across all metrics for that turn
     best_id: int | None = None

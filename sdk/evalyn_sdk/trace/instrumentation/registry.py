@@ -56,15 +56,11 @@ class InstrumentorRegistry:
 
     def list_available(self) -> list[str]:
         """List instrumentors whose SDKs are available."""
-        return [
-            name for name, inst in self._instrumentors.items() if inst.is_available()
-        ]
+        return [name for name, inst in self._instrumentors.items() if inst.is_available()]
 
     def list_instrumented(self) -> list[str]:
         """List currently instrumented SDKs."""
-        return [
-            name for name, inst in self._instrumentors.items() if inst.is_instrumented()
-        ]
+        return [name for name, inst in self._instrumentors.items() if inst.is_instrumented()]
 
     def is_instrumented(self, name: str) -> bool:
         """Check if a specific SDK is instrumented."""

@@ -91,7 +91,9 @@ def detect_format_from_extension(file_path: str) -> FormatDetection:
 
     fmt = _EXTENSION_MAP.get(ext, "unknown")
     if fmt == "unknown":
-        return FormatDetection(format="unknown", confidence=0.0, evidence=f"unknown extension: {ext}")
+        return FormatDetection(
+            format="unknown", confidence=0.0, evidence=f"unknown extension: {ext}"
+        )
 
     return FormatDetection(
         format=fmt,
@@ -119,7 +121,9 @@ def detect_format_from_content(content: str) -> FormatDetection:
     if first_line.startswith("{"):
         try:
             json.loads(first_line)
-            return FormatDetection(format="jsonl", confidence=0.85, evidence="first line is JSON object")
+            return FormatDetection(
+                format="jsonl", confidence=0.85, evidence="first line is JSON object"
+            )
         except json.JSONDecodeError:
             pass
 
@@ -135,7 +139,9 @@ def detect_format_from_content(content: str) -> FormatDetection:
             reader = csv.reader(io.StringIO(stripped))
             row = next(reader)
             if len(row) >= 2:
-                return FormatDetection(format="csv", confidence=0.7, evidence="comma-separated columns")
+                return FormatDetection(
+                    format="csv", confidence=0.7, evidence="comma-separated columns"
+                )
         except Exception:
             pass
 

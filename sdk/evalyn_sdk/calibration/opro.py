@@ -196,9 +196,7 @@ Provide your verdict:"""
         4. Instructions for generating new candidates
         """
         # Format rubric
-        rubric_text = (
-            "\n".join([f"- {r}" for r in rubric]) if rubric else "(no rubric defined)"
-        )
+        rubric_text = "\n".join([f"- {r}" for r in rubric]) if rubric else "(no rubric defined)"
 
         # Format trajectory (sorted by F1, worst first)
         sorted_trajectory = sorted(trajectory, key=lambda x: x.f1_score)
@@ -206,9 +204,7 @@ Provide your verdict:"""
         for entry in sorted_trajectory[-self.config.trajectory_length :]:
             # Truncate long preambles
             preamble_preview = (
-                entry.preamble[:300] + "..."
-                if len(entry.preamble) > 300
-                else entry.preamble
+                entry.preamble[:300] + "..." if len(entry.preamble) > 300 else entry.preamble
             )
             trajectory_text += f"""
 F1 Score: {entry.f1_score:.3f} | Accuracy: {entry.accuracy:.3f}
@@ -394,9 +390,7 @@ Do not include any other text, just the JSON array."""
             # Evaluate candidates
             iteration_best: TrajectoryEntry | None = None
             for candidate in candidates:
-                f1, acc = self._evaluate_prompt(
-                    candidate, current_rubric, trainset, accumulator
-                )
+                f1, acc = self._evaluate_prompt(candidate, current_rubric, trainset, accumulator)
                 entry = TrajectoryEntry(
                     preamble=candidate,
                     f1_score=f1,
@@ -423,10 +417,10 @@ Do not include any other text, just the JSON array."""
                 break
 
         # Validate best prompt on validation set
-        val_f1, val_acc = self._evaluate_prompt(
+        val_f1, _val_acc = self._evaluate_prompt(
             best_entry.preamble, current_rubric, valset, accumulator
         )
-        seed_val_f1, seed_val_acc = self._evaluate_prompt(
+        seed_val_f1, _seed_val_acc = self._evaluate_prompt(
             seed_preamble, current_rubric, valset, accumulator
         )
 

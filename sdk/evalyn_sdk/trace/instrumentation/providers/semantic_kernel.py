@@ -84,7 +84,11 @@ class SemanticKernelInstrumentor(Instrumentor):
     """Instrumentor for Microsoft Semantic Kernel."""
 
     _instrumented = False
-    _originals: dict[str, Any] = {}
+
+    def __init__(self) -> None:
+        # See RUF012 fix in autogen.py - mutable class-attribute default
+        # caused instance-level state to leak across instrumentors.
+        self._originals: dict[str, Any] = {}
 
     @property
     def name(self) -> str:
@@ -136,9 +140,7 @@ class SemanticKernelInstrumentor(Instrumentor):
             original_init(kernel_self, *args, **kwargs)
             # Register our filter via the official SK API
             if hasattr(kernel_self, "add_filter"):
-                kernel_self.add_filter(
-                    "function_invocation", _function_invocation_filter
-                )
+                kernel_self.add_filter("function_invocation", _function_invocation_filter)
 
         Kernel.__init__ = patched_init
         return True
@@ -177,9 +179,7 @@ class SemanticKernelInstrumentor(Instrumentor):
             if chat_history:
                 messages = getattr(chat_history, "messages", None)
                 if messages:
-                    span.attributes["request"] = {
-                        "messages": _format_sk_messages(messages)
-                    }
+                    span.attributes["request"] = {"messages": _format_sk_messages(messages)}
                     span.attributes["sk.message_count"] = len(messages)
 
             if settings:
@@ -194,9 +194,7 @@ class SemanticKernelInstrumentor(Instrumentor):
             span_context._span_stack.set(stack + [span.id])
 
             try:
-                result = await original(
-                    service_self, chat_history, settings, **kwargs
-                )
+                result = await original(service_self, chat_history, settings, **kwargs)
 
                 if result:
                     for msg in result[:3]:
@@ -211,12 +209,8 @@ class SemanticKernelInstrumentor(Instrumentor):
                         metadata = getattr(msg, "metadata", {}) or {}
                         usage = metadata.get("usage")
                         if usage:
-                            input_tokens = getattr(
-                                usage, "prompt_tokens", 0
-                            ) or 0
-                            output_tokens = getattr(
-                                usage, "completion_tokens", 0
-                            ) or 0
+                            input_tokens = getattr(usage, "prompt_tokens", 0) or 0
+                            output_tokens = getattr(usage, "completion_tokens", 0) or 0
                             span.attributes["input_tokens"] = input_tokens
                             span.attributes["output_tokens"] = output_tokens
                             span.attributes["cost_usd"] = calculate_cost(

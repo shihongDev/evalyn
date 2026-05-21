@@ -41,6 +41,9 @@ from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import JSONResponse
 
 from ._shared import (
+    _caches_disabled,
+    _read_verdicts,
+    _reviews_files_for_root,
     dataset_roots,
     input_text,
     list_dataset_dirs,
@@ -200,9 +203,7 @@ def _items_from_dataset(dataset_name: str) -> tuple[Path, list[str], list[str]] 
     return dataset_dir, item_ids, metrics
 
 
-def _resolve_source(
-    source_kind: str, source_id: str
-) -> tuple[Path, list[str], list[str]] | None:
+def _resolve_source(source_kind: str, source_id: str) -> tuple[Path, list[str], list[str]] | None:
     """Dispatch source resolution. Returns (dataset_dir, item_ids, metric_ids)."""
     if source_kind == "run":
         return _items_from_run(source_id)
@@ -252,9 +253,7 @@ def _replay_log(log_path: Path) -> dict[str, dict]:
                 try:
                     rec = json.loads(line)
                 except json.JSONDecodeError as exc:
-                    logger.warning(
-                        "session log line %d at %s: %s", line_num, log_path, exc
-                    )
+                    logger.warning("session log line %d at %s: %s", line_num, log_path, exc)
                     continue
                 iid = rec.get("item_id")
                 if iid:
@@ -284,9 +283,7 @@ def _recompute_progress_from_log(
     log_state = _replay_log(log_path)
     done_ids = sorted(iid for iid, r in log_state.items() if r.get("labels"))
     skipped_ids = sorted(
-        iid
-        for iid, r in log_state.items()
-        if not r.get("labels") and r.get("skipped_metrics")
+        iid for iid, r in log_state.items() if not r.get("labels") and r.get("skipped_metrics")
     )
     return len(done_ids), len(skipped_ids), done_ids, skipped_ids
 
@@ -410,9 +407,7 @@ async def create_session(request: Request) -> JSONResponse:
         if not isinstance(requested_metric_ids, list) or not all(
             isinstance(m, str) and m for m in requested_metric_ids
         ):
-            raise HTTPException(
-                status_code=422, detail="metric_ids must be a list of strings"
-            )
+            raise HTTPException(status_code=422, detail="metric_ids must be a list of strings")
         unknown = [m for m in requested_metric_ids if m not in observed_metrics]
         if unknown and observed_metrics:
             # If the source has known metrics, reject unknowns. If the
@@ -465,8 +460,7 @@ async def create_session(request: Request) -> JSONResponse:
     # silent zero-item edge cases (we 422 above but logging the
     # non-zero count makes the trail self-explanatory).
     logger.info(
-        "annotation session created: id=%s annotator=%s "
-        "source_kind=%s source_id=%s items_total=%d",
+        "annotation session created: id=%s annotator=%s source_kind=%s source_id=%s items_total=%d",
         session_id,
         annotator_id,
         source_kind,
@@ -477,13 +471,16 @@ async def create_session(request: Request) -> JSONResponse:
 
 
 def _find_session(session_id: str) -> tuple[Path, dict] | None:
-    """Locate a session across all dataset roots. Returns (dataset_dir, meta)."""
+    """Locate a session across all dataset roots. Returns (dataset_dir, meta).
+
+    Routes through ``list_dataset_dirs`` so the mtime-keyed cache shared
+    with the rest of the v2 routes is reused; calling ``root.iterdir()``
+    directly here was a 491-stat walk per request on prod.
+    """
     if not _safe_token(session_id):
         return None
     for root in dataset_roots():
-        for ds_dir in root.iterdir():
-            if not ds_dir.is_dir():
-                continue
+        for ds_dir in list_dataset_dirs(root):
             meta_path = _session_meta_path(ds_dir, session_id)
             if meta_path.exists():
                 meta = _read_meta(meta_path)
@@ -493,12 +490,14 @@ def _find_session(session_id: str) -> tuple[Path, dict] | None:
 
 
 def _list_sessions() -> list[tuple[Path, dict]]:
-    """All sessions on disk across all roots, newest-first."""
+    """All sessions on disk across all roots, newest-first.
+
+    Routes through ``list_dataset_dirs`` to reuse the cached dataset-dir
+    listing (see ``_find_session``).
+    """
     out: list[tuple[Path, dict]] = []
     for root in dataset_roots():
-        if not root.is_dir():
-            continue
-        for ds_dir in root.iterdir():
+        for ds_dir in list_dataset_dirs(root):
             sessions_dir = _sessions_dir(ds_dir)
             if not sessions_dir.is_dir():
                 continue
@@ -533,9 +532,7 @@ async def get_session(session_id: str) -> JSONResponse:
 
 
 @router.get("/sessions/{session_id}/items")
-async def get_session_items(
-    session_id: str, offset: int = 0, limit: int = 50
-) -> JSONResponse:
+async def get_session_items(session_id: str, offset: int = 0, limit: int = 50) -> JSONResponse:
     """Return a paginated batch of items with pre-labels.
 
     Each item carries its current verdict (if already annotated in this
@@ -548,9 +545,7 @@ async def get_session_items(
     ds_dir, meta = found
 
     if offset < 0 or limit < 1 or limit > 200:
-        raise HTTPException(
-            status_code=422, detail="offset >= 0 and 1 <= limit <= 200 required"
-        )
+        raise HTTPException(status_code=422, detail="offset >= 0 and 1 <= limit <= 200 required")
 
     item_ids: list[str] = list(meta.get("item_ids") or [])
     total = len(item_ids)
@@ -693,9 +688,7 @@ async def post_verdict(session_id: str, request: Request) -> JSONResponse:
     if not isinstance(item_id, str) or not item_id:
         raise HTTPException(status_code=422, detail="item_id must be a non-empty string")
     if item_id not in (meta.get("item_ids") or []):
-        raise HTTPException(
-            status_code=422, detail=f"item_id {item_id!r} not in session"
-        )
+        raise HTTPException(status_code=422, detail=f"item_id {item_id!r} not in session")
     if not isinstance(labels, list):
         raise HTTPException(status_code=422, detail="labels must be a list")
 
@@ -710,9 +703,7 @@ async def post_verdict(session_id: str, request: Request) -> JSONResponse:
     if not isinstance(skipped_metrics, list) or not all(
         isinstance(m, str) for m in skipped_metrics
     ):
-        raise HTTPException(
-            status_code=422, detail="skipped_metrics must be a list of strings"
-        )
+        raise HTTPException(status_code=422, detail="skipped_metrics must be a list of strings")
     note = body.get("note")
     if note is not None and not isinstance(note, str):
         raise HTTPException(status_code=422, detail="note must be a string")
@@ -781,8 +772,8 @@ async def post_verdict(session_id: str, request: Request) -> JSONResponse:
         items_done = len(done_ids)
         items_skipped = len(skipped_ids)
     else:
-        items_done, items_skipped, done_ids_list, skipped_ids_list = (
-            _recompute_progress_from_log(log_path)
+        items_done, items_skipped, done_ids_list, skipped_ids_list = _recompute_progress_from_log(
+            log_path
         )
         done_ids = set(done_ids_list)
         skipped_ids = set(skipped_ids_list)
@@ -801,9 +792,7 @@ async def post_verdict(session_id: str, request: Request) -> JSONResponse:
         # Verdict is already appended; meta will self-heal on next call
         # via the cold-start path (index is missing -> replay).
 
-    await _broadcast_invalidate(
-        ["annotation/sessions", "review/queue", "home"]
-    )
+    await _broadcast_invalidate(["annotation/sessions", "review/queue", "home"])
 
     return JSONResponse(
         {
@@ -904,8 +893,7 @@ async def finalize_session(session_id: str) -> JSONResponse:
     # appended (non-duplicate). The merged < items_done case is
     # interesting in its own right - means re-finalize with overlap.
     logger.info(
-        "annotation session finalized: id=%s annotator=%s "
-        "items_done=%d items_skipped=%d merged=%d",
+        "annotation session finalized: id=%s annotator=%s items_done=%d items_skipped=%d merged=%d",
         session_id,
         meta.get("annotator_id", ""),
         int(meta.get("items_done", 0)),
@@ -959,6 +947,63 @@ _SMART_WEIGHTS = {
     "random": 0.05,
 }
 
+# Mtime-keyed cache of the per-metric verdict count used by ``smart_queue``.
+# Before this cache the /smart-queue endpoint reparsed every reviews/*.jsonl
+# under every dataset on every request (491 dataset dirs x N jsonl on prod).
+# Keyed on the tuple of (file_path, mtime) for every reviews/*.jsonl across
+# every root: this invalidates both on new files (parent dir mtime bumps,
+# ``_reviews_files_for_root`` rebuilds) and on appends to existing files
+# (the file's own mtime bumps, changing the key). ``_read_verdicts`` is
+# already mtime-cached per file, so a single new verdict only reparses
+# that one file - the aggregate just rebuilds the bucket sums.
+_coverage_counter_cache: dict[tuple, dict[str, int]] = {}
+
+
+def _smart_queue_coverage_counter() -> dict[str, int]:
+    """Return ``{metric_id: verdict_count}`` aggregated across every reviews/*.jsonl.
+
+    Uses ``_reviews_files_for_root`` (mtime-cached per root) + ``_read_verdicts``
+    (mtime-cached per file), and memoizes the aggregate on the per-file
+    mtime snapshot so a verdict append invalidates the cache exactly once.
+    Returns a shared dict; callers must treat it as read-only.
+    """
+    from collections import defaultdict as _defaultdict
+
+    roots = dataset_roots()
+    # Collect (path, mtime) pairs across every root; this doubles as the
+    # cache key (so any file mtime change busts the cache) and the work
+    # list (so we don't stat twice).
+    files: list[tuple[Path, float | None]] = []
+    key_parts: list[tuple[str, float]] = []
+    for root in roots:
+        for path, _ds_name in _reviews_files_for_root(root):
+            try:
+                f_mtime = path.stat().st_mtime
+            except OSError:
+                files.append((path, None))
+                continue
+            files.append((path, f_mtime))
+            key_parts.append((str(path), f_mtime))
+
+    key: tuple | None = tuple(key_parts) if not _caches_disabled() else None
+    if key is not None and key in _coverage_counter_cache:
+        return _coverage_counter_cache[key]
+
+    counter: dict[str, int] = _defaultdict(int)
+    for path, f_mtime in files:
+        for rec in _read_verdicts(path, mtime=f_mtime):
+            for label_entry in rec.get("labels") or []:
+                if not isinstance(label_entry, dict):
+                    continue
+                mid = label_entry.get("metric_id")
+                if mid:
+                    counter[mid] += 1
+
+    result = dict(counter)
+    if key is not None:
+        _coverage_counter_cache[key] = result
+    return result
+
 
 def _why_label(uncertainty: float, disagreement: float, coverage: float) -> str:
     """Pick the dominant explanation for a smart-queue item."""
@@ -974,9 +1019,7 @@ def _why_label(uncertainty: float, disagreement: float, coverage: float) -> str:
 
 
 @router.get("/smart-queue")
-async def smart_queue(
-    metric_id: str | None = None, limit: int = 20
-) -> JSONResponse:
+async def smart_queue(metric_id: str | None = None, limit: int = 20) -> JSONResponse:
     """Rank items for human annotation by an information-gain proxy.
 
     Score formula: ``0.5*uncertainty + 0.3*disagreement + 0.15*coverage +
@@ -1006,29 +1049,7 @@ async def smart_queue(
     # Past annotation coverage: count verdicts per metric across all reviews.
     from collections import defaultdict
 
-    coverage_counter: dict[str, int] = defaultdict(int)
-    for root in dataset_roots():
-        for ds_dir in list_dataset_dirs(root):
-            reviews_dir = ds_dir / "reviews"
-            if not reviews_dir.is_dir():
-                continue
-            for path in reviews_dir.glob("*.jsonl"):
-                try:
-                    with path.open(encoding="utf-8") as f:
-                        for raw in f:
-                            line = raw.strip()
-                            if not line:
-                                continue
-                            try:
-                                rec = json.loads(line)
-                            except json.JSONDecodeError:
-                                continue
-                            for label_entry in rec.get("labels") or []:
-                                mid = label_entry.get("metric_id") if isinstance(label_entry, dict) else None
-                                if mid:
-                                    coverage_counter[mid] += 1
-                except OSError:
-                    continue
+    coverage_counter = _smart_queue_coverage_counter()
     # Define a "low-representation" threshold relative to median.
     if coverage_counter:
         sorted_counts = sorted(coverage_counter.values())
@@ -1061,7 +1082,7 @@ async def smart_queue(
             if len(scores) >= 2:
                 mean_s = sum(scores) / len(scores)
                 var = sum((s - mean_s) ** 2 for s in scores) / len(scores)
-                stddev = var ** 0.5
+                stddev = var**0.5
                 disagreement = max(0.0, min(1.0, stddev * 2))
             else:
                 disagreement = 0.0

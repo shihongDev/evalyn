@@ -14,6 +14,7 @@ from ..models import Span
 # SpanStack: thread-local parent-child hierarchy
 # ---------------------------------------------------------------------------
 
+
 class SpanStack:
     """Thread-local stack for managing parent-child span hierarchy."""
 
@@ -59,6 +60,7 @@ _STACK = SpanStack()
 # ---------------------------------------------------------------------------
 # SpanRecord / DecoratorConfig
 # ---------------------------------------------------------------------------
+
 
 @dataclass
 class SpanRecord:
@@ -121,6 +123,7 @@ def clear_recorded_spans() -> None:
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 def _summarize_args(args: tuple, kwargs: dict, max_length: int = 200) -> str:
     """Build a short string summary of function arguments."""
     parts: list[str] = []
@@ -155,6 +158,7 @@ def _make_span(
 # ---------------------------------------------------------------------------
 # trace_span: decorator and context manager
 # ---------------------------------------------------------------------------
+
 
 class trace_span:
     """Decorator and context manager that creates a proper Span object.

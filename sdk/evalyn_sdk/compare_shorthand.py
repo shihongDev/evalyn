@@ -98,9 +98,7 @@ def resolve_last_2(run_ids: list[str]) -> CompareRequest:
     )
 
 
-def resolve_latest_vs_pinned(
-    run_ids: list[str], pinned_id: str
-) -> CompareRequest:
+def resolve_latest_vs_pinned(run_ids: list[str], pinned_id: str) -> CompareRequest:
     """Compare the latest run against a pinned baseline.
 
     Returns an unresolved request if no runs or pinned_id is empty.
@@ -138,9 +136,7 @@ def resolve_latest_vs_previous(run_ids: list[str]) -> CompareRequest:
     )
 
 
-def resolve_shorthand(
-    mode: str, run_ids: list[str], pinned_id: str = ""
-) -> CompareRequest:
+def resolve_shorthand(mode: str, run_ids: list[str], pinned_id: str = "") -> CompareRequest:
     """Dispatch to the correct resolver based on mode string.
 
     Returns an unresolved request if the mode is unknown or there are

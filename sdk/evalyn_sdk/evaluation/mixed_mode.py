@@ -126,9 +126,7 @@ def decide_mode(item_count: int, config: MixedModeConfig) -> ModeDecision:
     )
 
 
-def split_for_mixed_mode(
-    items: list[Any], config: MixedModeConfig
-) -> tuple[list[Any], list[Any]]:
+def split_for_mixed_mode(items: list[Any], config: MixedModeConfig) -> tuple[list[Any], list[Any]]:
     """Split items into (batch_items, realtime_items).
 
     If the total count exceeds the threshold, all items go to batch.
@@ -151,9 +149,7 @@ def estimate_cost_savings(
     if total == 0:
         return 0.0
     realtime_cost = total * cost_per_item
-    actual_cost = (batch_count * cost_per_item * 0.5) + (
-        realtime_count * cost_per_item
-    )
+    actual_cost = (batch_count * cost_per_item * 0.5) + (realtime_count * cost_per_item)
     if realtime_cost == 0:
         return 0.0
     return (realtime_cost - actual_cost) / realtime_cost

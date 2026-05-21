@@ -22,6 +22,7 @@ if TYPE_CHECKING:
 @dataclass
 class LoadedRun:
     """Result of loading an eval run, with metadata about the source."""
+
     run: EvalRun
     run_file_path: Path | None = None
 
@@ -82,9 +83,7 @@ def load_eval_run_for_command(
         for run_file in run_files:
             with open(run_file, encoding="utf-8") as f:
                 candidate = EvalRun.from_dict(json.load(f))
-            if not metric_id or any(
-                r.metric_id == metric_id for r in candidate.metric_results
-            ):
+            if not metric_id or any(r.metric_id == metric_id for r in candidate.metric_results):
                 run = candidate
                 run_file_path = run_file
                 break

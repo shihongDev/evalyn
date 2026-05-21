@@ -95,16 +95,10 @@ def order_by_difficulty(examples: list[OrderedExample]) -> OrderingResult:
 def order_by_label_grouping(examples: list[OrderedExample]) -> OrderingResult:
     """Group by label, put fails last. Within groups, sort by difficulty."""
     if not examples:
-        return OrderingResult(
-            ordered_ids=[], method="label_grouping", estimated_impact=0.0
-        )
+        return OrderingResult(ordered_ids=[], method="label_grouping", estimated_impact=0.0)
 
-    fail_group = sorted(
-        [e for e in examples if e.label == "fail"], key=lambda e: e.difficulty
-    )
-    non_fail_group = sorted(
-        [e for e in examples if e.label != "fail"], key=lambda e: e.difficulty
-    )
+    fail_group = sorted([e for e in examples if e.label == "fail"], key=lambda e: e.difficulty)
+    non_fail_group = sorted([e for e in examples if e.label != "fail"], key=lambda e: e.difficulty)
 
     ordered = non_fail_group + fail_group
     ordered_ids = [e.id for e in ordered]

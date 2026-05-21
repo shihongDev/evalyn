@@ -37,7 +37,12 @@ deployment = [
 ]
 
 [tool.ruff]
-extend = "../../../pyproject.toml"
+# Demo is intentionally self-contained for ruff: the evalyn parent
+# pyproject excludes `example_agents`, so extending it from here would
+# inherit that exclude and leave this directory unchecked. Mirror just
+# the parent's core settings (line length, target Python) instead.
+line-length = 100
+target-version = "py310"
 
 [tool.ruff.lint]
 # Ignores function complication rule

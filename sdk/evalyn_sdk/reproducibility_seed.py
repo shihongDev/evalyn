@@ -147,9 +147,7 @@ def create_reproducibility_record(
     )
 
 
-def verify_reproducibility(
-    record: ReproducibilityRecord, items: list[dict[str, Any]]
-) -> bool:
+def verify_reproducibility(record: ReproducibilityRecord, items: list[dict[str, Any]]) -> bool:
     """Return True when the items match the recorded checksum."""
     return compute_items_checksum(items) == record.checksum
 

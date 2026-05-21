@@ -204,9 +204,7 @@ def validate_policy(policy: RetentionPolicy) -> tuple[bool, list[str]]:
     return (len(errors) == 0, errors)
 
 
-def suggest_retention_policy(
-    total_size_mb: float, total_items: int
-) -> RetentionPolicy:
+def suggest_retention_policy(total_size_mb: float, total_items: int) -> RetentionPolicy:
     """Auto-suggest a retention policy based on storage size and item count."""
     # Aggressive retention for large storage
     if total_size_mb > 1000:

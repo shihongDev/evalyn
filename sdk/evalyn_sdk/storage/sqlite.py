@@ -217,9 +217,7 @@ class SQLiteStorage:
             ("idx_mr_run_item", "metric_results_rows(run_id, item_id)"),
             ("idx_mr_config", "metric_results_rows(run_id, metric_id, config_hash)"),
         ]:
-            cur.execute(
-                f"CREATE INDEX IF NOT EXISTS {idx_name} ON {idx_def}"
-            )
+            cur.execute(f"CREATE INDEX IF NOT EXISTS {idx_name} ON {idx_def}")
         self.conn.commit()
         run_migrations(self.conn)
 
@@ -328,10 +326,7 @@ class SQLiteStorage:
             f"SELECT {cols} FROM function_calls {where_clause} ORDER BY started_at DESC LIMIT ?",
             params,
         )
-        return [
-            self._row_to_call(row, lightweight=lightweight)
-            for row in cur.fetchall()
-        ]
+        return [self._row_to_call(row, lightweight=lightweight) for row in cur.fetchall()]
 
     def delete_calls(self, call_ids: list[str]) -> int:
         """Delete calls by IDs. Returns number deleted.
@@ -344,13 +339,9 @@ class SQLiteStorage:
         cur = conn.cursor()
         placeholders = ",".join("?" * len(call_ids))
         # Delete related spans first
-        cur.execute(
-            f"DELETE FROM otel_spans WHERE call_id IN ({placeholders})", call_ids
-        )
+        cur.execute(f"DELETE FROM otel_spans WHERE call_id IN ({placeholders})", call_ids)
         # Delete calls
-        cur.execute(
-            f"DELETE FROM function_calls WHERE id IN ({placeholders})", call_ids
-        )
+        cur.execute(f"DELETE FROM function_calls WHERE id IN ({placeholders})", call_ids)
         conn.commit()
         return cur.rowcount
 
@@ -399,7 +390,9 @@ class SQLiteStorage:
                 """,
                 [
                     (
-                        hashlib.sha256(f"{run_id}:{r.item_id}:{r.metric_id}:{r.unit_id or ''}".encode()).hexdigest()[:32],
+                        hashlib.sha256(
+                            f"{run_id}:{r.item_id}:{r.metric_id}:{r.unit_id or ''}".encode()
+                        ).hexdigest()[:32],
                         run_id,
                         r.item_id,
                         r.call_id,
@@ -423,9 +416,7 @@ class SQLiteStorage:
         """Load metric results from relational table for a run."""
 
         cur = self.get_connection().cursor()
-        cur.execute(
-            "SELECT * FROM metric_results_rows WHERE run_id = ?", (run_id,)
-        )
+        cur.execute("SELECT * FROM metric_results_rows WHERE run_id = ?", (run_id,))
         return [self._row_to_metric_result(row) for row in cur.fetchall()]
 
     @staticmethod
@@ -439,8 +430,9 @@ class SQLiteStorage:
             call_id=row["call_id"] or "",
             score=row["score"],
             passed=bool(passed_val) if passed_val is not None else None,
-            details=({} if not row["details"] or row["details"] == "{}"
-                    else json.loads(row["details"])),
+            details=(
+                {} if not row["details"] or row["details"] == "{}" else json.loads(row["details"])
+            ),
             unit_id=row["unit_id"],
             unit_type=row["unit_type"],
             input_tokens=row["input_tokens"],
@@ -497,9 +489,7 @@ class SQLiteStorage:
                     metrics=[MetricSpec.from_dict(m) for m in metrics_raw],
                     judge_configs=[],  # Not needed for listing
                     summary=summary,
-                    usage_summary=json.loads(row["usage_summary"])
-                    if row["usage_summary"]
-                    else {},
+                    usage_summary=json.loads(row["usage_summary"]) if row["usage_summary"] else {},
                 )
             )
         return results
@@ -531,14 +521,11 @@ class SQLiteStorage:
             if json_blob:
                 # Legacy: metric results stored as JSON blob in eval_runs
                 from ..models import MetricResult
-                metric_results = [
-                    MetricResult.from_dict(r) for r in json.loads(json_blob)
-                ]
+
+                metric_results = [MetricResult.from_dict(r) for r in json.loads(json_blob)]
             else:
                 mr_rows = batch_results.get(run_id, [])
-                metric_results = [
-                    self._row_to_metric_result(r) for r in mr_rows
-                ]
+                metric_results = [self._row_to_metric_result(r) for r in mr_rows]
 
             metrics_raw = json.loads(row["metrics"]) if row["metrics"] else []
             jc_raw = json.loads(row["judge_configs"]) if row["judge_configs"] else []
@@ -552,9 +539,7 @@ class SQLiteStorage:
                     metrics=[MetricSpec.from_dict(m) for m in metrics_raw],
                     judge_configs=[JudgeConfig.from_dict(j) for j in jc_raw],
                     summary=json.loads(row["summary"]) if row["summary"] else {},
-                    usage_summary=json.loads(row["usage_summary"])
-                    if row["usage_summary"]
-                    else {},
+                    usage_summary=json.loads(row["usage_summary"]) if row["usage_summary"] else {},
                 )
             )
         return results
@@ -684,9 +669,7 @@ class SQLiteStorage:
         )
         conn.commit()
 
-    def list_annotations(
-        self, target_id: str | None = None, limit: int = 100
-    ) -> list[Annotation]:
+    def list_annotations(self, target_id: str | None = None, limit: int = 100) -> list[Annotation]:
         cur = self.get_connection().cursor()
         if target_id:
             cur.execute(
@@ -736,7 +719,14 @@ class SQLiteStorage:
             VALUES (?, ?, ?, ?, ?, ?)
             """,
             (
-                (link.id, link.run_id, link.metric_result_id, link.span_id, link.relevance, link.reason)
+                (
+                    link.id,
+                    link.run_id,
+                    link.metric_result_id,
+                    link.span_id,
+                    link.relevance,
+                    link.reason,
+                )
                 for link in links
             ),
         )
@@ -807,9 +797,7 @@ class SQLiteStorage:
                 "start_time": r["start_time"],
                 "end_time": r["end_time"],
                 "status": r["status"],
-                "attributes": json.loads(r["attributes"])
-                if r["attributes"]
-                else {},
+                "attributes": json.loads(r["attributes"]) if r["attributes"] else {},
                 "events": json.loads(r["events"]) if r["events"] else [],
             }
             for r in cur.fetchall()
@@ -818,9 +806,7 @@ class SQLiteStorage:
     def close(self) -> None:
         self.conn.close()
 
-    def _row_to_call(
-        self, row: sqlite3.Row, lightweight: bool = False
-    ) -> FunctionCall:
+    def _row_to_call(self, row: sqlite3.Row, lightweight: bool = False) -> FunctionCall:
         # Handle new columns that may not exist in old databases
         parent_call_id = None
         try:
@@ -874,4 +860,3 @@ class SQLiteStorage:
                 "spans": spans,
             }
         )
-

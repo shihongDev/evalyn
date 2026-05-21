@@ -153,9 +153,7 @@ def extract_entities(text: str) -> list[KGNode]:
             continue
         nid = _make_node_id(label)
         if nid not in seen:
-            seen[nid] = KGNode(
-                node_id=nid, label=label, node_type="entity"
-            )
+            seen[nid] = KGNode(node_id=nid, label=label, node_type="entity")
 
     # Quoted terms -> concept
     for match in _QUOTED_TERM_RE.finditer(text):
@@ -164,9 +162,7 @@ def extract_entities(text: str) -> list[KGNode]:
             continue
         nid = _make_node_id(label)
         if nid not in seen:
-            seen[nid] = KGNode(
-                node_id=nid, label=label, node_type="concept"
-            )
+            seen[nid] = KGNode(node_id=nid, label=label, node_type="concept")
 
     # "is a/are" patterns -> fact
     for match in _IS_A_RE.finditer(text):
@@ -175,9 +171,7 @@ def extract_entities(text: str) -> list[KGNode]:
             continue
         nid = _make_node_id(label)
         if nid not in seen:
-            seen[nid] = KGNode(
-                node_id=nid, label=label, node_type="fact"
-            )
+            seen[nid] = KGNode(node_id=nid, label=label, node_type="fact")
 
     return list(seen.values())
 
@@ -262,9 +256,7 @@ def build_knowledge_graph(texts: list[str]) -> KnowledgeGraph:
 # ---------------------------------------------------------------------------
 
 
-def generate_factual_questions(
-    graph: KnowledgeGraph, n: int = 5
-) -> list[GeneratedQuestion]:
+def generate_factual_questions(graph: KnowledgeGraph, n: int = 5) -> list[GeneratedQuestion]:
     """Generate factual questions from graph nodes and edges.
 
     Produces "What is X?" questions from nodes and "What is the
@@ -294,9 +286,7 @@ def generate_factual_questions(
         tgt = node_map.get(edge.target)
         if src and tgt:
             q = GeneratedQuestion(
-                question=(
-                    f"What is the relationship between {src.label} and {tgt.label}?"
-                ),
+                question=(f"What is the relationship between {src.label} and {tgt.label}?"),
                 expected_answer=f"{src.label} {edge.relation} {tgt.label}.",
                 source_nodes=[edge.source, edge.target],
                 difficulty="medium",
@@ -307,9 +297,7 @@ def generate_factual_questions(
     return questions[:n]
 
 
-def generate_reasoning_questions(
-    graph: KnowledgeGraph, n: int = 3
-) -> list[GeneratedQuestion]:
+def generate_reasoning_questions(graph: KnowledgeGraph, n: int = 3) -> list[GeneratedQuestion]:
     """Generate multi-hop reasoning questions from graph paths.
 
     Finds two-hop paths (A->B->C) and produces questions of the form
@@ -352,10 +340,7 @@ def generate_reasoning_questions(
                     f"and {mid.label} {rel2} {end.label}, "
                     f"what can be inferred about {src.label} and {end.label}?"
                 ),
-                expected_answer=(
-                    f"{src.label} is connected to {end.label} "
-                    f"through {mid.label}."
-                ),
+                expected_answer=(f"{src.label} is connected to {end.label} through {mid.label}."),
                 source_nodes=[edge.source, mid_id, end_id],
                 difficulty="hard",
                 question_type="reasoning",

@@ -11,14 +11,14 @@ from typing import Any
 
 # Average tokens per judge call by metric type (estimated from typical prompts)
 _AVG_TOKENS_PER_JUDGE_CALL = {
-    "input": 800,   # system prompt + rubric + input/output content
+    "input": 800,  # system prompt + rubric + input/output content
     "output": 150,  # judge response (JSON with score, passed, reason)
 }
 
 # Average time per evaluation (ms) based on metric type
 _AVG_TIME_PER_EVAL_MS = {
-    "objective": 5,       # local computation, very fast
-    "subjective": 2000,   # LLM API call, typical latency
+    "objective": 5,  # local computation, very fast
+    "subjective": 2000,  # LLM API call, typical latency
 }
 
 
@@ -82,7 +82,9 @@ class DryRunEstimate:
             lines.append("")
             lines.append("Per-metric breakdown:")
             for m in self.metric_estimates:
-                cost_str = f"${m['estimated_cost_usd']:.4f}" if m["estimated_cost_usd"] > 0 else "free"
+                cost_str = (
+                    f"${m['estimated_cost_usd']:.4f}" if m["estimated_cost_usd"] > 0 else "free"
+                )
                 lines.append(f"  {m['metric_id']:30} {m['type']:10} {cost_str}")
 
         return "\n".join(lines)
@@ -143,7 +145,9 @@ def estimate_eval_cost(
             calls_per_item = confidence_multiplier
             input_tokens = _AVG_TOKENS_PER_JUDGE_CALL["input"] * calls_per_item * item_count
             output_tokens = _AVG_TOKENS_PER_JUDGE_CALL["output"] * calls_per_item * item_count
-            cost = (input_tokens / 1_000_000) * input_cost_per_1m + (output_tokens / 1_000_000) * output_cost_per_1m
+            cost = (input_tokens / 1_000_000) * input_cost_per_1m + (
+                output_tokens / 1_000_000
+            ) * output_cost_per_1m
             time_ms = _AVG_TIME_PER_EVAL_MS["subjective"] * calls_per_item * item_count
         else:
             objective_count += 1
@@ -156,16 +160,20 @@ def estimate_eval_cost(
         total_output_tokens += output_tokens
         total_time_ms += time_ms
 
-        metric_estimates.append({
-            "metric_id": metric.spec.id,
-            "type": metric.spec.type,
-            "evaluations": item_count,
-            "estimated_input_tokens": input_tokens,
-            "estimated_output_tokens": output_tokens,
-            "estimated_cost_usd": round(cost, 6),
-        })
+        metric_estimates.append(
+            {
+                "metric_id": metric.spec.id,
+                "type": metric.spec.type,
+                "evaluations": item_count,
+                "estimated_input_tokens": input_tokens,
+                "estimated_output_tokens": output_tokens,
+                "estimated_cost_usd": round(cost, 6),
+            }
+        )
 
-    total_cost = (total_input_tokens / 1_000_000) * input_cost_per_1m + (total_output_tokens / 1_000_000) * output_cost_per_1m
+    total_cost = (total_input_tokens / 1_000_000) * input_cost_per_1m + (
+        total_output_tokens / 1_000_000
+    ) * output_cost_per_1m
 
     # Time with parallelism: subjective metrics benefit from workers
     sequential_time = total_time_ms / 1000

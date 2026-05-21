@@ -159,9 +159,7 @@ def evaluate_conclusion_validity(steps: list[ReasoningStep]) -> float:
     return sum(scores) / len(scores)
 
 
-def evaluate_reasoning(
-    steps: list[ReasoningStep], source_text: str = ""
-) -> ReasoningEvalResult:
+def evaluate_reasoning(steps: list[ReasoningStep], source_text: str = "") -> ReasoningEvalResult:
     """Full reasoning evaluation.
 
     Overall = average of all four metrics.
@@ -180,12 +178,8 @@ def evaluate_reasoning(
         step_count=len(steps),
         details={
             "source_text_length": len(source_text),
-            "reasoning_step_count": sum(
-                1 for s in steps if s.step_type == "reasoning"
-            ),
-            "conclusion_step_count": sum(
-                1 for s in steps if s.step_type == "conclusion"
-            ),
+            "reasoning_step_count": sum(1 for s in steps if s.step_type == "reasoning"),
+            "conclusion_step_count": sum(1 for s in steps if s.step_type == "conclusion"),
         },
     )
 

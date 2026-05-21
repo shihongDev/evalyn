@@ -134,17 +134,21 @@ def _print_show_call_header(call) -> None:
 
     print()
     print(banner("CALL DETAILS"))
-    print(kv([
-        ("ID", call.id),
-        ("Function", call.function_name),
-        ("Status", f"{status} {status_icon(status == 'OK')}"),
-        ("Session", str(call.session_id)),
-        ("Started", str(call.started_at)),
-        ("Ended", str(call.ended_at)),
-        ("Duration", dur_str),
-        ("Turns", f"{turn_label} ({turns})"),
-        ("LLM calls", f"{llm_calls} | tool_events: {tool_events}"),
-    ]))
+    print(
+        kv(
+            [
+                ("ID", call.id),
+                ("Function", call.function_name),
+                ("Status", f"{status} {status_icon(status == 'OK')}"),
+                ("Session", str(call.session_id)),
+                ("Started", str(call.started_at)),
+                ("Ended", str(call.ended_at)),
+                ("Duration", dur_str),
+                ("Turns", f"{turn_label} ({turns})"),
+                ("LLM calls", f"{llm_calls} | tool_events: {tool_events}"),
+            ]
+        )
+    )
 
 
 def _print_show_call_inputs(call) -> None:
@@ -179,11 +183,15 @@ def _print_show_call_output(call) -> None:
     print()
     print(section("OUTPUT"))
     output_text = str(call.output or "")
-    print(kv([
-        ("Type", type(call.output).__name__),
-        ("Length", f"{len(output_text)} chars"),
-        ("Preview", _format_value(output_text, max_len=1000)),
-    ]))
+    print(
+        kv(
+            [
+                ("Type", type(call.output).__name__),
+                ("Length", f"{len(output_text)} chars"),
+                ("Preview", _format_value(output_text, max_len=1000)),
+            ]
+        )
+    )
 
 
 def _print_show_call_metadata(meta: dict) -> None:
@@ -287,13 +295,15 @@ def _print_show_call_events(call) -> None:
         )
         delta_ms = (ev.timestamp - prev_ts).total_seconds() * 1000 if prev_ts else 0.0
         summary = _summarize_trace_event_detail(ev.detail or {})
-        rows.append([
-            str(idx),
-            f"{elapsed_ms:.1f}",
-            f"{delta_ms:.1f}",
-            ev.kind,
-            summary,
-        ])
+        rows.append(
+            [
+                str(idx),
+                f"{elapsed_ms:.1f}",
+                f"{delta_ms:.1f}",
+                ev.kind,
+                summary,
+            ]
+        )
         prev_ts = ev.timestamp
     print(rich_table(headers, rows, align=["right", "right", "right", "left", "left"]))
 
@@ -404,7 +414,9 @@ def _print_show_call_spans(call) -> None:
     llm_count = sum(1 for s in call.spans if s.span_type == "llm_call")
     tool_count = sum(1 for s in call.spans if s.span_type == "tool_call")
     node_count = sum(1 for s in call.spans if s.span_type == "node")
-    print(f"\n  {len(call.spans)} spans | {llm_count} LLM | {tool_count} tools | {node_count} nodes")
+    print(
+        f"\n  {len(call.spans)} spans | {llm_count} LLM | {tool_count} tools | {node_count} nodes"
+    )
 
 
 def _render_show_call_table(call) -> None:
@@ -460,12 +472,14 @@ def cmd_list_calls(args: argparse.Namespace) -> None:
 
     if hasattr(args, "simulation") and args.simulation and calls:
         calls = [
-            c for c in calls
+            c
+            for c in calls
             if (c.metadata if isinstance(c.metadata, dict) else {}).get("is_simulation", False)
         ]
     elif hasattr(args, "production") and args.production and calls:
         calls = [
-            c for c in calls
+            c
+            for c in calls
             if not (c.metadata if isinstance(c.metadata, dict) else {}).get("is_simulation", False)
         ]
 
@@ -479,16 +493,13 @@ def cmd_list_calls(args: argparse.Namespace) -> None:
         sort_field = sort_field[1:]
         sort_reverse = True
 
-    def get_sort_key(call):
-        if sort_field == "started_at":
-            return call.started_at or ""
-        elif sort_field == "duration":
-            return call.duration_ms or 0
-        elif sort_field == "function":
-            return call.function_name or ""
-        elif sort_field == "status":
-            return 1 if call.error else 0
-        return call.started_at or ""
+    sort_key_extractors = {
+        "started_at": lambda c: c.started_at or "",
+        "duration": lambda c: c.duration_ms or 0,
+        "function": lambda c: c.function_name or "",
+        "status": lambda c: 1 if c.error else 0,
+    }
+    get_sort_key = sort_key_extractors.get(sort_field, sort_key_extractors["started_at"])
 
     calls.sort(key=get_sort_key, reverse=sort_reverse)
 
@@ -540,9 +551,7 @@ def cmd_list_calls(args: argparse.Namespace) -> None:
                     "is_simulation": m["is_sim"],
                     "status": m["status"],
                     "file": m["file_path"],
-                    "started_at": call.started_at.isoformat()
-                    if call.started_at
-                    else None,
+                    "started_at": call.started_at.isoformat() if call.started_at else None,
                     "ended_at": call.ended_at.isoformat() if call.ended_at else None,
                     "duration_ms": call.duration_ms,
                 }
@@ -565,14 +574,16 @@ def cmd_list_calls(args: argparse.Namespace) -> None:
         m = _extract_call_meta(call)
         short_id = call.id[:8]
         status = icon("pass") if m["status"] == "OK" else icon("fail")
-        rows.append([
-            short_id,
-            call.function_name or "",
-            m["project"],
-            status,
-            format_duration(call.duration_ms),
-            trim_timestamp(call.started_at),
-        ])
+        rows.append(
+            [
+                short_id,
+                call.function_name or "",
+                m["project"],
+                status,
+                format_duration(call.duration_ms),
+                trim_timestamp(call.started_at),
+            ]
+        )
 
     print(banner("TRACED CALLS"))
     print(rich_table(headers, rows, align=align))
@@ -580,9 +591,7 @@ def cmd_list_calls(args: argparse.Namespace) -> None:
     # Show "more available" indicator
     if more_available > 0:
         next_offset = offset + len(calls)
-        print(
-            f"\n({more_available} more available. Use --offset {next_offset} to see next page)"
-        )
+        print(f"\n({more_available} more available. Use --offset {next_offset} to see next page)")
 
     # Show hints
     hint_items = []
@@ -683,7 +692,6 @@ def _print_show_trace_no_spans(call) -> None:
             print(f"    - {ev.kind}")
         if len(call.trace) > 20:
             print(f"    ... and {len(call.trace) - 20} more")
-
 
 
 def _show_trace_limits(full_output: bool) -> dict[str, int | None]:
@@ -866,9 +874,7 @@ def _print_show_trace_summary_and_hints(
     tool_count = sum(1 for s in spans if s.span_type == "tool_call")
     node_count = sum(1 for s in spans if s.span_type == "node")
 
-    summary_line = (
-        f"\nSummary: {len(spans)} spans | {llm_count} LLM calls | {tool_count} tool calls | {node_count} nodes"
-    )
+    summary_line = f"\nSummary: {len(spans)} spans | {llm_count} LLM calls | {tool_count} tool calls | {node_count} nodes"
     if truncated_count[0] > 0:
         summary_line += f" | ({truncated_count[0]} spans hidden, use --max-depth to see more)"
     print(summary_line)
@@ -876,14 +882,20 @@ def _print_show_trace_summary_and_hints(
     quiet = getattr(args, "quiet", False)
     hint_cmds: list[tuple[str, str]] = []
     if not verbose and (llm_count > 0 or tool_count > 0):
-        hint_cmds.append(("evalyn show-trace --id ... --verbose", "See input/output details for each span"))
+        hint_cmds.append(
+            ("evalyn show-trace --id ... --verbose", "See input/output details for each span")
+        )
 
     meta = call.metadata if isinstance(call.metadata, dict) else {}
     project = meta.get("project_id") or meta.get("project_name")
     if verbose and not full_output:
-        hint_cmds.append((f"evalyn show-span --call-id {call.id[:8]} --span <name>", "See full span content"))
+        hint_cmds.append(
+            (f"evalyn show-span --call-id {call.id[:8]} --span <name>", "See full span content")
+        )
     if project and verbose:
-        hint_cmds.append((f"evalyn build-dataset --project {project}", "Build a dataset from traces"))
+        hint_cmds.append(
+            (f"evalyn build-dataset --project {project}", "Build a dataset from traces")
+        )
     foot = footer(hint_cmds, quiet=quiet)
     if foot:
         print(foot)
@@ -1013,16 +1025,20 @@ def cmd_show_span(args: argparse.Namespace) -> None:
     dur_str = f"{target_span.duration_ms:.2f}ms" if target_span.duration_ms else "n/a"
     print()
     print(banner("SPAN DETAILS"))
-    print(kv([
-        ("Name", target_span.name),
-        ("ID", target_span.id),
-        ("Type", target_span.span_type),
-        ("Status", target_span.status),
-        ("Parent", target_span.parent_id or "(root)"),
-        ("Started", str(target_span.start_time)),
-        ("Ended", str(target_span.end_time)),
-        ("Duration", dur_str),
-    ]))
+    print(
+        kv(
+            [
+                ("Name", target_span.name),
+                ("ID", target_span.id),
+                ("Type", target_span.span_type),
+                ("Status", target_span.status),
+                ("Parent", target_span.parent_id or "(root)"),
+                ("Started", str(target_span.start_time)),
+                ("Ended", str(target_span.end_time)),
+                ("Duration", dur_str),
+            ]
+        )
+    )
 
     attrs = target_span.attributes or {}
     if attrs:
@@ -1050,7 +1066,9 @@ def cmd_show_span(args: argparse.Namespace) -> None:
     project = meta.get("project_id") or meta.get("project_name")
     hint_cmds: list[tuple[str, str]] = []
     if project:
-        hint_cmds.append((f"evalyn build-dataset --project {project}", "Build a dataset from traces"))
+        hint_cmds.append(
+            (f"evalyn build-dataset --project {project}", "Build a dataset from traces")
+        )
     foot = footer(hint_cmds, quiet=quiet, format=output_format)
     if foot:
         print(foot)
@@ -1067,10 +1085,7 @@ def cmd_show_projects(args: argparse.Namespace) -> None:
     for call in calls:
         meta = call.metadata if isinstance(call.metadata, dict) else {}
         project = (
-            meta.get("project_id")
-            or meta.get("project_name")
-            or call.function_name
-            or "unknown"
+            meta.get("project_id") or meta.get("project_name") or call.function_name or "unknown"
         )
         version = meta.get("version") or ""
         key = (project, version)
@@ -1098,13 +1113,15 @@ def cmd_show_projects(args: argparse.Namespace) -> None:
     for (project, version), rec in summary.items():
         if first_project is None:
             first_project = project
-        rows.append([
-            project,
-            version or "-",
-            str(rec["total"]),
-            str(rec["errors"]),
-            trim_timestamp(rec["last"]),
-        ])
+        rows.append(
+            [
+                project,
+                version or "-",
+                str(rec["total"]),
+                str(rec["errors"]),
+                trim_timestamp(rec["last"]),
+            ]
+        )
 
     print(banner("PROJECTS"))
     print(rich_table(headers, rows, align=align))
@@ -1112,7 +1129,9 @@ def cmd_show_projects(args: argparse.Namespace) -> None:
     # Show hints
     hint_items = []
     if first_project:
-        hint_items.append((f"evalyn list-calls --project {first_project}", "See calls for this project"))
+        hint_items.append(
+            (f"evalyn list-calls --project {first_project}", "See calls for this project")
+        )
     hint_text = footer(hint_items, quiet=getattr(args, "quiet", False))
     if hint_text:
         print(hint_text)
@@ -1165,9 +1184,7 @@ def cmd_delete_traces(args: argparse.Namespace) -> None:
     print("ID | Function | Started")
     print("-" * 60)
     for call in calls:
-        started = (
-            call.started_at.strftime("%Y-%m-%d %H:%M:%S") if call.started_at else "N/A"
-        )
+        started = call.started_at.strftime("%Y-%m-%d %H:%M:%S") if call.started_at else "N/A"
         print(f"{call.id[:8]} | {call.function_name or 'N/A'} | {started}")
 
     print(f"\nTotal: {len(calls)} trace(s)")
@@ -1178,9 +1195,7 @@ def cmd_delete_traces(args: argparse.Namespace) -> None:
 
     # Confirm unless --yes
     if not yes:
-        confirm = (
-            input(f"\nDelete {len(calls)} trace(s) from {db}? [y/N]: ").strip().lower()
-        )
+        confirm = input(f"\nDelete {len(calls)} trace(s) from {db}? [y/N]: ").strip().lower()
         if confirm not in ("y", "yes"):
             print("Aborted.")
             return
@@ -1206,26 +1221,18 @@ def register_commands(subparsers) -> None:
     p = subparsers.add_parser("list-calls", help="List captured function calls")
     _add_db_arg(p)
     p.add_argument("--limit", type=int, default=20, help="Number of calls to list")
-    p.add_argument(
-        "--offset", type=int, default=0, help="Skip first N results (pagination)"
-    )
+    p.add_argument("--offset", type=int, default=0, help="Skip first N results (pagination)")
     p.add_argument("--project", help="Filter by project name")
     p.add_argument("--function", help="Filter by function name (substring match)")
-    p.add_argument(
-        "--error-only", action="store_true", help="Show only calls with errors"
-    )
+    p.add_argument("--error-only", action="store_true", help="Show only calls with errors")
     p.add_argument(
         "--sort",
         default="started_at",
         help="Sort by field: started_at, duration, function, status. Prefix with + for ascending, - for descending (default: -started_at)",
     )
     p.add_argument("--format", choices=["table", "json"], default="table")
-    p.add_argument(
-        "--simulation", action="store_true", help="Show only simulation calls"
-    )
-    p.add_argument(
-        "--production", action="store_true", help="Show only production calls"
-    )
+    p.add_argument("--simulation", action="store_true", help="Show only simulation calls")
+    p.add_argument("--production", action="store_true", help="Show only production calls")
     p.set_defaults(func=cmd_list_calls)
 
     # show-call
@@ -1233,9 +1240,7 @@ def register_commands(subparsers) -> None:
     _add_db_arg(p)
     p.add_argument("--id", help="Call ID to show")
     p.add_argument("--last", action="store_true", help="Show the most recent call")
-    p.add_argument(
-        "--format", choices=["table", "json"], default="table", help="Output format"
-    )
+    p.add_argument("--format", choices=["table", "json"], default="table", help="Output format")
     p.set_defaults(func=cmd_show_call)
 
     # show-trace
@@ -1266,9 +1271,7 @@ def register_commands(subparsers) -> None:
     _add_db_arg(p)
     p.add_argument("--call-id", "--id", required=True, help="Call ID containing the span")
     p.add_argument("--span", required=True, help="Span name or index to show")
-    p.add_argument(
-        "--format", choices=["table", "json"], default="table", help="Output format"
-    )
+    p.add_argument("--format", choices=["table", "json"], default="table", help="Output format")
     p.set_defaults(func=cmd_show_span)
 
     # show-projects
@@ -1280,9 +1283,7 @@ def register_commands(subparsers) -> None:
     # delete-traces
     p = subparsers.add_parser("delete-traces", help="Delete traces from storage")
     p.add_argument("--id", nargs="+", help="Trace ID(s) to delete (supports short IDs)")
-    p.add_argument(
-        "-n", type=int, help="Number of latest traces to delete (default: 1 if no --id)"
-    )
+    p.add_argument("-n", type=int, help="Number of latest traces to delete (default: 1 if no --id)")
     p.add_argument(
         "--db",
         choices=["test", "prod"],

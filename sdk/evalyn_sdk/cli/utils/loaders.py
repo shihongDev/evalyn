@@ -23,9 +23,7 @@ def _get_module_callables(module: Any) -> list[str]:
     return sorted(callables)
 
 
-def _suggest_similar(
-    name: str, candidates: list[str], max_suggestions: int = 3
-) -> list[str]:
+def _suggest_similar(name: str, candidates: list[str], max_suggestions: int = 3) -> list[str]:
     """Find similar names using simple substring matching."""
     name_lower = name.lower()
     # Exact prefix match first
@@ -33,9 +31,7 @@ def _suggest_similar(
     if prefix_matches:
         return prefix_matches[:max_suggestions]
     # Substring match
-    substr_matches = [
-        c for c in candidates if name_lower in c.lower() or c.lower() in name_lower
-    ]
+    substr_matches = [c for c in candidates if name_lower in c.lower() or c.lower() in name_lower]
     return substr_matches[:max_suggestions]
 
 
@@ -54,9 +50,7 @@ def _load_callable(target: str) -> Callable[..., Any]:
 
     left, func_name = target.split(":", 1)
 
-    def _get_attr_with_suggestions(
-        module: Any, name: str, module_path: str
-    ) -> Callable[..., Any]:
+    def _get_attr_with_suggestions(module: Any, name: str, module_path: str) -> Callable[..., Any]:
         """Get attribute with helpful error message if not found."""
         if hasattr(module, name):
             return getattr(module, name)
@@ -82,8 +76,7 @@ def _load_callable(target: str) -> Callable[..., Any]:
         path = os.path.abspath(left if left.endswith(".py") else left + ".py")
         if not os.path.isfile(path):
             raise ImportError(
-                f"Cannot find file: {path}\n"
-                f"Make sure the file path is correct and the file exists."
+                f"Cannot find file: {path}\nMake sure the file path is correct and the file exists."
             )
         mod_name = os.path.splitext(os.path.basename(path))[0]
         # Ensure package imports inside the file can resolve (e.g., `from pkg.module import x`)
@@ -100,9 +93,7 @@ def _load_callable(target: str) -> Callable[..., Any]:
         try:
             spec.loader.exec_module(module)
         except Exception as e:
-            raise ImportError(
-                f"Failed to load module from {path}:\n{type(e).__name__}: {e}"
-            ) from e
+            raise ImportError(f"Failed to load module from {path}:\n{type(e).__name__}: {e}") from e
         return _get_attr_with_suggestions(module, func_name, path)
 
     # Fallback: dotted module import

@@ -94,9 +94,7 @@ class RotationManager:
 
     def register_provider(self, provider: str, keys: list[str]) -> None:
         """Register keys for a provider."""
-        self._configs[provider] = KeyConfig(
-            provider=provider, keys=list(keys), active_index=0
-        )
+        self._configs[provider] = KeyConfig(provider=provider, keys=list(keys), active_index=0)
 
     def get_active_key(self, provider: str) -> str | None:
         """Get the currently active key for a provider."""
@@ -165,9 +163,7 @@ class RotationManager:
                 "active_index": -1,
                 "active_key_suffix": "",
             }
-        active_key = (
-            config.keys[config.active_index] if config.keys else ""
-        )
+        active_key = config.keys[config.active_index] if config.keys else ""
         return {
             "provider": provider,
             "num_keys": len(config.keys),
@@ -176,9 +172,7 @@ class RotationManager:
         }
 
 
-def load_keys_from_env(
-    provider: str, env_prefix: str = ""
-) -> list[str]:
+def load_keys_from_env(provider: str, env_prefix: str = "") -> list[str]:
     """Load API keys from environment variables.
 
     Looks for PROVIDER_API_KEY, then PROVIDER_API_KEY_1,
@@ -225,9 +219,7 @@ def format_rotation_status(manager: RotationManager) -> str:
         lines.append(f"Provider: {provider}")
         lines.append(f"  Keys: {status['num_keys']}")
         lines.append(f"  Active index: {status['active_index']}")
-        lines.append(
-            f"  Active key: ****{status['active_key_suffix']}"
-        )
+        lines.append(f"  Active key: ****{status['active_key_suffix']}")
         lines.append("")
 
     return "\n".join(lines)

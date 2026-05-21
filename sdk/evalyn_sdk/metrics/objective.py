@@ -1292,9 +1292,7 @@ def pass_at_k_metric(
 
     def handler(call: FunctionCall, item: DatasetItem) -> MetricResult:
         candidates = _extract_candidates(call.output)
-        successes = [
-            c.get(success_field, False) for c in candidates if isinstance(c, dict)
-        ]
+        successes = [c.get(success_field, False) for c in candidates if isinstance(c, dict)]
         n = len(successes)
         if n == 0:
             return _make_result(spec, item, call, 0.0, False, {"candidates": 0, "k": k})
@@ -1327,9 +1325,7 @@ def json_valid_metric(metric_id: str = "json_valid") -> Metric:
     def handler(call: FunctionCall, item: DatasetItem) -> MetricResult:
         output_text = call.output or ""
         try:
-            json.loads(
-                output_text if isinstance(output_text, str) else json.dumps(output_text)
-            )
+            json.loads(output_text if isinstance(output_text, str) else json.dumps(output_text))
             passed = True
         except Exception:
             passed = False
@@ -1341,9 +1337,7 @@ def json_valid_metric(metric_id: str = "json_valid") -> Metric:
     return Metric(spec, handler)
 
 
-def regex_match_metric(
-    metric_id: str = "regex_match", pattern: str | None = None
-) -> Metric:
+def regex_match_metric(metric_id: str = "regex_match", pattern: str | None = None) -> Metric:
     spec = MetricSpec(
         id=metric_id,
         name="Regex Match",
@@ -1388,9 +1382,7 @@ def token_length_metric(
         limit = max_chars or item.metadata.get("max_chars")
         passed = True if not limit else length <= limit
         score = 1.0 if passed else 0.0
-        return _make_result(
-            spec, item, call, score, passed, {"length": length, "max_chars": limit}
-        )
+        return _make_result(spec, item, call, score, passed, {"length": length, "max_chars": limit})
 
     return Metric(spec, handler)
 
@@ -1406,9 +1398,7 @@ def tool_call_count_metric(metric_id: str = "tool_call_count") -> Metric:
     def handler(call: FunctionCall, item: DatasetItem) -> MetricResult:
         events = call.trace or []
         count = sum(1 for ev in events if "tool" in ev.kind.lower())
-        return _make_result(
-            spec, item, call, float(count), None, {"tool_events": count}
-        )
+        return _make_result(spec, item, call, float(count), None, {"tool_events": count})
 
     return Metric(spec, handler)
 
@@ -1645,7 +1635,11 @@ def numeric_rmse_metric(
         id=metric_id,
         name="Numeric RMSE",
         type="objective",
-        description="Root mean squared error for numeric outputs.",
+        description=(
+            "Squared error per item; the aggregator must take "
+            "sqrt(mean(score)) to recover true RMSE. Per-item RMSE is not "
+            "a meaningful statistic on its own."
+        ),
         config={"expected_field": expected_field, "output_field": output_field},
     )
 
@@ -1666,14 +1660,22 @@ def numeric_rmse_metric(
                 },
             )
         err = predicted - expected
-        rmse = math.sqrt(err * err)
+        # Per-item squared error. Aggregating: sqrt(mean(scores)) = RMSE.
+        # Original code returned sqrt(err*err) = abs(err), which is MAE,
+        # making the metric name misleading.
+        squared_err = err * err
         return _make_result(
             spec,
             item,
             call,
-            rmse,
+            squared_err,
             None,
-            {"expected": expected, "predicted": predicted, "rmse": rmse},
+            {
+                "expected": expected,
+                "predicted": predicted,
+                "squared_error": squared_err,
+                "abs_error": abs(err),
+            },
         )
 
     return Metric(spec, handler)
@@ -1743,11 +1745,7 @@ def numeric_within_tolerance_metric(
     def handler(call: FunctionCall, item: DatasetItem) -> MetricResult:
         expected = _extract_number(item.expected, None)
         predicted = _extract_number(call.output, output_field)
-        tol = (
-            tolerance
-            if tolerance is not None
-            else float(item.metadata.get("tolerance") or 0.0)
-        )
+        tol = tolerance if tolerance is not None else float(item.metadata.get("tolerance") or 0.0)
         if expected is None or predicted is None:
             return _make_result(
                 spec,
@@ -2206,9 +2204,7 @@ def url_count_metric(
 # =============================================================================
 
 
-def syntax_valid_metric(
-    metric_id: str = "syntax_valid", language: str = "python"
-) -> Metric:
+def syntax_valid_metric(metric_id: str = "syntax_valid", language: str = "python") -> Metric:
     spec = MetricSpec(
         id=metric_id,
         name="Syntax Valid",
@@ -2234,9 +2230,7 @@ def syntax_valid_metric(
                 )
         # For other languages, just check it's not empty
         passed = len(code.strip()) > 0
-        return _make_result(
-            spec, item, call, 1.0 if passed else 0.0, passed, {"language": lang}
-        )
+        return _make_result(spec, item, call, 1.0 if passed else 0.0, passed, {"language": lang})
 
     return Metric(spec, handler)
 
@@ -2343,9 +2337,7 @@ def flesch_kincaid_metric(
         words = _tokenize(text)
 
         if not sentences or not words:
-            return _make_result(
-                spec, item, call, None, None, {"error": "insufficient_text"}
-            )
+            return _make_result(spec, item, call, None, None, {"error": "insufficient_text"})
 
         total_syllables = sum(_count_syllables(w) for w in words)
         avg_sentence_len = len(words) / len(sentences)
@@ -2455,9 +2447,7 @@ def avg_sentence_length_metric(
 # =============================================================================
 
 
-def distinct_1_metric(
-    metric_id: str = "distinct_1", min_ratio: float | None = None
-) -> Metric:
+def distinct_1_metric(metric_id: str = "distinct_1", min_ratio: float | None = None) -> Metric:
     spec = MetricSpec(
         id=metric_id,
         name="Distinct-1",
@@ -2497,9 +2487,7 @@ def distinct_1_metric(
     return Metric(spec, handler)
 
 
-def distinct_2_metric(
-    metric_id: str = "distinct_2", min_ratio: float | None = None
-) -> Metric:
+def distinct_2_metric(metric_id: str = "distinct_2", min_ratio: float | None = None) -> Metric:
     spec = MetricSpec(
         id=metric_id,
         name="Distinct-2",
@@ -2513,9 +2501,7 @@ def distinct_2_metric(
         tokens = _tokenize(text)
 
         if len(tokens) < 2:
-            return _make_result(
-                spec, item, call, 0.0, None, {"error": "insufficient_tokens"}
-            )
+            return _make_result(spec, item, call, 0.0, None, {"error": "insufficient_tokens"})
 
         bigrams = [(tokens[i], tokens[i + 1]) for i in range(len(tokens) - 1)]
         unique = len(set(bigrams))
@@ -2643,9 +2629,7 @@ def compression_ratio_metric(
 # =============================================================================
 
 
-def citation_count_metric(
-    metric_id: str = "citation_count", min_count: int = 0
-) -> Metric:
+def citation_count_metric(metric_id: str = "citation_count", min_count: int = 0) -> Metric:
     spec = MetricSpec(
         id=metric_id,
         name="Citation Count",
@@ -2747,9 +2731,7 @@ def levenshtein_similarity_metric(metric_id: str = "levenshtein_similarity") -> 
         candidate = _get_output(call, item)
 
         if not reference:
-            return _make_result(
-                spec, item, call, None, None, {"error": "No reference text"}
-            )
+            return _make_result(spec, item, call, None, None, {"error": "No reference text"})
 
         distance = _levenshtein_distance(candidate.lower(), reference.lower())
         max_len = max(len(candidate), len(reference), 1)
@@ -2781,9 +2763,7 @@ def cosine_word_overlap_metric(metric_id: str = "cosine_word_overlap") -> Metric
         candidate = _get_output(call, item)
 
         if not reference:
-            return _make_result(
-                spec, item, call, None, None, {"error": "No reference text"}
-            )
+            return _make_result(spec, item, call, None, None, {"error": "No reference text"})
 
         cand_tokens = _tokenize(candidate)
         ref_tokens = _tokenize(reference)
@@ -2791,13 +2771,17 @@ def cosine_word_overlap_metric(metric_id: str = "cosine_word_overlap") -> Metric
         if not cand_tokens or not ref_tokens:
             return _make_result(spec, item, call, 0.0, None, {"error": "empty_text"})
 
-        # Build word frequency vectors
-        all_words = set(cand_tokens) | set(ref_tokens)
-        cand_freq = {w: cand_tokens.count(w) for w in all_words}
-        ref_freq = {w: ref_tokens.count(w) for w in all_words}
+        # Build word frequency vectors (Counter is O(N), avoids O(N*V) list.count)
+        from collections import Counter
 
-        # Compute cosine similarity
-        dot_product = sum(cand_freq[w] * ref_freq[w] for w in all_words)
+        cand_freq = Counter(cand_tokens)
+        ref_freq = Counter(ref_tokens)
+
+        # Compute cosine similarity (iterate the smaller dict for dot product)
+        smaller, larger = (
+            (cand_freq, ref_freq) if len(cand_freq) <= len(ref_freq) else (ref_freq, cand_freq)
+        )
+        dot_product = sum(c * larger.get(w, 0) for w, c in smaller.items())
         cand_norm = math.sqrt(sum(v * v for v in cand_freq.values()))
         ref_norm = math.sqrt(sum(v * v for v in ref_freq.values()))
 
@@ -3049,9 +3033,7 @@ def code_block_count_metric(
     return Metric(spec, handler)
 
 
-def table_count_metric(
-    metric_id: str = "table_count", min_count: int | None = None
-) -> Metric:
+def table_count_metric(metric_id: str = "table_count", min_count: int | None = None) -> Metric:
     spec = MetricSpec(
         id=metric_id,
         name="Table Count",
@@ -3156,9 +3138,7 @@ def repetition_ratio_metric(
         max_r = item.metadata.get("max_ratio", max_ratio)
         passed = True if max_r is None else ratio <= float(max_r)
 
-        return _make_result(
-            spec, item, call, ratio, passed, {"ratio": round(ratio, 4), "n": n_val}
-        )
+        return _make_result(spec, item, call, ratio, passed, {"ratio": round(ratio, 4), "n": n_val})
 
     return Metric(spec, handler)
 
@@ -3200,9 +3180,7 @@ def duplicate_line_ratio_metric(
 # =============================================================================
 
 
-def hedging_count_metric(
-    metric_id: str = "hedging_count", max_count: int | None = None
-) -> Metric:
+def hedging_count_metric(metric_id: str = "hedging_count", max_count: int | None = None) -> Metric:
     spec = MetricSpec(
         id=metric_id,
         name="Hedging Count",
@@ -3318,9 +3296,7 @@ def comment_ratio_metric(
         if not lines:
             return _make_result(spec, item, call, 0.0, None, {"ratio": 0.0})
 
-        comment_lines = sum(
-            1 for line in lines if line.startswith("#") or line.startswith("//")
-        )
+        comment_lines = sum(1 for line in lines if line.startswith("#") or line.startswith("//"))
         ratio = comment_lines / len(lines)
 
         min_r = item.metadata.get("min_ratio", min_ratio)
@@ -3374,9 +3350,7 @@ def function_count_metric(
     return Metric(spec, handler)
 
 
-def import_count_metric(
-    metric_id: str = "import_count", max_count: int | None = None
-) -> Metric:
+def import_count_metric(metric_id: str = "import_count", max_count: int | None = None) -> Metric:
     spec = MetricSpec(
         id=metric_id,
         name="Import Count",
@@ -3408,9 +3382,7 @@ def import_count_metric(
 # =============================================================================
 
 
-def ascii_ratio_metric(
-    metric_id: str = "ascii_ratio", min_ratio: float | None = None
-) -> Metric:
+def ascii_ratio_metric(metric_id: str = "ascii_ratio", min_ratio: float | None = None) -> Metric:
     spec = MetricSpec(
         id=metric_id,
         name="ASCII Ratio",
@@ -3517,9 +3489,7 @@ def whitespace_ratio_metric(
 # =============================================================================
 
 
-def prefix_match_metric(
-    metric_id: str = "prefix_match", prefix: str | None = None
-) -> Metric:
+def prefix_match_metric(metric_id: str = "prefix_match", prefix: str | None = None) -> Metric:
     spec = MetricSpec(
         id=metric_id,
         name="Prefix Match",
@@ -3532,16 +3502,12 @@ def prefix_match_metric(
         text = _as_text(call.output)
         expected = prefix or item.metadata.get("prefix", "")
         passed = text.startswith(expected) if expected else True
-        return _make_result(
-            spec, item, call, 1.0 if passed else 0.0, passed, {"prefix": expected}
-        )
+        return _make_result(spec, item, call, 1.0 if passed else 0.0, passed, {"prefix": expected})
 
     return Metric(spec, handler)
 
 
-def suffix_match_metric(
-    metric_id: str = "suffix_match", suffix: str | None = None
-) -> Metric:
+def suffix_match_metric(metric_id: str = "suffix_match", suffix: str | None = None) -> Metric:
     spec = MetricSpec(
         id=metric_id,
         name="Suffix Match",
@@ -3554,9 +3520,7 @@ def suffix_match_metric(
         text = _as_text(call.output)
         expected = suffix or item.metadata.get("suffix", "")
         passed = text.endswith(expected) if expected else True
-        return _make_result(
-            spec, item, call, 1.0 if passed else 0.0, passed, {"suffix": expected}
-        )
+        return _make_result(spec, item, call, 1.0 if passed else 0.0, passed, {"suffix": expected})
 
     return Metric(spec, handler)
 
@@ -3686,9 +3650,7 @@ def list_item_count_metric(
 # =============================================================================
 
 
-def emoji_count_metric(
-    metric_id: str = "emoji_count", max_count: int | None = None
-) -> Metric:
+def emoji_count_metric(metric_id: str = "emoji_count", max_count: int | None = None) -> Metric:
     spec = MetricSpec(
         id=metric_id,
         name="Emoji Count",
@@ -3726,9 +3688,7 @@ def emoji_count_metric(
     return Metric(spec, handler)
 
 
-def link_density_metric(
-    metric_id: str = "link_density", max_ratio: float | None = None
-) -> Metric:
+def link_density_metric(metric_id: str = "link_density", max_ratio: float | None = None) -> Metric:
     spec = MetricSpec(
         id=metric_id,
         name="Link Density",
@@ -3749,9 +3709,7 @@ def link_density_metric(
         urls = re.findall(url_pattern, text)
         md_links = re.findall(md_link_pattern, text)
 
-        link_chars = sum(len(u) for u in urls) + sum(
-            len(t) + len(u) for t, u in md_links
-        )
+        link_chars = sum(len(u) for u in urls) + sum(len(t) + len(u) for t, u in md_links)
         ratio = link_chars / len(text)
 
         max_r = item.metadata.get("max_ratio", max_ratio)
@@ -3780,7 +3738,9 @@ _INJECTION_PATTERNS_TIER1 = [
 _INJECTION_PATTERNS_TIER2 = [
     # Role injection / jailbreak
     re.compile(r"(?i)you\s+are\s+now\s+(in\s+)?developer\s+mode"),
-    re.compile(r"(?i)(you are|act as|pretend to be)\s+(now\s+)?(DAN|STAN|DUDE|JAILBREAK|KEVIN|MONGO|ANARCHY)"),
+    re.compile(
+        r"(?i)(you are|act as|pretend to be)\s+(now\s+)?(DAN|STAN|DUDE|JAILBREAK|KEVIN|MONGO|ANARCHY)"
+    ),
     re.compile(r"(?i)enter\s+(admin|god|root|sudo)\s+mode"),
     re.compile(r"(?i)jailbreak"),
 ]
@@ -3840,11 +3800,7 @@ def prompt_injection_metric(
     elif sensitivity == "high":
         patterns = _ALL_INJECTION_PATTERNS
     else:
-        patterns = (
-            _INJECTION_PATTERNS_TIER1
-            + _INJECTION_PATTERNS_TIER2
-            + _INJECTION_PATTERNS_TIER3
-        )
+        patterns = _INJECTION_PATTERNS_TIER1 + _INJECTION_PATTERNS_TIER2 + _INJECTION_PATTERNS_TIER3
 
     def handler(call: FunctionCall, item: DatasetItem) -> MetricResult:
         input_text = _as_text(item.input)
@@ -3887,10 +3843,7 @@ def prompt_injection_metric(
 
 def _get_tool_spans(call: FunctionCall) -> list:
     """Extract tool call spans from a FunctionCall."""
-    return [
-        s for s in (call.spans or [])
-        if s.span_type in ("tool_call", "tool_use")
-    ]
+    return [s for s in (call.spans or []) if s.span_type in ("tool_call", "tool_use")]
 
 
 def _get_tool_name(span) -> str:
@@ -3908,12 +3861,7 @@ def _get_tool_name(span) -> str:
 def _get_tool_args(span) -> Any:
     """Extract tool arguments from a span's attributes."""
     attrs = span.attributes or {}
-    return (
-        attrs.get("tool.parameters")
-        or attrs.get("arguments")
-        or attrs.get("input")
-        or {}
-    )
+    return attrs.get("tool.parameters") or attrs.get("arguments") or attrs.get("input") or {}
 
 
 def tool_call_accuracy_metric(
@@ -3939,14 +3887,20 @@ def tool_call_accuracy_metric(
     def handler(call: FunctionCall, item: DatasetItem) -> MetricResult:
         expected_tools = (item.metadata or {}).get("expected_tools")
         if not expected_tools:
-            return _make_result(spec, item, call, None, None, {
-                "reason": "No expected_tools in metadata",
-            })
+            return _make_result(
+                spec,
+                item,
+                call,
+                None,
+                None,
+                {
+                    "reason": "No expected_tools in metadata",
+                },
+            )
 
         actual_spans = _get_tool_spans(call)
         actual_tools = [
-            {"name": _get_tool_name(s), "args": _get_tool_args(s)}
-            for s in actual_spans
+            {"name": _get_tool_name(s), "args": _get_tool_args(s)} for s in actual_spans
         ]
 
         matched = 0
@@ -3970,22 +3924,31 @@ def tool_call_accuracy_metric(
 
             if found:
                 matched += 1
-            details_list.append({
-                "expected": exp_name,
-                "found": found,
-                "position": i,
-            })
+            details_list.append(
+                {
+                    "expected": exp_name,
+                    "found": found,
+                    "position": i,
+                }
+            )
 
         total = len(expected_tools)
         score = matched / total if total > 0 else 0.0
         passed = score >= 0.5  # at least half the tools were correct
 
-        return _make_result(spec, item, call, score, passed, {
-            "matched": matched,
-            "total_expected": total,
-            "total_actual": len(actual_tools),
-            "per_tool": details_list,
-        })
+        return _make_result(
+            spec,
+            item,
+            call,
+            score,
+            passed,
+            {
+                "matched": matched,
+                "total_expected": total,
+                "total_actual": len(actual_tools),
+                "per_tool": details_list,
+            },
+        )
 
     return Metric(spec, handler)
 
@@ -4011,42 +3974,38 @@ def tool_call_sequence_metric(
     def handler(call: FunctionCall, item: DatasetItem) -> MetricResult:
         expected_seq = (item.metadata or {}).get("expected_tool_sequence")
         if not expected_seq:
-            return _make_result(spec, item, call, None, None, {
-                "reason": "No expected_tool_sequence in metadata",
-            })
+            return _make_result(
+                spec,
+                item,
+                call,
+                None,
+                None,
+                {
+                    "reason": "No expected_tool_sequence in metadata",
+                },
+            )
 
         actual_spans = _get_tool_spans(call)
         # Sort by start_time for correct ordering
         actual_spans.sort(key=lambda s: s.start_time)
         actual_seq = [_get_tool_name(s) for s in actual_spans]
 
-        # Longest Common Subsequence
+        # Longest Common Subsequence (reuses module-level _lcs_length)
         lcs_len = _lcs_length(expected_seq, actual_seq)
         score = lcs_len / len(expected_seq) if expected_seq else 0.0
         passed = score >= 0.5
 
-        return _make_result(spec, item, call, score, passed, {
-            "expected_sequence": expected_seq,
-            "actual_sequence": actual_seq,
-            "lcs_length": lcs_len,
-        })
+        return _make_result(
+            spec,
+            item,
+            call,
+            score,
+            passed,
+            {
+                "expected_sequence": expected_seq,
+                "actual_sequence": actual_seq,
+                "lcs_length": lcs_len,
+            },
+        )
 
     return Metric(spec, handler)
-
-
-def _lcs_length(a: Sequence[str], b: Sequence[str]) -> int:
-    """Compute length of longest common subsequence."""
-    m, n = len(a), len(b)
-    if m == 0 or n == 0:
-        return 0
-    # Space-optimized DP
-    prev = [0] * (n + 1)
-    for i in range(1, m + 1):
-        curr = [0] * (n + 1)
-        for j in range(1, n + 1):
-            if a[i - 1] == b[j - 1]:
-                curr[j] = prev[j - 1] + 1
-            else:
-                curr[j] = max(prev[j], curr[j - 1])
-        prev = curr
-    return prev[n]

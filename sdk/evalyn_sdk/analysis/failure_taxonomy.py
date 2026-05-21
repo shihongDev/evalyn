@@ -261,12 +261,14 @@ def build_taxonomy(failures: list[dict[str, Any]]) -> TaxonomyReport:
     for cat_name, cat_desc in FAILURE_CATEGORIES.items():
         count = counts.get(cat_name, 0)
         if count > 0:
-            categories.append(FailureCategory(
-                name=cat_name,
-                description=cat_desc,
-                item_count=count,
-                examples=examples.get(cat_name, [])[:5],
-            ))
+            categories.append(
+                FailureCategory(
+                    name=cat_name,
+                    description=cat_desc,
+                    item_count=count,
+                    examples=examples.get(cat_name, [])[:5],
+                )
+            )
 
     uncategorized = counts.get("other", 0)
 

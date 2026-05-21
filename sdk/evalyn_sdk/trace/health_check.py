@@ -67,9 +67,7 @@ class HealthCheckReport:
                 line += f" - {c.details}"
             lines.append(line)
         lines.append("-" * 40)
-        lines.append(
-            f"Passed: {self.passed_count}/{self.passed_count + self.failed_count}"
-        )
+        lines.append(f"Passed: {self.passed_count}/{self.passed_count + self.failed_count}")
         if self.all_passed:
             lines.append("All checks passed.")
         else:
@@ -77,9 +75,7 @@ class HealthCheckReport:
         return "\n".join(lines)
 
 
-def check_spans_captured(
-    spans: list[Span], min_expected: int = 1
-) -> HealthCheckItem:
+def check_spans_captured(spans: list[Span], min_expected: int = 1) -> HealthCheckItem:
     """Check that at least min_expected spans were captured."""
     count = len(spans)
     if count >= min_expected:
@@ -119,11 +115,7 @@ def check_span_types_present(
 def check_no_orphans(spans: list[Span]) -> HealthCheckItem:
     """Check that all spans with parent_id reference an existing span."""
     span_ids = {s.id for s in spans}
-    orphans = [
-        s.id
-        for s in spans
-        if s.parent_id is not None and s.parent_id not in span_ids
-    ]
+    orphans = [s.id for s in spans if s.parent_id is not None and s.parent_id not in span_ids]
     if not orphans:
         return HealthCheckItem(
             name="no_orphans",

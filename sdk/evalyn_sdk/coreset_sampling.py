@@ -177,9 +177,7 @@ def greedy_coreset(
     rng = random.Random(seed)
     while len(coreset_ids) < actual_target:
         # Find item with max min-distance to coreset
-        candidates = [
-            item_id for item_id in min_dist if item_id not in set(coreset_ids)
-        ]
+        candidates = [item_id for item_id in min_dist if item_id not in set(coreset_ids)]
         if not candidates:
             break
         max_dist = max(min_dist[c] for c in candidates)
@@ -196,7 +194,7 @@ def greedy_coreset(
                 min_dist[item_id] = d
 
     # Step 3: assign each item to nearest coreset member, compute weights
-    representation: dict[str, int] = {cid: 0 for cid in coreset_ids}
+    representation: dict[str, int] = dict.fromkeys(coreset_ids, 0)
     for item_id in ids:
         nearest = coreset_ids[0]
         nearest_dist = get_dist(item_id, coreset_ids[0])
@@ -225,9 +223,7 @@ def greedy_coreset(
     )
 
 
-def compute_approximation_error(
-    coreset_ids: list[str], all_items: dict[str, str]
-) -> float:
+def compute_approximation_error(coreset_ids: list[str], all_items: dict[str, str]) -> float:
     """Max Jaccard distance from any item to its nearest coreset member.
 
     Returns 0.0 if coreset_ids is empty or all_items is empty.
@@ -241,27 +237,21 @@ def compute_approximation_error(
     coreset_features = {cid: features[cid] for cid in coreset_ids if cid in features}
 
     max_error = 0.0
-    for _item_id, feat in features.items():
-        min_d = min(
-            _jaccard_distance(feat, cf) for cf in coreset_features.values()
-        )
+    for feat in features.values():
+        min_d = min(_jaccard_distance(feat, cf) for cf in coreset_features.values())
         if min_d > max_error:
             max_error = min_d
     return max_error
 
 
-def validate_coreset(
-    result: CoresetResult, items: dict[str, str], max_error: float = 0.1
-) -> bool:
+def validate_coreset(result: CoresetResult, items: dict[str, str], max_error: float = 0.1) -> bool:
     """True if the coreset's approximation error is within the bound."""
     coreset_ids = [s.item_id for s in result.selected]
     error = compute_approximation_error(coreset_ids, items)
     return error <= max_error
 
 
-def run_coreset_sampling(
-    items: dict[str, str], config: CoresetConfig
-) -> CoresetResult:
+def run_coreset_sampling(items: dict[str, str], config: CoresetConfig) -> CoresetResult:
     """Full coreset sampling pipeline: build coreset from config."""
     return greedy_coreset(
         items=items,
@@ -283,7 +273,6 @@ def format_coreset_report(result: CoresetResult) -> str:
     ]
     for item in result.selected:
         lines.append(
-            f"    {item.item_id}: weight={item.weight:.4f}, "
-            f"represents={item.representative_of}"
+            f"    {item.item_id}: weight={item.weight:.4f}, represents={item.representative_of}"
         )
     return "\n".join(lines)

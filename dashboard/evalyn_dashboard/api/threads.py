@@ -167,9 +167,7 @@ def _render_message(msg: dict[str, Any]) -> str:
 
 def _render_thread(title: str, messages: list[dict[str, Any]]) -> str:
     safe_title = title.strip() or "Untitled thread"
-    rendered_messages = [
-        _render_message(m) for m in messages[:MAX_MESSAGES] if isinstance(m, dict)
-    ]
+    rendered_messages = [_render_message(m) for m in messages[:MAX_MESSAGES] if isinstance(m, dict)]
     saved_at = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
     header = f"# {safe_title}\n\n_saved {saved_at}_"
     body = "\n\n".join(rendered_messages)
@@ -205,9 +203,7 @@ async def save_thread(request: Request) -> JSONResponse:
     try:
         file_path.write_text(rendered, encoding="utf-8")
     except OSError as exc:
-        raise HTTPException(
-            status_code=500, detail=f"failed to write thread: {exc}"
-        ) from exc
+        raise HTTPException(status_code=500, detail=f"failed to write thread: {exc}") from exc
 
     # Audit log: thread save writes a markdown file under the
     # workspace's threads dir. Lightweight metadata only - log the

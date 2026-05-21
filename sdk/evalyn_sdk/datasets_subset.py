@@ -12,20 +12,115 @@ from dataclasses import dataclass, field
 from typing import Any
 
 # Common stop words to exclude from keyword extraction
-_STOP_WORDS = frozenset({
-    "a", "an", "the", "is", "are", "was", "were", "be", "been", "being",
-    "have", "has", "had", "do", "does", "did", "will", "would", "could",
-    "should", "may", "might", "can", "shall", "to", "of", "in", "for",
-    "on", "with", "at", "by", "from", "as", "into", "through", "during",
-    "before", "after", "and", "but", "or", "nor", "not", "so", "yet",
-    "both", "either", "neither", "each", "every", "all", "any", "few",
-    "more", "most", "other", "some", "such", "no", "only", "own", "same",
-    "than", "too", "very", "just", "about", "above", "below", "between",
-    "it", "its", "this", "that", "these", "those", "i", "me", "my",
-    "we", "our", "you", "your", "he", "him", "his", "she", "her",
-    "they", "them", "their", "what", "which", "who", "whom", "how",
-    "when", "where", "why", "if", "then", "else", "up", "out",
-})
+_STOP_WORDS = frozenset(
+    {
+        "a",
+        "an",
+        "the",
+        "is",
+        "are",
+        "was",
+        "were",
+        "be",
+        "been",
+        "being",
+        "have",
+        "has",
+        "had",
+        "do",
+        "does",
+        "did",
+        "will",
+        "would",
+        "could",
+        "should",
+        "may",
+        "might",
+        "can",
+        "shall",
+        "to",
+        "of",
+        "in",
+        "for",
+        "on",
+        "with",
+        "at",
+        "by",
+        "from",
+        "as",
+        "into",
+        "through",
+        "during",
+        "before",
+        "after",
+        "and",
+        "but",
+        "or",
+        "nor",
+        "not",
+        "so",
+        "yet",
+        "both",
+        "either",
+        "neither",
+        "each",
+        "every",
+        "all",
+        "any",
+        "few",
+        "more",
+        "most",
+        "other",
+        "some",
+        "such",
+        "no",
+        "only",
+        "own",
+        "same",
+        "than",
+        "too",
+        "very",
+        "just",
+        "about",
+        "above",
+        "below",
+        "between",
+        "it",
+        "its",
+        "this",
+        "that",
+        "these",
+        "those",
+        "i",
+        "me",
+        "my",
+        "we",
+        "our",
+        "you",
+        "your",
+        "he",
+        "him",
+        "his",
+        "she",
+        "her",
+        "they",
+        "them",
+        "their",
+        "what",
+        "which",
+        "who",
+        "whom",
+        "how",
+        "when",
+        "where",
+        "why",
+        "if",
+        "then",
+        "else",
+        "up",
+        "out",
+    }
+)
 
 
 @dataclass
@@ -83,9 +178,7 @@ class SubsetResult:
 
     def as_dict(self) -> dict[str, Any]:
         return {
-            "subsets": {
-                str(k): v for k, v in self.subsets.items()
-            },
+            "subsets": {str(k): v for k, v in self.subsets.items()},
             "clusters": [c.as_dict() for c in self.clusters],
             "total_items": self.total_items,
         }
@@ -115,9 +208,7 @@ class SubsetResult:
         ]
         for cluster in self.clusters:
             kw = ", ".join(cluster.keywords[:5]) if cluster.keywords else "none"
-            lines.append(
-                f"  Cluster {cluster.cluster_id}: {cluster.size} items - keywords: {kw}"
-            )
+            lines.append(f"  Cluster {cluster.cluster_id}: {cluster.size} items - keywords: {kw}")
         return "\n".join(lines)
 
 
@@ -251,9 +342,7 @@ def cluster_by_length(
     return SubsetResult(subsets=subsets, clusters=clusters, total_items=len(items))
 
 
-def extract_subset(
-    items: list[dict[str, Any]], config: SubsetConfig
-) -> SubsetResult:
+def extract_subset(items: list[dict[str, Any]], config: SubsetConfig) -> SubsetResult:
     """Route to the appropriate clustering method based on config."""
     if config.seed is not None:
         random.seed(config.seed)
@@ -273,7 +362,9 @@ def extract_subset(
         new_subsets: dict[int, list[dict[str, Any]]] = {}
         for ci, cluster_items in result.subsets.items():
             sampled_ids = {str(s.get("id", "")) for s in sampled_items}
-            new_subsets[ci] = [item for item in cluster_items if str(item.get("id", "")) in sampled_ids]
+            new_subsets[ci] = [
+                item for item in cluster_items if str(item.get("id", "")) in sampled_ids
+            ]
         result.subsets = new_subsets
         for cluster in result.clusters:
             cluster.size = len(result.subsets.get(cluster.cluster_id, []))

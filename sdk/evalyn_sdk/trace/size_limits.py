@@ -57,9 +57,7 @@ def get_limit(config: SizeLimitConfig, span_type: str) -> int:
     return config.per_type_limits.get(span_type, config.default_max_bytes)
 
 
-def truncate_text(
-    text: str, max_bytes: int, marker: str
-) -> tuple[str, bool]:
+def truncate_text(text: str, max_bytes: int, marker: str) -> tuple[str, bool]:
     """Truncate text to fit within max_bytes (UTF-8).
 
     Appends marker if truncated. Truncates at character boundaries
@@ -82,9 +80,7 @@ def truncate_text(
     return truncated + marker, True
 
 
-def enforce_size_limits(
-    span: Span, config: SizeLimitConfig
-) -> tuple[Span, list[TruncationResult]]:
+def enforce_size_limits(span: Span, config: SizeLimitConfig) -> tuple[Span, list[TruncationResult]]:
     """Apply size limits to span string attributes "input" and "output".
 
     Returns a NEW span (does not mutate the original) and a list of
@@ -100,9 +96,7 @@ def enforce_size_limits(
             continue
 
         original_bytes = len(value.encode("utf-8"))
-        truncated_value, was_truncated = truncate_text(
-            value, limit, config.truncation_marker
-        )
+        truncated_value, was_truncated = truncate_text(value, limit, config.truncation_marker)
         new_span.attributes[field_name] = truncated_value
         truncated_bytes = len(truncated_value.encode("utf-8"))
 

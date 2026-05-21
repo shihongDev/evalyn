@@ -123,15 +123,11 @@ class RoutingReport:
             lines.append("")
             lines.append(f"Providers used: {', '.join(self.providers_used)}")
         if self.estimated_cost_savings_pct > 0:
-            lines.append(
-                f"Estimated cost savings: {self.estimated_cost_savings_pct:.1f}%"
-            )
+            lines.append(f"Estimated cost savings: {self.estimated_cost_savings_pct:.1f}%")
         return "\n".join(lines)
 
 
-def match_metric_to_rule(
-    metric_id: str, rules: list[RoutingRule]
-) -> RoutingRule | None:
+def match_metric_to_rule(metric_id: str, rules: list[RoutingRule]) -> RoutingRule | None:
     """Find the best matching rule for a metric.
 
     Matching order: exact match first, then substring match.
@@ -172,9 +168,7 @@ def route_metric(metric_id: str, config: RoutingConfig) -> RoutingDecision:
     )
 
 
-def route_all_metrics(
-    metric_ids: list[str], config: RoutingConfig
-) -> RoutingReport:
+def route_all_metrics(metric_ids: list[str], config: RoutingConfig) -> RoutingReport:
     """Route all metrics and produce a summary report."""
     decisions: list[RoutingDecision] = []
     provider_set: set[str] = set()
@@ -190,9 +184,7 @@ def route_all_metrics(
     # to cheaper providers saves proportionally to non-default usage
     savings = 0.0
     if len(decisions) > 0 and len(providers_used) > 1:
-        non_default = sum(
-            1 for d in decisions if d.provider != config.default_provider
-        )
+        non_default = sum(1 for d in decisions if d.provider != config.default_provider)
         savings = round((non_default / len(decisions)) * 100.0, 1)
 
     return RoutingReport(

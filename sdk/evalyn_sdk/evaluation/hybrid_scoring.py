@@ -113,8 +113,7 @@ class HybridReport:
         for item in self.items:
             flag = " [human]" if item.source != "ai" else ""
             lines.append(
-                f"  {item.item_id}/{item.metric_id}: "
-                f"{item.final_score:.4f} ({item.source}){flag}"
+                f"  {item.item_id}/{item.metric_id}: {item.final_score:.4f} ({item.source}){flag}"
             )
         return "\n".join(lines)
 
@@ -124,9 +123,7 @@ class HybridReport:
 # ---------------------------------------------------------------------------
 
 
-def identify_for_human_review(
-    items: list[HybridItem], config: HybridConfig
-) -> list[HybridItem]:
+def identify_for_human_review(items: list[HybridItem], config: HybridConfig) -> list[HybridItem]:
     """Mark items needing human review when AI confidence is below threshold."""
     result: list[HybridItem] = []
     for item in items:
@@ -146,9 +143,7 @@ def identify_for_human_review(
     return result
 
 
-def merge_human_score(
-    item: HybridItem, human_score: float, config: HybridConfig
-) -> HybridItem:
+def merge_human_score(item: HybridItem, human_score: float, config: HybridConfig) -> HybridItem:
     """Merge a human score into an item based on the configured strategy."""
     strategy = config.merge_strategy
 
@@ -181,9 +176,7 @@ def merge_human_score(
     )
 
 
-def compute_final_scores(
-    items: list[HybridItem], config: HybridConfig
-) -> list[HybridItem]:
+def compute_final_scores(items: list[HybridItem], config: HybridConfig) -> list[HybridItem]:
     """Finalize scores for all items.
 
     Items with a human score are merged using the config strategy.

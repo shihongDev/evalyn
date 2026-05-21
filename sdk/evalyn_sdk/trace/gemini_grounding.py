@@ -90,11 +90,13 @@ def extract_grounding(response_data: dict[str, Any]) -> GroundingMetadata:
     raw_sources = raw.get("groundingSources", [])
     sources = []
     for rs in raw_sources:
-        sources.append(GroundingSource(
-            uri=rs.get("uri", ""),
-            title=rs.get("title", ""),
-            snippet=rs.get("snippet", ""),
-        ))
+        sources.append(
+            GroundingSource(
+                uri=rs.get("uri", ""),
+                title=rs.get("title", ""),
+                snippet=rs.get("snippet", ""),
+            )
+        )
 
     grounding_score = raw.get("groundingScore", 0.0)
     is_grounded = bool(sources) or grounding_score > 0.0
@@ -148,9 +150,7 @@ def compute_grounding_stats(spans: list[Span]) -> dict[str, Any]:
         for q in meta.search_queries:
             query_counter[q] += 1
 
-    scored_count = sum(
-        1 for s in spans if extract_grounding_from_span(s) is not None
-    )
+    scored_count = sum(1 for s in spans if extract_grounding_from_span(s) is not None)
     avg_score = total_score / scored_count if scored_count > 0 else 0.0
 
     return {

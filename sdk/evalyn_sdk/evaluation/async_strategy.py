@@ -217,8 +217,10 @@ def build_async_report(
     """Aggregate AsyncResults into an AsyncReport."""
     succeeded = sum(1 for r in results if r.success)
     failed = sum(1 for r in results if not r.success)
-    total_dur = total_duration_override if total_duration_override is not None else sum(
-        r.duration_ms for r in results
+    total_dur = (
+        total_duration_override
+        if total_duration_override is not None
+        else sum(r.duration_ms for r in results)
     )
     avg_conc = concurrency if concurrency is not None else (1.0 if not results else 1.0)
     return AsyncReport(

@@ -137,9 +137,7 @@ def build_heuristic_summary(
             top_str = ", ".join(f"{m} ({s:.2f})" for m, s in top)
             paragraphs.append(f"Top metrics: {top_str}.")
         else:
-            top_lines = [
-                f"{m} scored {s:.2f} ({_score_descriptor(s)})" for m, s in top
-            ]
+            top_lines = [f"{m} scored {s:.2f} ({_score_descriptor(s)})" for m, s in top]
             paragraphs.append("Strongest metrics: " + "; ".join(top_lines) + ".")
 
         # Bottom metrics
@@ -149,12 +147,8 @@ def build_heuristic_summary(
                 bot_str = ", ".join(f"{m} ({s:.2f})" for m, s in bottom)
                 paragraphs.append(f"Metrics needing attention: {bot_str}.")
             else:
-                bot_lines = [
-                    f"{m} scored {s:.2f} ({_score_descriptor(s)})" for m, s in bottom
-                ]
-                paragraphs.append(
-                    "Metrics requiring attention: " + "; ".join(bot_lines) + "."
-                )
+                bot_lines = [f"{m} scored {s:.2f} ({_score_descriptor(s)})" for m, s in bottom]
+                paragraphs.append("Metrics requiring attention: " + "; ".join(bot_lines) + ".")
 
         # Technical style: add score distribution info
         if cfg.style == "technical" and len(limited) >= 2:
@@ -227,15 +221,11 @@ def build_summary_prompt(
             "Include score distributions, outliers, and statistical observations."
         )
     else:
-        lines.append(
-            "Write a brief 1-2 sentence summary of the key findings."
-        )
+        lines.append("Write a brief 1-2 sentence summary of the key findings.")
 
     if cfg.include_recommendations:
         lines.append("")
-        lines.append(
-            "End with a bulleted list of recommendations prefixed with '- '."
-        )
+        lines.append("End with a bulleted list of recommendations prefixed with '- '.")
 
     return "\n".join(lines)
 

@@ -67,10 +67,7 @@ class ItemQualityScore:
         return cls(
             item_id=data["item_id"],
             overall_score=data["overall_score"],
-            dimensions=[
-                QualityDimension.from_dict(d)
-                for d in data.get("dimensions", [])
-            ],
+            dimensions=[QualityDimension.from_dict(d) for d in data.get("dimensions", [])],
             passed=data.get("passed", True),
         )
 
@@ -97,10 +94,7 @@ class QualityReport:
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> QualityReport:
         return cls(
-            scores=[
-                ItemQualityScore.from_dict(s)
-                for s in data.get("scores", [])
-            ],
+            scores=[ItemQualityScore.from_dict(s) for s in data.get("scores", [])],
             mean_score=data.get("mean_score", 0.0),
             rejection_count=data.get("rejection_count", 0),
             acceptance_rate=data.get("acceptance_rate", 0.0),
@@ -331,11 +325,7 @@ def build_quality_report(
     """Build a quality report for a batch of generated texts."""
     scores: list[ItemQualityScore] = []
     for i, text in enumerate(gen_texts):
-        scores.append(
-            compute_quality_score(
-                text, seed_texts, item_id=str(i), threshold=threshold
-            )
-        )
+        scores.append(compute_quality_score(text, seed_texts, item_id=str(i), threshold=threshold))
 
     total = len(scores)
     rejection_count = sum(1 for s in scores if not s.passed)

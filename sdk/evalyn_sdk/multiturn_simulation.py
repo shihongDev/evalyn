@@ -236,9 +236,7 @@ _SEED_MESSAGES = [
 # ---------------------------------------------------------------------------
 
 
-def generate_follow_up(
-    turn: ConversationTurn, flow: ConversationFlow, rng: random.Random
-) -> str:
+def generate_follow_up(turn: ConversationTurn, flow: ConversationFlow, rng: random.Random) -> str:
     """Generate a follow-up user message based on the flow pattern.
 
     Uses the previous assistant turn's content to pick a relevant aspect,
@@ -294,16 +292,12 @@ def generate_conversation(
         if i % 2 == 1:
             # Assistant turn
             response = rng.choice(_ASSISTANT_RESPONSES).format(topic=topic)
-            turns.append(
-                ConversationTurn(role="assistant", content=response, turn_number=i)
-            )
+            turns.append(ConversationTurn(role="assistant", content=response, turn_number=i))
         else:
             # User follow-up based on flow pattern
             prev_turn = turns[-1]
             follow_up = generate_follow_up(prev_turn, flow, rng)
-            turns.append(
-                ConversationTurn(role="user", content=follow_up, turn_number=i)
-            )
+            turns.append(ConversationTurn(role="user", content=follow_up, turn_number=i))
 
     conversation_id = str(uuid.uuid4())
     return SimulatedConversation(

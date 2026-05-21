@@ -169,9 +169,7 @@ class QueryLogger:
 # Functions
 # ---------------------------------------------------------------------------
 
-_OPERATION_PATTERN = re.compile(
-    r"^\s*(SELECT|INSERT|UPDATE|DELETE)\b", re.IGNORECASE
-)
+_OPERATION_PATTERN = re.compile(r"^\s*(SELECT|INSERT|UPDATE|DELETE)\b", re.IGNORECASE)
 
 
 def detect_operation(query: str) -> str:
@@ -233,29 +231,19 @@ def suggest_optimizations(stats: QueryStats) -> list[str]:
     suggestions: list[str] = []
 
     if stats.slowest_duration_ms > 1000:
-        suggestions.append(
-            "Slowest query exceeds 1s - consider adding indexes or optimizing"
-        )
+        suggestions.append("Slowest query exceeds 1s - consider adding indexes or optimizing")
 
     if stats.avg_duration_ms > 500:
-        suggestions.append(
-            "High average query duration - review query patterns"
-        )
+        suggestions.append("High average query duration - review query patterns")
 
     if stats.total_queries > 500:
-        suggestions.append(
-            "High query volume - consider batching or caching"
-        )
+        suggestions.append("High query volume - consider batching or caching")
 
     select_count = stats.by_operation.get("SELECT", 0)
     if stats.total_queries > 0 and select_count / stats.total_queries > 0.9:
-        suggestions.append(
-            "Read-heavy workload - consider read replicas or caching"
-        )
+        suggestions.append("Read-heavy workload - consider read replicas or caching")
 
     if len(stats.by_table) == 1 and stats.total_queries > 100:
-        suggestions.append(
-            "All queries target one table - check for missing joins"
-        )
+        suggestions.append("All queries target one table - check for missing joins")
 
     return suggestions

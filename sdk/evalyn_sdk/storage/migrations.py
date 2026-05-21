@@ -33,23 +33,39 @@ def _add_missing_columns(
 def run_migrations(conn: sqlite3.Connection) -> None:
     """Run all schema migrations against the given connection."""
     # otel_spans: trace correlation columns
-    _add_missing_columns(conn, "otel_spans", [
-        ("trace_id", "TEXT"),
-        ("parent_span_id", "TEXT"),
-    ])
+    _add_missing_columns(
+        conn,
+        "otel_spans",
+        [
+            ("trace_id", "TEXT"),
+            ("parent_span_id", "TEXT"),
+        ],
+    )
 
     # function_calls: hierarchical span columns
-    _add_missing_columns(conn, "function_calls", [
-        ("parent_call_id", "TEXT"),
-        ("spans", "TEXT"),
-    ])
+    _add_missing_columns(
+        conn,
+        "function_calls",
+        [
+            ("parent_call_id", "TEXT"),
+            ("spans", "TEXT"),
+        ],
+    )
 
     # eval_runs: token/cost tracking
-    _add_missing_columns(conn, "eval_runs", [
-        ("usage_summary", "TEXT"),
-    ])
+    _add_missing_columns(
+        conn,
+        "eval_runs",
+        [
+            ("usage_summary", "TEXT"),
+        ],
+    )
 
     # annotations: per-metric labels
-    _add_missing_columns(conn, "annotations", [
-        ("metric_labels", "TEXT"),
-    ])
+    _add_missing_columns(
+        conn,
+        "annotations",
+        [
+            ("metric_labels", "TEXT"),
+        ],
+    )

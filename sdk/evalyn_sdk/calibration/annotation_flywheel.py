@@ -132,9 +132,7 @@ def create_annotation_queue(
     return queue
 
 
-def record_human_annotation(
-    item: AnnotationItem, human_label: str
-) -> AnnotationItem:
+def record_human_annotation(item: AnnotationItem, human_label: str) -> AnnotationItem:
     """Record a human annotation and compute agreement with the AI label."""
     agrees = item.ai_label == human_label
     return AnnotationItem(
@@ -155,9 +153,7 @@ def compute_agreement_rate(items: list[AnnotationItem]) -> float:
     return sum(1 for i in annotated if i.agreement) / len(annotated)
 
 
-def select_next_batch(
-    queue: list[AnnotationItem], batch_size: int = 10
-) -> list[AnnotationItem]:
+def select_next_batch(queue: list[AnnotationItem], batch_size: int = 10) -> list[AnnotationItem]:
     """Select the next batch of items to annotate.
 
     Prioritizes unannotated items with disagreements (previously annotated

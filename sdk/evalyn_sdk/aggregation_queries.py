@@ -124,7 +124,7 @@ class ProjectStats:
             total_tokens=data.get("total_tokens", 0),
             total_cost=data.get("total_cost", 0.0),
             model_breakdown=data.get("model_breakdown", {}),
-            date_range=(dr[0] if len(dr) > 0 else "", dr[1] if len(dr) > 1 else ""),
+            date_range=(dr[0] if dr else "", dr[1] if len(dr) > 1 else ""),
         )
 
 
@@ -251,9 +251,7 @@ def execute_query(records: list[dict], query: AggregationQuery) -> AggregationRe
 # ---------------------------------------------------------------------------
 
 
-def aggregate_by_project(
-    records: list[dict], project_field: str = "project"
-) -> list[ProjectStats]:
+def aggregate_by_project(records: list[dict], project_field: str = "project") -> list[ProjectStats]:
     """Compute per-project statistics."""
     buckets: dict[str, list[dict]] = defaultdict(list)
     for rec in records:
@@ -343,9 +341,7 @@ def aggregate_by_date(
     return result
 
 
-def aggregate_by_model(
-    records: list[dict], model_field: str = "model"
-) -> dict[str, dict]:
+def aggregate_by_model(records: list[dict], model_field: str = "model") -> dict[str, dict]:
     """Per-model statistics: count, total_tokens, total_cost, avg_latency."""
     buckets: dict[str, list[dict]] = defaultdict(list)
     for rec in records:
@@ -413,7 +409,9 @@ def format_project_stats(stats: list[ProjectStats]) -> str:
     for s in stats:
         dr = f"{s.date_range[0]} - {s.date_range[1]}" if s.date_range[0] else "n/a"
         lines.append(f"  {s.project_name}")
-        lines.append(f"    Traces: {s.total_traces}  Tokens: {s.total_tokens}  Cost: {s.total_cost:.4f}")
+        lines.append(
+            f"    Traces: {s.total_traces}  Tokens: {s.total_tokens}  Cost: {s.total_cost:.4f}"
+        )
         lines.append(f"    Models: {s.model_breakdown}")
         lines.append(f"    Date range: {dr}")
     return "\n".join(lines)

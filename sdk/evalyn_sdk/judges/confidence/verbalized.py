@@ -105,7 +105,7 @@ class VerbalizedConfidence(ConfidenceEstimator):
             },
         )
 
-    def _extract_from_text(self, text: str) -> tuple:
+    def _extract_from_text(self, text: str) -> tuple[float | None, str | None]:
         """Extract confidence score from text patterns."""
         patterns = [
             # "Confidence: 85%" or "Confidence: 0.85"

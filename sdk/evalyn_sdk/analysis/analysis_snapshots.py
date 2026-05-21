@@ -122,9 +122,7 @@ class SnapshotStore:
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> SnapshotStore:
-        snapshots = [
-            AnalysisSnapshot.from_dict(s) for s in data.get("snapshots", [])
-        ]
+        snapshots = [AnalysisSnapshot.from_dict(s) for s in data.get("snapshots", [])]
         return cls(snapshots=snapshots)
 
     def to_json(self) -> str:

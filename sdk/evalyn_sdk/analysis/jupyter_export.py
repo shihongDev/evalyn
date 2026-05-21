@@ -82,7 +82,8 @@ class ExportedNotebook:
         return {
             "nbformat": 4,
             "nbformat_minor": 5,
-            "metadata": self.metadata or {
+            "metadata": self.metadata
+            or {
                 "kernelspec": {
                     "display_name": "Python 3",
                     "language": "python",
@@ -133,24 +134,28 @@ def build_summary_cells(data: dict[str, Any]) -> list[NotebookCell]:
     total_items = data.get("total_items", 0)
     metrics = data.get("metrics", {})
 
-    cells.append(create_markdown_cell(
-        f"## Run Summary\n\n"
-        f"- **Run ID**: {run_id}\n"
-        f"- **Pass Rate**: {pass_rate:.1%}\n"
-        f"- **Total Items**: {total_items}\n"
-        f"- **Metrics**: {len(metrics)}"
-    ))
+    cells.append(
+        create_markdown_cell(
+            f"## Run Summary\n\n"
+            f"- **Run ID**: {run_id}\n"
+            f"- **Pass Rate**: {pass_rate:.1%}\n"
+            f"- **Total Items**: {total_items}\n"
+            f"- **Metrics**: {len(metrics)}"
+        )
+    )
 
     metric_lines = []
     for name, value in metrics.items():
         metric_lines.append(f"  '{name}': {value!r},")
     metric_dict_str = "{\n" + "\n".join(metric_lines) + "\n}" if metric_lines else "{}"
 
-    cells.append(create_code_cell(
-        f"# Run metrics summary\n"
-        f"metrics = {metric_dict_str}\n"
-        f"print(f'Run {run_id}: {{len(metrics)}} metrics, pass rate = {pass_rate:.1%}')"
-    ))
+    cells.append(
+        create_code_cell(
+            f"# Run metrics summary\n"
+            f"metrics = {metric_dict_str}\n"
+            f"print(f'Run {run_id}: {{len(metrics)}} metrics, pass rate = {pass_rate:.1%}')"
+        )
+    )
 
     return cells
 
@@ -165,26 +170,25 @@ def build_chart_cells(metric_scores: dict[str, list[float]]) -> list[NotebookCel
     if not metric_scores:
         return cells
 
-    cells.append(create_code_cell(
-        "import matplotlib.pyplot as plt\n"
-        "import numpy as np"
-    ))
+    cells.append(create_code_cell("import matplotlib.pyplot as plt\nimport numpy as np"))
 
     for metric_name, scores in metric_scores.items():
         scores_repr = repr(scores)
-        cells.append(create_code_cell(
-            f"# Distribution: {metric_name}\n"
-            f"scores = {scores_repr}\n"
-            f"plt.figure(figsize=(8, 4))\n"
-            f"plt.hist(scores, bins=20, edgecolor='black', alpha=0.7)\n"
-            f"plt.title('{metric_name} Score Distribution')\n"
-            f"plt.xlabel('Score')\n"
-            f"plt.ylabel('Count')\n"
-            f"plt.axvline(np.mean(scores), color='red', linestyle='--', label='Mean')\n"
-            f"plt.legend()\n"
-            f"plt.tight_layout()\n"
-            f"plt.show()"
-        ))
+        cells.append(
+            create_code_cell(
+                f"# Distribution: {metric_name}\n"
+                f"scores = {scores_repr}\n"
+                f"plt.figure(figsize=(8, 4))\n"
+                f"plt.hist(scores, bins=20, edgecolor='black', alpha=0.7)\n"
+                f"plt.title('{metric_name} Score Distribution')\n"
+                f"plt.xlabel('Score')\n"
+                f"plt.ylabel('Count')\n"
+                f"plt.axvline(np.mean(scores), color='red', linestyle='--', label='Mean')\n"
+                f"plt.legend()\n"
+                f"plt.tight_layout()\n"
+                f"plt.show()"
+            )
+        )
 
     return cells
 
@@ -213,9 +217,11 @@ def build_notebook(
 
     if cfg.include_raw_data:
         raw = json.dumps(data, indent=2, default=str)
-        cells.append(create_code_cell(
-            f"# Raw analysis data\nimport json\nraw = json.loads('''{raw}''')\nraw"
-        ))
+        cells.append(
+            create_code_cell(
+                f"# Raw analysis data\nimport json\nraw = json.loads('''{raw}''')\nraw"
+            )
+        )
 
     return ExportedNotebook(cells=cells)
 

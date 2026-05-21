@@ -3,6 +3,7 @@
 Replaces the if/elif dispatch chain in engine.py. Handles both legacy
 optimizers (with inconsistent signatures) and new BaseOptimizer subclasses.
 """
+
 from __future__ import annotations
 
 import inspect
@@ -40,8 +41,7 @@ def create_optimizer(
     """
     if name not in OPTIMIZER_REGISTRY:
         raise ValueError(
-            f"Unknown optimizer: '{name}'. "
-            f"Available: {', '.join(sorted(OPTIMIZER_REGISTRY))}"
+            f"Unknown optimizer: '{name}'. Available: {', '.join(sorted(OPTIMIZER_REGISTRY))}"
         )
 
     module_path, class_name = OPTIMIZER_REGISTRY[name]
@@ -52,8 +52,7 @@ def create_optimizer(
 
         if not GEPA_AVAILABLE:
             raise ImportError(
-                "GEPA optimizer requires the 'gepa' package. "
-                "Install with: pip install gepa"
+                "GEPA optimizer requires the 'gepa' package. Install with: pip install gepa"
             )
 
     # Lazy import

@@ -8,7 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
-- **CLI rich output** - unified visual system across all 34 CLI commands using box-drawing primitives in `cli/utils/rich.py` (`banner`, `section`, `table`, `kv`, `footer`, `progress_bar`, semantic icons). All list, detail, analysis, status, and action commands migrated. Falls back to plain text when stdout is not a TTY or `EVALYN_NO_COLOR` is set; `--format json` and `--compact` modes unchanged. See `docs/superpowers/specs/2026-04-07-cli-rich-output-design.md`.
+- **CLI rich output** - unified visual system across all 34 CLI commands using box-drawing primitives in `cli/utils/rich.py` (`banner`, `section`, `table`, `kv`, `footer`, `progress_bar`, semantic icons). All list, detail, analysis, status, and action commands migrated. Falls back to plain text when stdout is not a TTY or `EVALYN_NO_COLOR` is set; `--format json` and `--compact` modes unchanged.
 - **Hints system overhaul** - new `HintCollector` aggregates multiple hints per command for organized display; suggested commands are enriched with their key options.
 - **Entry-point plugin discovery** for the `evalyn` CLI. At startup, `evalyn_sdk.cli.main` reads the `evalyn.commands` entry-point group via `importlib.metadata` and merges discovered modules into the lazy command map. Third-party packages can register subcommands without modifying core. Used by the new `evalyn-dashboard` package to register the `dashboard` subcommand.
 

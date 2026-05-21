@@ -80,9 +80,7 @@ def build_heatmap(spans: list[Span], metric: str = "count") -> HeatmapData:
     for (day, hour), bucket in sorted(buckets.items()):
         count = len(bucket)
         if metric == "cost":
-            value = sum(
-                float(s.attributes.get("cost", 0)) for s in bucket
-            )
+            value = sum(float(s.attributes.get("cost", 0)) for s in bucket)
         elif metric == "error_rate":
             errors = sum(1 for s in bucket if s.status == "error")
             value = errors / count if count else 0.0
@@ -196,8 +194,7 @@ def render_html_heatmap(data: HeatmapData) -> str:
             color = f"rgb({r},{g},{b})"
             display = f"{val:.1f}" if val else ""
             rows.append(
-                f"<td style='padding:2px 4px;background:{color};text-align:center'>"
-                f"{display}</td>"
+                f"<td style='padding:2px 4px;background:{color};text-align:center'>{display}</td>"
             )
         rows.append("</tr>")
 

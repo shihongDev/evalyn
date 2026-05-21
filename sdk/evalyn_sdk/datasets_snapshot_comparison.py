@@ -122,13 +122,15 @@ def compute_item_diff(old_item: dict[str, Any], new_item: dict[str, Any]) -> Ite
             diff_text="",
         )
 
-    diff_lines = list(difflib.unified_diff(
-        old_input.splitlines(keepends=True),
-        new_input.splitlines(keepends=True),
-        fromfile="old_input",
-        tofile="new_input",
-        lineterm="",
-    ))
+    diff_lines = list(
+        difflib.unified_diff(
+            old_input.splitlines(keepends=True),
+            new_input.splitlines(keepends=True),
+            fromfile="old_input",
+            tofile="new_input",
+            lineterm="",
+        )
+    )
     diff_text = "\n".join(diff_lines)
 
     return ItemDiff(
@@ -173,21 +175,25 @@ def compare_snapshots(
 
         if in_a and not in_b:
             old_item = index_a[item_id]
-            diffs.append(ItemDiff(
-                item_id=item_id,
-                change_type="removed",
-                old_input=str(old_item.get("input", "")),
-                old_output=str(old_item.get("output", "")),
-            ))
+            diffs.append(
+                ItemDiff(
+                    item_id=item_id,
+                    change_type="removed",
+                    old_input=str(old_item.get("input", "")),
+                    old_output=str(old_item.get("output", "")),
+                )
+            )
             removed_count += 1
         elif in_b and not in_a:
             new_item = index_b[item_id]
-            diffs.append(ItemDiff(
-                item_id=item_id,
-                change_type="added",
-                new_input=str(new_item.get("input", "")),
-                new_output=str(new_item.get("output", "")),
-            ))
+            diffs.append(
+                ItemDiff(
+                    item_id=item_id,
+                    change_type="added",
+                    new_input=str(new_item.get("input", "")),
+                    new_output=str(new_item.get("output", "")),
+                )
+            )
             added_count += 1
         else:
             diff = compute_item_diff(index_a[item_id], index_b[item_id])

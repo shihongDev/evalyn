@@ -264,9 +264,7 @@ def finalize_answer(state: OverallState, config: RunnableConfig):
     unique_sources = []
     for source in state["sources_gathered"]:
         if source["short_url"] in result.content:
-            result.content = result.content.replace(
-                source["short_url"], source["value"]
-            )
+            result.content = result.content.replace(source["short_url"], source["value"])
             unique_sources.append(source)
 
     return {
@@ -288,15 +286,11 @@ builder.add_node("finalize_answer", finalize_answer)
 # This means that this node is the first one called
 builder.add_edge(START, "generate_query")
 # Add conditional edge to continue with search queries in a parallel branch
-builder.add_conditional_edges(
-    "generate_query", continue_to_web_research, ["web_research"]
-)
+builder.add_conditional_edges("generate_query", continue_to_web_research, ["web_research"])
 # Reflect on the web research
 builder.add_edge("web_research", "reflection")
 # Evaluate the research
-builder.add_conditional_edges(
-    "reflection", evaluate_research, ["web_research", "finalize_answer"]
-)
+builder.add_conditional_edges("reflection", evaluate_research, ["web_research", "finalize_answer"])
 # Finalize the answer
 builder.add_edge("finalize_answer", END)
 

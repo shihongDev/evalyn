@@ -210,9 +210,7 @@ def extract_session_turns(spans: list[Span], session_id: str = "") -> list[Sessi
     return turns
 
 
-def build_session_replay_plan(
-    turns: list[SessionTurn], target_model: str
-) -> SessionReplayPlan:
+def build_session_replay_plan(turns: list[SessionTurn], target_model: str) -> SessionReplayPlan:
     """Build a session replay plan from extracted turns."""
     session_id = ""
     if turns:

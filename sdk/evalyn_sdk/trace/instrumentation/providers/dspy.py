@@ -155,9 +155,7 @@ class EvalynDSPyCallback:
 
         signature = getattr(instance, "signature", None)
         if signature:
-            sig_name = getattr(signature, "__name__", None) or type(
-                signature
-            ).__name__
+            sig_name = getattr(signature, "__name__", None) or type(signature).__name__
             span.attributes["dspy.signature"] = sig_name
 
             input_fields = getattr(signature, "input_fields", None)
@@ -165,14 +163,10 @@ class EvalynDSPyCallback:
             if input_fields:
                 span.attributes["dspy.input_fields"] = list(input_fields.keys())[:10]
             if output_fields:
-                span.attributes["dspy.output_fields"] = list(
-                    output_fields.keys()
-                )[:10]
+                span.attributes["dspy.output_fields"] = list(output_fields.keys())[:10]
 
         if inputs:
-            span.attributes["dspy.inputs"] = {
-                k: str(v)[:300] for k, v in list(inputs.items())[:10]
-            }
+            span.attributes["dspy.inputs"] = {k: str(v)[:300] for k, v in list(inputs.items())[:10]}
 
         self._push_span(call_id, span)
 
@@ -219,9 +213,7 @@ class EvalynDSPyCallback:
         messages = inputs.get("messages") or inputs.get("prompt")
         if messages:
             if isinstance(messages, list):
-                span.attributes["request"] = {
-                    "messages": _format_dspy_messages(messages)
-                }
+                span.attributes["request"] = {"messages": _format_dspy_messages(messages)}
             else:
                 span.attributes["request"] = {"prompt": str(messages)[:1000]}
 
@@ -302,7 +294,7 @@ class EvalynDSPyCallback:
 class _DSPyOpenSpan:
     """Internal state for a span that has been started but not finished."""
 
-    __slots__ = ("span", "prev_stack")
+    __slots__ = ("prev_stack", "span")
 
     def __init__(self, span: Span, prev_stack: list) -> None:
         self.span = span

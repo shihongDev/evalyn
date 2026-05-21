@@ -114,9 +114,7 @@ def get_context_limit(model: str) -> int:
     return MODEL_CONTEXT_LIMITS.get(model, DEFAULT_CONTEXT_LIMIT)
 
 
-def check_context_utilization(
-    span: Span, threshold_pct: float = 80.0
-) -> ContextAlert | None:
+def check_context_utilization(span: Span, threshold_pct: float = 80.0) -> ContextAlert | None:
     """Check if a span's token usage approaches its model's context limit.
 
     Args:
@@ -148,9 +146,7 @@ def check_context_utilization(
     )
 
 
-def analyze_context_utilization(
-    spans: list[Span], threshold_pct: float = 80.0
-) -> ContextReport:
+def analyze_context_utilization(spans: list[Span], threshold_pct: float = 80.0) -> ContextReport:
     """Analyze context utilization across all spans.
 
     Checks each span for context limit proximity, aggregates alerts,

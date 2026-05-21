@@ -32,6 +32,7 @@ import time
 import webbrowser
 from collections.abc import Callable
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 logger = logging.getLogger(__name__)
 
@@ -39,6 +40,9 @@ from fastapi import FastAPI, Request
 from fastapi.responses import HTMLResponse, JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
 from starlette.middleware.base import BaseHTTPMiddleware
+
+if TYPE_CHECKING:
+    import uvicorn
 
 STATIC_DIR = Path(__file__).resolve().parent / "static"
 INDEX_FILE = STATIC_DIR / "index.html"
@@ -228,10 +232,10 @@ def _read_index_html(token: str) -> str:
     else:
         raw = (
             "<!doctype html><html><head>"
-            "<meta charset=\"utf-8\">"
+            '<meta charset="utf-8">'
             "<title>Evalyn Dashboard</title>"
             "</head><body>"
-            "<div id=\"root\">Frontend bundle not built. "
+            '<div id="root">Frontend bundle not built. '
             "Run `npm run build` in dashboard/frontend.</div>"
             "</body></html>"
         )
@@ -298,9 +302,7 @@ def _register_api_routers(app: FastAPI) -> None:
     app.include_router(runs_api.router, prefix="/api/runs", tags=["runs"])
     app.include_router(compare_api.router, prefix="/api/compare", tags=["compare"])
     app.include_router(agent_api.router, prefix="/api/agent", tags=["agent"])
-    app.include_router(
-        settings_api.router, prefix="/api/settings", tags=["settings"]
-    )
+    app.include_router(settings_api.router, prefix="/api/settings", tags=["settings"])
     app.include_router(promote_api.router, prefix="/api/promote", tags=["promote"])
     app.include_router(demo_api.router, prefix="/api/demo", tags=["demo"])
     app.include_router(threads_api.router, prefix="/api/threads", tags=["threads"])
@@ -405,12 +407,8 @@ def _register_v2_routers(app: FastAPI) -> None:
             # defaults via _resolve_positive_float_env. Hourly
             # tick keeps per-call cost negligible (linear scan
             # over self._threads).
-            interval_s = _resolve_positive_float_env(
-                "EVALYN_AGENT_PURGE_INTERVAL_S", 3600.0
-            )
-            ttl_s = _resolve_positive_float_env(
-                "EVALYN_AGENT_THREAD_TTL_S", 7 * 24 * 3600.0
-            )
+            interval_s = _resolve_positive_float_env("EVALYN_AGENT_PURGE_INTERVAL_S", 3600.0)
+            ttl_s = _resolve_positive_float_env("EVALYN_AGENT_THREAD_TTL_S", 7 * 24 * 3600.0)
             try:
                 while True:
                     try:
@@ -425,9 +423,7 @@ def _register_v2_routers(app: FastAPI) -> None:
                     except _asyncio.CancelledError:
                         return
                     except Exception as exc:  # noqa: BLE001
-                        logger.warning(
-                            "agent thread auto-purge tick failed: %s", exc
-                        )
+                        logger.warning("agent thread auto-purge tick failed: %s", exc)
             except _asyncio.CancelledError:
                 return
 
@@ -529,9 +525,7 @@ def build_app(
     from .jobs_persistence import JobPersistence
 
     max_concurrent = int(
-        _resolve_positive_float_env(
-            "EVALYN_MAX_CONCURRENT_JOBS", float(DEFAULT_MAX_CONCURRENT)
-        )
+        _resolve_positive_float_env("EVALYN_MAX_CONCURRENT_JOBS", float(DEFAULT_MAX_CONCURRENT))
     )
     app.state.job_manager = JobManager(
         persistence=JobPersistence(),
@@ -695,7 +689,7 @@ def build_app(
 
 
 def _schedule_browser_open(
-    server: uvicorn.Server,  # type: ignore[name-defined]
+    server: uvicorn.Server,
     url: str,
     *,
     open_delay: float = 0.6,

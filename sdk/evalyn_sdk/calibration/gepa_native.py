@@ -240,9 +240,7 @@ Provide your verdict:"""
             rubric: Fixed rubric criteria (for context)
             accumulator: Optional TokenAccumulator to track token usage
         """
-        rubric_text = (
-            "\n".join([f"- {r}" for r in rubric]) if rubric else "(no rubric defined)"
-        )
+        rubric_text = "\n".join([f"- {r}" for r in rubric]) if rubric else "(no rubric defined)"
 
         candidates = [ParetoCandidate(preamble=seed_preamble, generation=0)]
 
@@ -261,9 +259,7 @@ Provide your verdict:"""
 
                 new_preamble = result.text.strip()
                 if new_preamble and len(new_preamble) > 20:
-                    candidates.append(
-                        ParetoCandidate(preamble=new_preamble, generation=0)
-                    )
+                    candidates.append(ParetoCandidate(preamble=new_preamble, generation=0))
             except Exception:
                 pass
 
@@ -292,9 +288,7 @@ Provide your verdict:"""
         if not failures:
             return None
 
-        rubric_text = (
-            "\n".join([f"- {r}" for r in rubric]) if rubric else "(no rubric defined)"
-        )
+        rubric_text = "\n".join([f"- {r}" for r in rubric]) if rubric else "(no rubric defined)"
 
         # Format failure examples
         failure_text = ""
@@ -553,7 +547,7 @@ Example {i}:
 
                 # Validate mutation on Pareto set and update frontier
                 if mutation is not None:
-                    metrics, _ = self._evaluate_candidate_on_examples(
+                    _metrics, _ = self._evaluate_candidate_on_examples(
                         mutation, current_rubric, pareto_examples, accumulator
                     )
                     budget -= len(pareto_examples)
@@ -591,9 +585,7 @@ Example {i}:
         else:
             estimated_improvement = "none"
 
-        full_optimized_prompt = build_full_prompt(
-            best_candidate.preamble, current_rubric
-        )
+        full_optimized_prompt = build_full_prompt(best_candidate.preamble, current_rubric)
 
         reasoning = (
             f"GEPA-Native optimization completed. "

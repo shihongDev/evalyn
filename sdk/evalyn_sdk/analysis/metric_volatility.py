@@ -156,10 +156,7 @@ def analyze_all_volatility(metric_scores: dict[str, list[float]]) -> VolatilityR
     if not metric_scores:
         return VolatilityReport()
 
-    metrics = [
-        analyze_metric_volatility(mid, scores)
-        for mid, scores in metric_scores.items()
-    ]
+    metrics = [analyze_metric_volatility(mid, scores) for mid, scores in metric_scores.items()]
 
     avg_vol = sum(m.volatility_index for m in metrics) / len(metrics)
     most = max(metrics, key=lambda m: m.volatility_index)
@@ -186,9 +183,7 @@ def render_volatility_chart(report: VolatilityReport, width: int = 60) -> str:
     max_name = max(len(m.metric_id) for m in report.metrics)
     bar_width = width - max_name - 10  # leave room for label and value
 
-    sorted_metrics = sorted(
-        report.metrics, key=lambda m: m.volatility_index, reverse=True
-    )
+    sorted_metrics = sorted(report.metrics, key=lambda m: m.volatility_index, reverse=True)
     for m in sorted_metrics:
         filled = int(m.volatility_index * bar_width)
         bar = "#" * filled + "." * (bar_width - filled)

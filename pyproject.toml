@@ -33,10 +33,11 @@ select = [
   "SIM",  # flake8-simplify - obvious simplifications
 ]
 ignore = [
-  # E501 (line-too-long): ~1,200 existing violations, mostly long
-  # error messages or URLs in comments. Manual sweep deferred;
-  # `ruff format` would help but its split decisions are disruptive
-  # on big files. Re-enable once a dedicated format pass lands.
+  # E501 (line-too-long): most remaining over-length lines are inside
+  # error messages, log strings, or URLs in comments that the formatter
+  # leaves alone. A `ruff format` sweep ran 2026-05-20 (516 files
+  # reformatted) so structural over-runs are gone; keep this ignored
+  # for the string/comment cases that remain by design.
   "E501",
   # E402 (module-import-not-at-top-of-file): ~200 sites, most are
   # legitimate sys.path manipulation, optional-dep `try: import x
@@ -59,6 +60,14 @@ ignore = [
   # SIM102 (collapsible-if): nested ifs often read better than
   # `and` chains when each level has its own semantics.
   "SIM102",
+  # SIM103 (needless-bool): the early-return guard pattern
+  # (`if cond_A: return False; if cond_B: return False; return True`)
+  # often reads more clearly than ruff's flattened
+  # `return not (cond_A or cond_B)`. Single-condition variants
+  # (`if x: return True; return False`) should still be cleaned up
+  # by hand at the call site; we just don't let the linter force the
+  # rewrite of multi-guard functions.
+  "SIM103",
 ]
 
 [tool.ruff.lint.per-file-ignores]

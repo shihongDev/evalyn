@@ -93,9 +93,7 @@ class BenchmarkReport:
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> BenchmarkReport:
         return cls(
-            results=[
-                BenchmarkResult.from_dict(r) for r in data.get("results", [])
-            ],
+            results=[BenchmarkResult.from_dict(r) for r in data.get("results", [])],
             regressions=list(data.get("regressions", [])),
             improvements=list(data.get("improvements", [])),
             total_benchmarks=data.get("total_benchmarks", 0),
@@ -109,10 +107,7 @@ class BenchmarkReport:
             f"  improvements: {len(self.improvements)}",
         ]
         for r in self.results:
-            lines.append(
-                f"  {r.name}: {r.duration_ms:.2f}ms "
-                f"({r.items_per_second:.1f} items/s)"
-            )
+            lines.append(f"  {r.name}: {r.duration_ms:.2f}ms ({r.items_per_second:.1f} items/s)")
         if self.regressions:
             lines.append("  REGRESSIONS:")
             for name in self.regressions:
@@ -181,7 +176,7 @@ def compare_to_baseline(
 
 def build_benchmark_report(
     results: list[BenchmarkResult],
-    baselines: list[BenchmarkBaseline] = None,
+    baselines: list[BenchmarkBaseline] | None = None,
 ) -> BenchmarkReport:
     """Build a full benchmark report, comparing to baselines if provided."""
     if baselines is None:
@@ -235,9 +230,7 @@ def render_benchmark_table(report: BenchmarkReport) -> str:
     ips_w = max(len(f"{r.items_per_second:.1f}") for r in report.results)
     ips_w = max(ips_w, len("Items/s"))
 
-    header = (
-        f"{'Name':<{name_w}}  {'Duration(ms)':>{dur_w}}  {'Items/s':>{ips_w}}  Status"
-    )
+    header = f"{'Name':<{name_w}}  {'Duration(ms)':>{dur_w}}  {'Items/s':>{ips_w}}  Status"
     sep = "-" * len(header)
 
     regression_set = set(report.regressions)

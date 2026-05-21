@@ -84,9 +84,7 @@ class SimilarityResult:
     def from_dict(cls, data: dict[str, Any]) -> SimilarityResult:
         return cls(
             selected_ids=data.get("selected_ids", []),
-            scores=[
-                SimilarityScore.from_dict(s) for s in data.get("scores", [])
-            ],
+            scores=[SimilarityScore.from_dict(s) for s in data.get("scores", [])],
             reference_id=data.get("reference_id", ""),
             mode=data.get("mode", "similar"),
             total_pool=data.get("total_pool", 0),
@@ -119,9 +117,7 @@ def compute_jaccard_similarity(text_a: str, text_b: str) -> float:
     return intersection / union
 
 
-def rank_by_similarity(
-    reference_text: str, items: dict[str, str]
-) -> list[SimilarityScore]:
+def rank_by_similarity(reference_text: str, items: dict[str, str]) -> list[SimilarityScore]:
     """Rank all items by similarity to the reference text.
 
     Returns a list of SimilarityScore sorted by similarity descending.
@@ -152,9 +148,7 @@ def select_most_dissimilar(scores: list[SimilarityScore], n: int) -> list[str]:
     return [s.item_id for s in sorted_scores[:n]]
 
 
-def run_similarity_sampling(
-    items: dict[str, str], config: SimilarityConfig
-) -> SimilarityResult:
+def run_similarity_sampling(items: dict[str, str], config: SimilarityConfig) -> SimilarityResult:
     """Full similarity sampling pipeline.
 
     Uses config.reference_text to rank items, then selects based on mode.
@@ -206,10 +200,7 @@ def find_nearest_neighbors(
 def format_similarity_report(result: SimilarityResult) -> str:
     """Format a similarity result as a human-readable report."""
     lines: list[str] = []
-    lines.append(
-        f"Similarity Sampling Report (mode={result.mode}, "
-        f"pool={result.total_pool})"
-    )
+    lines.append(f"Similarity Sampling Report (mode={result.mode}, pool={result.total_pool})")
     if result.reference_id:
         lines.append(f"Reference: {result.reference_id}")
     lines.append(f"Selected: {len(result.selected_ids)} items")

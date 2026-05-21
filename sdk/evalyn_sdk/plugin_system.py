@@ -165,8 +165,7 @@ def validate_plugin(info: PluginInfo) -> tuple[bool, list[str]]:
         errors.append("name must be non-empty")
     if info.plugin_type not in VALID_PLUGIN_TYPES:
         errors.append(
-            f"plugin_type must be one of {sorted(VALID_PLUGIN_TYPES)}, "
-            f"got '{info.plugin_type}'"
+            f"plugin_type must be one of {sorted(VALID_PLUGIN_TYPES)}, got '{info.plugin_type}'"
         )
     if not _VERSION_PATTERN.match(info.version):
         errors.append(f"version must match X.Y.Z format, got '{info.version}'")

@@ -262,9 +262,7 @@ def grade_difficulty(text: str, item_id: str = "") -> DifficultyGrade:
     )
 
 
-def grade_batch(
-    items: list[dict[str, Any]], text_field: str = "input"
-) -> list[DifficultyGrade]:
+def grade_batch(items: list[dict[str, Any]], text_field: str = "input") -> list[DifficultyGrade]:
     """Grade a batch of items. Each item is a dict with at least text_field."""
     grades: list[DifficultyGrade] = []
     for i, item in enumerate(items):
@@ -291,9 +289,7 @@ def compute_distribution(grades: list[DifficultyGrade]) -> DifficultyDistributio
     if total > 0:
         target = total / 3.0
         threshold = target * 0.2
-        balanced = all(
-            abs(count - target) <= threshold for count in [easy, medium, hard]
-        )
+        balanced = all(abs(count - target) <= threshold for count in [easy, medium, hard])
 
     return DifficultyDistribution(
         easy_count=easy,
@@ -323,9 +319,7 @@ def rebalance_suggestions(
     for level, count in counts.items():
         deficit = target - count
         if deficit > 0:
-            suggestions.append(
-                f"Add more {level} items (currently {count}, target ~{target:.0f})."
-            )
+            suggestions.append(f"Add more {level} items (currently {count}, target ~{target:.0f}).")
 
     if not suggestions:
         suggestions.append("Distribution is already balanced.")
@@ -358,9 +352,7 @@ def format_difficulty_report(
 
     for g in grades:
         tag_str = ", ".join(g.tags) if g.tags else "none"
-        lines.append(
-            f"  [{g.item_id}] {g.level} (score={g.score:.2f}) tags={tag_str}"
-        )
+        lines.append(f"  [{g.item_id}] {g.level} (score={g.score:.2f}) tags={tag_str}")
 
     suggestions = rebalance_suggestions(distribution)
     if suggestions:

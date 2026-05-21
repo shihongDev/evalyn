@@ -93,9 +93,7 @@ class BasicOptimizer:
             result = self.client.generate_with_usage(prompt)
             if accumulator:
                 accumulator.add(result)
-            return self._parse_optimization_response(
-                result.text, current_rubric, current_preamble
-            )
+            return self._parse_optimization_response(result.text, current_rubric, current_preamble)
         except Exception as e:
             logger.warning("LLM optimization call failed: %s", e, exc_info=True)
             # Return a fallback result on error
@@ -231,19 +229,13 @@ Return ONLY the JSON object, no other text."""
                             json_str = text[start : i + 1]
                             parsed = json.loads(json_str)
 
-                            optimized_preamble = parsed.get(
-                                "optimized_preamble", original_preamble
-                            )
-                            full_prompt = build_full_prompt(
-                                optimized_preamble, original_rubric
-                            )
+                            optimized_preamble = parsed.get("optimized_preamble", original_preamble)
+                            full_prompt = build_full_prompt(optimized_preamble, original_rubric)
 
                             return PromptOptimizationResult(
                                 original_rubric=original_rubric,
                                 improved_rubric=original_rubric,  # Rubric stays fixed
-                                improvement_reasoning=parsed.get(
-                                    "improvement_reasoning", ""
-                                ),
+                                improvement_reasoning=parsed.get("improvement_reasoning", ""),
                                 suggested_additions=[],
                                 suggested_removals=[],
                                 estimated_improvement=parsed.get(

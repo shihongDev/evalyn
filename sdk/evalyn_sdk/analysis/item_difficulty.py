@@ -97,9 +97,7 @@ class DifficultyReport:
 # ---------------------------------------------------------------------------
 
 
-def compute_item_fail_rate(
-    item_id: str, run_results: list[dict[str, Any]]
-) -> float:
+def compute_item_fail_rate(item_id: str, run_results: list[dict[str, Any]]) -> float:
     """Compute fail rate for a single item across runs.
 
     Each result dict has "item_id" and "passed" (bool).
@@ -145,9 +143,7 @@ def compute_difficulty_variance(results: list[bool]) -> float:
     return variance
 
 
-def estimate_difficulty(
-    item_id: str, run_results: list[dict[str, Any]]
-) -> ItemDifficulty:
+def estimate_difficulty(item_id: str, run_results: list[dict[str, Any]]) -> ItemDifficulty:
     """Full difficulty estimation for a single item.
 
     Computes fail rate, classifies difficulty, and calculates variance.

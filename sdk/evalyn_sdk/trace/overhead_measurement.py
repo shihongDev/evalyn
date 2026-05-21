@@ -70,9 +70,7 @@ class OverheadReport:
         lines.append("Instrumentation Overhead Report")
         lines.append("-" * 40)
         for s in self.samples:
-            lines.append(
-                f"  {s.operation}: +{s.overhead_ms:.2f}ms ({s.overhead_pct:.1f}%)"
-            )
+            lines.append(f"  {s.operation}: +{s.overhead_ms:.2f}ms ({s.overhead_pct:.1f}%)")
         lines.append("-" * 40)
         lines.append(f"Avg overhead: {self.avg_overhead_ms:.2f}ms ({self.avg_overhead_pct:.1f}%)")
         lines.append(f"Max overhead: {self.max_overhead_ms:.2f}ms")
@@ -81,9 +79,7 @@ class OverheadReport:
         return "\n".join(lines)
 
 
-def compute_overhead(
-    with_tracing_ms: float, without_tracing_ms: float
-) -> tuple[float, float]:
+def compute_overhead(with_tracing_ms: float, without_tracing_ms: float) -> tuple[float, float]:
     """Return (overhead_ms, overhead_pct).
 
     overhead_ms = with_tracing_ms - without_tracing_ms
@@ -144,9 +140,7 @@ def analyze_overhead(
     )
 
 
-def estimate_overhead_from_spans(
-    spans: list[Span], baseline_duration_ms: float
-) -> OverheadReport:
+def estimate_overhead_from_spans(spans: list[Span], baseline_duration_ms: float) -> OverheadReport:
     """Estimate overhead from actual span durations vs a baseline.
 
     Each span's overhead = (span.duration_ms - baseline) if span.duration_ms > baseline.

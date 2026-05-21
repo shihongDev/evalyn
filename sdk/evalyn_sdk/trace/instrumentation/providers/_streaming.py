@@ -1,4 +1,5 @@
 """Streaming span wrapper for capturing streaming response metrics."""
+
 from __future__ import annotations
 
 import time

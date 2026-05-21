@@ -72,9 +72,7 @@ class DryRunReport:
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> DryRunReport:
-        targets = [
-            PatchTarget.from_dict(t) for t in data.get("targets", [])
-        ]
+        targets = [PatchTarget.from_dict(t) for t in data.get("targets", [])]
         return cls(
             targets=targets,
             total_patches=data.get("total_patches", 0),
@@ -188,13 +186,15 @@ def format_dry_run_table(report: DryRunReport) -> str:
     headers = ["Provider", "Module", "Class", "Method", "Strategy"]
     rows: list[list[str]] = []
     for t in report.targets:
-        rows.append([
-            t.provider,
-            t.module_name,
-            t.class_name,
-            t.method_name,
-            t.strategy,
-        ])
+        rows.append(
+            [
+                t.provider,
+                t.module_name,
+                t.class_name,
+                t.method_name,
+                t.strategy,
+            ]
+        )
 
     if not rows:
         return "No patch targets detected."
@@ -207,15 +207,11 @@ def format_dry_run_table(report: DryRunReport) -> str:
 
     # Build table
     sep = "+-" + "-+-".join("-" * w for w in widths) + "-+"
-    header_line = "| " + " | ".join(
-        h.ljust(w) for h, w in zip(headers, widths)
-    ) + " |"
+    header_line = "| " + " | ".join(h.ljust(w) for h, w in zip(headers, widths)) + " |"
 
     lines = [sep, header_line, sep]
     for row in rows:
-        line = "| " + " | ".join(
-            cell.ljust(w) for cell, w in zip(row, widths)
-        ) + " |"
+        line = "| " + " | ".join(cell.ljust(w) for cell, w in zip(row, widths)) + " |"
         lines.append(line)
     lines.append(sep)
     return "\n".join(lines)

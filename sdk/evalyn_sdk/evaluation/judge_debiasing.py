@@ -109,9 +109,7 @@ class DebiasReport:
         return "\n".join(lines)
 
 
-def detect_position_bias(
-    scores_first: list[float], scores_second: list[float]
-) -> float:
+def detect_position_bias(scores_first: list[float], scores_second: list[float]) -> float:
     """Compute position bias as mean score difference (first - second).
 
     Positive value means the judge favors items in the first position.
@@ -149,9 +147,7 @@ def detect_length_bias(lengths: list[int], scores: list[float]) -> float:
     return cov / denom
 
 
-def correct_length_bias(
-    scores: list[float], lengths: list[int]
-) -> list[DebiasedScore]:
+def correct_length_bias(scores: list[float], lengths: list[int]) -> list[DebiasedScore]:
     """Apply linear regression correction to remove length bias.
 
     Subtracts the predicted score component from length, keeps
@@ -200,9 +196,7 @@ def correct_length_bias(
     return results
 
 
-def correct_position_bias(
-    scores_first: list[float], scores_second: list[float]
-) -> list[float]:
+def correct_position_bias(scores_first: list[float], scores_second: list[float]) -> list[float]:
     """Average first-position and second-position scores for each item."""
     if not scores_first or not scores_second:
         return []
@@ -230,12 +224,8 @@ def analyze_judge_bias(
 
     position_bias = 0.0
     if positions is not None and len(positions) == len(scores):
-        first_scores = [
-            scores[i] for i in range(len(scores)) if positions[i] == 0
-        ]
-        second_scores = [
-            scores[i] for i in range(len(scores)) if positions[i] == 1
-        ]
+        first_scores = [scores[i] for i in range(len(scores)) if positions[i] == 0]
+        second_scores = [scores[i] for i in range(len(scores)) if positions[i] == 1]
         position_bias = detect_position_bias(first_scores, second_scores)
 
     # Verbosity bias approximated as length bias (they are closely related)

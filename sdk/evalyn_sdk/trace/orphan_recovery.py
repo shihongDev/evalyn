@@ -98,11 +98,7 @@ def _time_gap_ms(orphan: Span, candidate: Span) -> float:
     """Compute the minimum time gap in ms between an orphan and a candidate's time range."""
     orphan_start_ms = orphan.start_time.timestamp() * 1000
     cand_start_ms = candidate.start_time.timestamp() * 1000
-    cand_end_ms = (
-        candidate.end_time.timestamp() * 1000
-        if candidate.end_time
-        else cand_start_ms
-    )
+    cand_end_ms = candidate.end_time.timestamp() * 1000 if candidate.end_time else cand_start_ms
 
     # If orphan starts within the candidate's range, gap is 0
     if cand_start_ms <= orphan_start_ms <= cand_end_ms:
@@ -141,9 +137,7 @@ def match_by_timestamp(
     return best_id, confidence
 
 
-def match_by_name(
-    orphan: Span, candidates: list[Span]
-) -> tuple[str, float] | None:
+def match_by_name(orphan: Span, candidates: list[Span]) -> tuple[str, float] | None:
     """Find a candidate with matching span_type.
 
     If multiple match, pick the one closest in time.
@@ -228,9 +222,7 @@ def recover_orphans(
     )
 
 
-def reattach_orphans(
-    spans: list[Span], recovery: RecoveryResult
-) -> list[Span]:
+def reattach_orphans(spans: list[Span], recovery: RecoveryResult) -> list[Span]:
     """Return new list of spans with orphans' parent_id updated to their match.
 
     Does not mutate the originals.

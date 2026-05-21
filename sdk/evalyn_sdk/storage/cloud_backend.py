@@ -215,9 +215,7 @@ def validate_cloud_config(config: CloudConfig) -> tuple[bool, list[str]]:
     return (len(errors) == 0, errors)
 
 
-def estimate_cloud_cost(
-    total_bytes: int, provider: str = "s3"
-) -> dict[str, float]:
+def estimate_cloud_cost(total_bytes: int, provider: str = "s3") -> dict[str, float]:
     """Estimate monthly cloud storage cost.
 
     Uses approximate public pricing (USD):
@@ -225,7 +223,7 @@ def estimate_cloud_cost(
     - GCS Standard: $0.020/GB/month storage, $0.005/1000 PUT, $0.0004/1000 GET
     - Local: free
     """
-    gb = total_bytes / (1024 ** 3)
+    gb = total_bytes / (1024**3)
     if provider == "s3":
         storage_cost = gb * 0.023
         request_cost = 0.001  # Rough estimate for typical usage

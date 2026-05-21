@@ -50,10 +50,7 @@ class PartialResults:
             counts[mid][1] += 1
             if r.get("passed") is True:
                 counts[mid][0] += 1
-        return {
-            mid: p / t if t > 0 else 0.0
-            for mid, (p, t) in counts.items()
-        }
+        return {mid: p / t if t > 0 else 0.0 for mid, (p, t) in counts.items()}
 
     def as_dict(self) -> dict[str, Any]:
         return {
@@ -62,9 +59,7 @@ class PartialResults:
             "total_results": self.total_results,
             "is_complete": self.is_complete,
             "pass_rate_estimate": round(self.pass_rate_estimate, 4),
-            "metric_pass_rates": {
-                k: round(v, 4) for k, v in self.metric_pass_rates.items()
-            },
+            "metric_pass_rates": {k: round(v, 4) for k, v in self.metric_pass_rates.items()},
         }
 
     def format_text(self) -> str:
@@ -105,7 +100,9 @@ def load_partial_results(checkpoint_path: Path) -> PartialResults | None:
 
     return PartialResults(
         run_id=run_id,
-        completed_items=len(completed_items) if isinstance(completed_items, list) else int(completed_items),
+        completed_items=len(completed_items)
+        if isinstance(completed_items, list)
+        else int(completed_items),
         total_results=len(results),
         metric_results=results,
         is_complete=False,
@@ -142,5 +139,7 @@ def estimate_remaining_time(
         "items_per_second": round(rate, 2),
         "remaining_items": remaining,
         "eta_seconds": round(eta, 1),
-        "progress_pct": round(partial.completed_items / total_items * 100, 1) if total_items > 0 else 0.0,
+        "progress_pct": round(partial.completed_items / total_items * 100, 1)
+        if total_items > 0
+        else 0.0,
     }

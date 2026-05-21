@@ -7,6 +7,7 @@ adding them to the span collector.
 
 from __future__ import annotations
 
+from collections import OrderedDict
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
@@ -14,6 +15,11 @@ if TYPE_CHECKING:
 
 from .. import context as span_context
 from .span_converter import SpanConverter
+
+# Cap on the parent-ID lookup map. Bound prevents linear memory growth
+# in long-running processes; the value should comfortably exceed the
+# deepest typical span tree in a single Evalyn trace.
+_DEFAULT_PARENT_MAP_MAX = 10_000
 
 
 class EvalynSpanProcessor:
@@ -31,13 +37,16 @@ class EvalynSpanProcessor:
         provider.add_span_processor(EvalynSpanProcessor())
     """
 
-    def __init__(self):
-        self._parent_id_map: dict[str, str] = {}  # OTEL span_id -> Evalyn span_id
+    def __init__(self, parent_map_max: int = _DEFAULT_PARENT_MAP_MAX):
+        # OrderedDict keyed by OTEL span_id -> Evalyn span_id, with LRU
+        # eviction at `parent_map_max` to keep memory bounded over long
+        # running tracers (the original unbounded dict leaked linearly).
+        self._parent_id_map: OrderedDict[str, str] = OrderedDict()
+        self._parent_map_max = parent_map_max
 
     def on_start(self, span: Any, parent_context: Any | None = None) -> None:
         """Called when a span starts."""
         # We mainly process on_end, but can use on_start for parent tracking
-        pass
 
     def on_end(self, span: ReadableSpan) -> None:
         """Called when a span ends. Convert and record the span."""
@@ -51,6 +60,9 @@ class EvalynSpanProcessor:
         if span.parent:
             otel_parent_id = format(span.parent.span_id, "016x")
             parent_evalyn_id = self._parent_id_map.get(otel_parent_id)
+            if parent_evalyn_id is not None:
+                # Refresh LRU recency: parent was just referenced.
+                self._parent_id_map.move_to_end(otel_parent_id)
 
         # Fall back to current Evalyn span if no mapped parent
         if parent_evalyn_id is None:
@@ -58,9 +70,12 @@ class EvalynSpanProcessor:
 
         evalyn_span = SpanConverter.from_otel_span(span, parent_evalyn_id)
 
-        # Store mapping for future child spans
+        # Store mapping for future child spans, evicting the oldest entry
+        # if we'd exceed the cap.
         otel_span_id = format(span.context.span_id, "016x")
         self._parent_id_map[otel_span_id] = evalyn_span.id
+        if len(self._parent_id_map) > self._parent_map_max:
+            self._parent_id_map.popitem(last=False)
 
         # Add to Evalyn collector
         span_context._add_span_to_collector(evalyn_span)
@@ -103,8 +118,8 @@ def get_or_create_tracer_provider() -> Any:
     # Check if it's already a TracerProvider (not NoOpTracerProvider)
     if isinstance(current, TracerProvider):
         # Add our processor if not already present
-        active = getattr(current, '_active_span_processor', None)
-        processors = getattr(active, '_span_processors', []) if active else []
+        active = getattr(current, "_active_span_processor", None)
+        processors = getattr(active, "_span_processors", []) if active else []
         for processor in processors:
             if isinstance(processor, EvalynSpanProcessor):
                 return current

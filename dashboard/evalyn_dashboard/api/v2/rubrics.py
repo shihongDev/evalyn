@@ -375,9 +375,7 @@ def _saved_rubric_index() -> dict[str, dict]:
                     if metric_id in index:
                         continue
                     try:
-                        index[metric_id] = json.loads(
-                            Path(entry.path).read_text(encoding="utf-8")
-                        )
+                        index[metric_id] = json.loads(Path(entry.path).read_text(encoding="utf-8"))
                     except (OSError, json.JSONDecodeError) as exc:
                         logger.warning("rubric load failed at %s: %s", entry.path, exc)
         except OSError:
@@ -450,10 +448,12 @@ async def get_trust_scoreboard() -> JSONResponse:
     """Return the trust scoreboard."""
     runs = load_all_runs()
     if not runs:
-        return JSONResponse({
-            "metrics": [],
-            "thresholds": {"annotation": 0.7, "ship": 0.8},
-        })
+        return JSONResponse(
+            {
+                "metrics": [],
+                "thresholds": {"annotation": 0.7, "ship": 0.8},
+            }
+        )
     kind, uses, name = _metric_kinds_uses(runs)
     cal_index = _calibration_index()
     metrics_rows: list[dict] = []
@@ -534,9 +534,7 @@ async def get_rubric_calibration(rubric_id: str) -> JSONResponse:
             )
 
     confusion_matrix_payload = (
-        {"tp": cm[0], "tn": cm[1], "fp": cm[2], "fn": cm[3]}
-        if cm is not None
-        else None
+        {"tp": cm[0], "tn": cm[1], "fp": cm[2], "fn": cm[3]} if cm is not None else None
     )
 
     return JSONResponse(
@@ -643,11 +641,13 @@ async def save_rubric(rubric_id: str, request: Request) -> JSONResponse:
     # user actually touched (None means "kept previous value")
     # so the trail captures intent precisely.
     fields_changed = [
-        f for f, v in (
+        f
+        for f, v in (
             ("name", name),
             ("weights", weights),
             ("dimensions", dimensions),
-        ) if v is not None
+        )
+        if v is not None
     ]
     logger.info(
         "rubric saved: rubric_id=%s fields=%s",

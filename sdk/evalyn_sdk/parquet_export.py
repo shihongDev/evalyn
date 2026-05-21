@@ -172,6 +172,7 @@ def check_pyarrow_available() -> bool:
     """Return True if pyarrow can be imported, False otherwise."""
     try:
         import pyarrow  # noqa: F401
+
         return True
     except ImportError:
         return False

@@ -157,17 +157,11 @@ def check_complexity_alerts(
     t = threshold or ComplexityThreshold()
     alerts = []
     if score.score > t.max_score:
-        alerts.append(
-            f"Complexity score {score.score:.1f} exceeds threshold {t.max_score}"
-        )
+        alerts.append(f"Complexity score {score.score:.1f} exceeds threshold {t.max_score}")
     if score.max_depth > t.max_depth:
-        alerts.append(
-            f"Span depth {score.max_depth} exceeds threshold {t.max_depth}"
-        )
+        alerts.append(f"Span depth {score.max_depth} exceeds threshold {t.max_depth}")
     if score.total_spans > t.max_spans:
-        alerts.append(
-            f"Span count {score.total_spans} exceeds threshold {t.max_spans}"
-        )
+        alerts.append(f"Span count {score.total_spans} exceeds threshold {t.max_spans}")
     return alerts
 
 

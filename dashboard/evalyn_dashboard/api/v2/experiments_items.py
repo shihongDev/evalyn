@@ -227,6 +227,7 @@ def _apply_sort(rows: list[dict], sort_value: str) -> list[dict]:
                 if isinstance(s, (int, float)):
                     total += float(s)
             return (total, r["id"])
+
         return sorted(rows, key=score_key)
     return sorted(rows, key=lambda r: r["id"])
 

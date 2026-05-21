@@ -75,9 +75,7 @@ class TimeoutReport:
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> TimeoutReport:
-        events = [
-            TimeoutEvent(**e) for e in data.get("events", [])
-        ]
+        events = [TimeoutEvent(**e) for e in data.get("events", [])]
         return cls(
             events=events,
             total_items=data.get("total_items", 0),
@@ -110,9 +108,7 @@ def get_timeout_for_metric(metric_id: str, config: TimeoutConfig) -> float:
 
     Uses per-metric override if configured, otherwise the default.
     """
-    return config.per_metric_timeouts.get(
-        metric_id, config.default_timeout_seconds
-    )
+    return config.per_metric_timeouts.get(metric_id, config.default_timeout_seconds)
 
 
 def check_timeout(elapsed_seconds: float, limit_seconds: float) -> bool:
@@ -142,9 +138,7 @@ def build_timeout_report(events: list[TimeoutEvent]) -> TimeoutReport:
     total = len(events)
     timed_out_count = sum(1 for e in events if e.timed_out)
     timeout_rate = timed_out_count / total if total > 0 else 0.0
-    avg_elapsed = (
-        sum(e.elapsed_ms for e in events) / total if total > 0 else 0.0
-    )
+    avg_elapsed = sum(e.elapsed_ms for e in events) / total if total > 0 else 0.0
     return TimeoutReport(
         events=list(events),
         total_items=total,
@@ -154,9 +148,7 @@ def build_timeout_report(events: list[TimeoutEvent]) -> TimeoutReport:
     )
 
 
-def identify_slow_items(
-    report: TimeoutReport, threshold_pct: float = 0.8
-) -> list[str]:
+def identify_slow_items(report: TimeoutReport, threshold_pct: float = 0.8) -> list[str]:
     """Return item IDs using more than threshold_pct of their timeout budget.
 
     Args:

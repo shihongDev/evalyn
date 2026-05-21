@@ -122,9 +122,7 @@ def _parse_passed(value: Any) -> bool | None:
     return None
 
 
-def _safe_trace_excerpt(
-    call: FunctionCall, max_events: int = 20, max_chars: int = 2000
-) -> str:
+def _safe_trace_excerpt(call: FunctionCall, max_events: int = 20, max_chars: int = 2000) -> str:
     """Create a safe string excerpt of trace events for the judge prompt."""
     events = call.trace or []
     lines = []

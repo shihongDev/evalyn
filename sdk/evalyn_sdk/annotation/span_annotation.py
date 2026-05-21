@@ -18,9 +18,7 @@ from typing import Any, Literal
 from ..models import now_utc
 
 # Annotation span types (distinct from models.SpanType which covers execution spans)
-AnnotationSpanType = Literal[
-    "llm_call", "tool_call", "reasoning", "retrieval", "overall"
-]
+AnnotationSpanType = Literal["llm_call", "tool_call", "reasoning", "retrieval", "overall"]
 
 
 @dataclass
@@ -229,9 +227,7 @@ def extract_spans_from_trace(call) -> list[dict[str, Any]]:
             summary = f"Tool: {tool_name}"
         elif "trace." in kind:
             span_type = "reasoning"
-            func_name = (
-                kind.replace("trace.", "").replace(".start", "").replace(".end", "")
-            )
+            func_name = kind.replace("trace.", "").replace(".start", "").replace(".end", "")
             summary = f"Step: {func_name}"
         elif "retriev" in kind.lower() or "search" in kind.lower():
             span_type = "retrieval"

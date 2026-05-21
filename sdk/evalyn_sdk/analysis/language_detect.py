@@ -16,9 +16,9 @@ from typing import Any
 class LanguageDetection:
     """Language detection result."""
 
-    language: str       # ISO 639-1 code (e.g., "en", "ja", "zh")
-    confidence: float   # 0.0-1.0
-    script: str         # Primary script (e.g., "Latin", "CJK", "Cyrillic")
+    language: str  # ISO 639-1 code (e.g., "en", "ja", "zh")
+    confidence: float  # 0.0-1.0
+    script: str  # Primary script (e.g., "Latin", "CJK", "Cyrillic")
 
     def as_dict(self) -> dict[str, Any]:
         return {
@@ -108,13 +108,17 @@ def detect_language(text: str) -> LanguageDetection:
         return LanguageDetection(language="ko", confidence=min(0.95, script_ratio), script="Hangul")
 
     if primary_script == "Cyrillic":
-        return LanguageDetection(language="ru", confidence=min(0.9, script_ratio), script="Cyrillic")
+        return LanguageDetection(
+            language="ru", confidence=min(0.9, script_ratio), script="Cyrillic"
+        )
 
     if primary_script == "Arabic":
         return LanguageDetection(language="ar", confidence=min(0.9, script_ratio), script="Arabic")
 
     if primary_script == "Devanagari":
-        return LanguageDetection(language="hi", confidence=min(0.9, script_ratio), script="Devanagari")
+        return LanguageDetection(
+            language="hi", confidence=min(0.9, script_ratio), script="Devanagari"
+        )
 
     if primary_script == "Thai":
         return LanguageDetection(language="th", confidence=min(0.9, script_ratio), script="Thai")
@@ -153,6 +157,7 @@ def analyze_dataset_languages(items: list) -> DatasetLanguageReport:
 # Internal helpers
 # =============================================================================
 
+
 def _count_scripts(text: str) -> dict[str, int]:
     """Count characters by Unicode script category."""
     scripts: dict[str, int] = {}
@@ -190,9 +195,9 @@ def _char_script(char: str) -> str:
 
 def _detect_cjk_language(text: str) -> str:
     """Distinguish Chinese, Japanese, Korean from CJK text."""
-    has_hiragana = bool(re.search(r'[\u3040-\u309F]', text))
-    has_katakana = bool(re.search(r'[\u30A0-\u30FF]', text))
-    has_hangul = bool(re.search(r'[\uAC00-\uD7AF]', text))
+    has_hiragana = bool(re.search(r"[\u3040-\u309F]", text))
+    has_katakana = bool(re.search(r"[\u30A0-\u30FF]", text))
+    has_hangul = bool(re.search(r"[\uAC00-\uD7AF]", text))
 
     if has_hiragana or has_katakana:
         return "ja"
@@ -203,22 +208,109 @@ def _detect_cjk_language(text: str) -> str:
 
 # Common words for Latin-script language detection
 _LANG_WORDS = {
-    "en": {"the", "is", "are", "was", "were", "have", "has", "been", "will", "would",
-           "could", "should", "with", "from", "this", "that", "they", "their", "what"},
-    "es": {"el", "la", "los", "las", "es", "son", "fue", "ser", "con", "para",
-           "por", "como", "pero", "que", "del", "una", "este"},
-    "fr": {"le", "la", "les", "est", "sont", "avec", "pour", "dans", "pas", "que",
-           "une", "des", "sur", "qui", "nous", "mais", "cette"},
-    "de": {"der", "die", "das", "ist", "sind", "war", "haben", "mit", "und", "ein",
-           "eine", "nicht", "auch", "sich", "auf", "aus", "aber"},
-    "pt": {"o", "os", "uma", "para", "com", "que", "por", "como", "mais", "foi",
-           "ser", "tem", "mas", "dos", "das", "esta", "pelo"},
+    "en": {
+        "the",
+        "is",
+        "are",
+        "was",
+        "were",
+        "have",
+        "has",
+        "been",
+        "will",
+        "would",
+        "could",
+        "should",
+        "with",
+        "from",
+        "this",
+        "that",
+        "they",
+        "their",
+        "what",
+    },
+    "es": {
+        "el",
+        "la",
+        "los",
+        "las",
+        "es",
+        "son",
+        "fue",
+        "ser",
+        "con",
+        "para",
+        "por",
+        "como",
+        "pero",
+        "que",
+        "del",
+        "una",
+        "este",
+    },
+    "fr": {
+        "le",
+        "la",
+        "les",
+        "est",
+        "sont",
+        "avec",
+        "pour",
+        "dans",
+        "pas",
+        "que",
+        "une",
+        "des",
+        "sur",
+        "qui",
+        "nous",
+        "mais",
+        "cette",
+    },
+    "de": {
+        "der",
+        "die",
+        "das",
+        "ist",
+        "sind",
+        "war",
+        "haben",
+        "mit",
+        "und",
+        "ein",
+        "eine",
+        "nicht",
+        "auch",
+        "sich",
+        "auf",
+        "aus",
+        "aber",
+    },
+    "pt": {
+        "o",
+        "os",
+        "uma",
+        "para",
+        "com",
+        "que",
+        "por",
+        "como",
+        "mais",
+        "foi",
+        "ser",
+        "tem",
+        "mas",
+        "dos",
+        "das",
+        "esta",
+        "pelo",
+    },
 }
 
 
 def _detect_latin_language(text: str) -> tuple:
     """Detect language from Latin-script text using common words."""
-    words = set(re.findall(r'\b[a-zA-Z]+\b', text.lower()))
+    words = set(re.findall(r"\b[a-zA-Z]+\b", text.lower()))
 
     best_lang = "en"
     best_score = 0
@@ -238,5 +330,6 @@ def _item_to_text(item) -> str:
     output = getattr(item, "output", None) or ""
     if isinstance(output, dict):
         import json
+
         return json.dumps(output, ensure_ascii=False)
     return str(output)

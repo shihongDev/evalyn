@@ -17,7 +17,7 @@ class MetricPreview:
     metric_id: str
     metric_type: str
     description: str
-    prompt: str | None = None      # full judge prompt (subjective only)
+    prompt: str | None = None  # full judge prompt (subjective only)
     rubric: list[str] | None = None  # rubric criteria
     threshold: float | None = None
     config: dict[str, Any] = field(default_factory=dict)
@@ -104,6 +104,7 @@ def preview_from_template(template_id: str) -> MetricPreview | None:
     """
     try:
         from .subjective import SUBJECTIVE_REGISTRY
+
         for tpl in SUBJECTIVE_REGISTRY:
             if tpl["id"] == template_id:
                 config = tpl.get("config", {})

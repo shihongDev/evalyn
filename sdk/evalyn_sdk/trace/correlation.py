@@ -83,9 +83,7 @@ class CorrelationReport:
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> CorrelationReport:
         return cls(
-            matches=[
-                CorrelationMatch(**m) for m in data.get("matches", [])
-            ],
+            matches=[CorrelationMatch(**m) for m in data.get("matches", [])],
             total_traces=data.get("total_traces", 0),
             total_events=data.get("total_events", 0),
             correlated_traces=data.get("correlated_traces", 0),
@@ -179,12 +177,14 @@ def annotate_trace_with_events(
     for m in matches:
         if m.trace_id == trace_id and m.event_id in event_map:
             ev = event_map[m.event_id]
-            correlated.append({
-                "event_id": ev.event_id,
-                "event_type": ev.event_type,
-                "description": ev.description,
-                "time_delta_ms": m.time_delta_ms,
-            })
+            correlated.append(
+                {
+                    "event_id": ev.event_id,
+                    "event_type": ev.event_type,
+                    "description": ev.description,
+                    "time_delta_ms": m.time_delta_ms,
+                }
+            )
     return {
         "trace_id": trace_id,
         "correlated_events": correlated,

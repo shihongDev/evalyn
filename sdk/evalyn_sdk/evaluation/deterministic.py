@@ -86,6 +86,7 @@ def sort_items_deterministically(items: list, seed: int = 42) -> list:
     Returns:
         New list sorted deterministically.
     """
+
     def sort_key(item):
         # Hash item ID with seed for stable ordering
         h = hashlib.sha256(f"{seed}:{item.id}".encode()).hexdigest()
@@ -117,11 +118,17 @@ def compute_dataset_hash(items: list) -> str:
     """
     content_parts = []
     for item in sorted(items, key=lambda i: i.id):
-        content_parts.append(json.dumps({
-            "id": item.id,
-            "input": item.input,
-            "output": item.output,
-        }, sort_keys=True, default=str))
+        content_parts.append(
+            json.dumps(
+                {
+                    "id": item.id,
+                    "input": item.input,
+                    "output": item.output,
+                },
+                sort_keys=True,
+                default=str,
+            )
+        )
     combined = "\n".join(content_parts)
     return hashlib.sha256(combined.encode()).hexdigest()[:16]
 
@@ -189,14 +196,10 @@ def verify_manifest(
         )
 
     if current.provider != previous.provider and previous.provider:
-        warnings.append(
-            f"Provider changed: {previous.provider} -> {current.provider}"
-        )
+        warnings.append(f"Provider changed: {previous.provider} -> {current.provider}")
 
     if current.model != previous.model and previous.model:
-        warnings.append(
-            f"Model changed: {previous.model} -> {current.model}"
-        )
+        warnings.append(f"Model changed: {previous.model} -> {current.model}")
 
     # Check metric version changes
     for metric_id, prev_hash in previous.metric_hashes.items():
@@ -219,6 +222,7 @@ def _get_evalyn_version() -> str:
     """Get the installed evalyn version."""
     try:
         from importlib.metadata import version
+
         return version("evalyn-sdk")
     except Exception:
         return "unknown"

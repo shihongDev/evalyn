@@ -57,10 +57,7 @@ class AnonymousExportConfig:
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> AnonymousExportConfig:
-        rules = [
-            AnonymizationRule.from_dict(r)
-            for r in data.get("rules", [])
-        ]
+        rules = [AnonymizationRule.from_dict(r) for r in data.get("rules", [])]
         return cls(
             rules=rules,
             preserve_structure=data.get("preserve_structure", True),

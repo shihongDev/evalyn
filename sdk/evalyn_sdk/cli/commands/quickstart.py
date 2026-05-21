@@ -45,23 +45,38 @@ from ..utils.rich import banner, section
 # Framework detection patterns: framework name -> (compiled regex patterns, display name)
 FRAMEWORK_PATTERNS: dict[str, tuple[list[re.Pattern], str]] = {
     "openai": (
-        [re.compile(r"^import openai\b", re.MULTILINE), re.compile(r"^from openai\b", re.MULTILINE)],
+        [
+            re.compile(r"^import openai\b", re.MULTILINE),
+            re.compile(r"^from openai\b", re.MULTILINE),
+        ],
         "OpenAI",
     ),
     "langchain": (
-        [re.compile(r"^from langchain\b", re.MULTILINE), re.compile(r"^import langchain\b", re.MULTILINE)],
+        [
+            re.compile(r"^from langchain\b", re.MULTILINE),
+            re.compile(r"^import langchain\b", re.MULTILINE),
+        ],
         "LangChain",
     ),
     "crewai": (
-        [re.compile(r"^from crewai\b", re.MULTILINE), re.compile(r"^import crewai\b", re.MULTILINE)],
+        [
+            re.compile(r"^from crewai\b", re.MULTILINE),
+            re.compile(r"^import crewai\b", re.MULTILINE),
+        ],
         "CrewAI",
     ),
     "anthropic": (
-        [re.compile(r"^import anthropic\b", re.MULTILINE), re.compile(r"^from anthropic\b", re.MULTILINE)],
+        [
+            re.compile(r"^import anthropic\b", re.MULTILINE),
+            re.compile(r"^from anthropic\b", re.MULTILINE),
+        ],
         "Anthropic",
     ),
     "google_adk": (
-        [re.compile(r"^from google\.adk\b", re.MULTILINE), re.compile(r"^import google\.adk\b", re.MULTILINE)],
+        [
+            re.compile(r"^from google\.adk\b", re.MULTILINE),
+            re.compile(r"^import google\.adk\b", re.MULTILINE),
+        ],
         "Google ADK",
     ),
 }
@@ -181,7 +196,7 @@ def _detect_framework(agent_file: str | None) -> tuple[str, str | None]:
     # Scan directory
     detected = _scan_directory_for_frameworks()
     if len(detected) == 1:
-        fw = list(detected.keys())[0]
+        fw = next(iter(detected))
         files = detected[fw]
         display = FRAMEWORK_PATTERNS[fw][1]
         print(f"  Detected: {display} client in {files[0]}")
@@ -248,9 +263,7 @@ def _print_instrumentation_snippet(framework: str) -> None:
         print(f"    {line}")
     print("  " + "-" * 50)
     if framework != "other":
-        print(
-            "\n  Important: import evalyn_sdk MUST come before the framework import."
-        )
+        print("\n  Important: import evalyn_sdk MUST come before the framework import.")
 
 
 def _create_evalyn_yaml() -> None:
@@ -288,9 +301,7 @@ def _run_agent(run_cmd: str, timeout: int) -> bool:
         if result.returncode != 0:
             print(f"\n  Agent exited with code {result.returncode}.")
             print("  Check your agent independently before retrying.")
-            print(
-                "  Hint: Make sure 'import evalyn_sdk' is at the top of your agent file."
-            )
+            print("  Hint: Make sure 'import evalyn_sdk' is at the top of your agent file.")
             return False
         print("\n  Agent completed successfully.")
         return True
@@ -322,9 +333,7 @@ def _suggest_metrics_hint() -> None:
     print("    1. evalyn build-dataset --project <name>   # Build dataset from traces")
     print("    2. evalyn suggest-metrics --dataset <path>  # Pick evaluation metrics")
     print("    3. evalyn run-eval --dataset <path>         # Run evaluation")
-    print(
-        "\n  Or run the full pipeline at once:"
-    )
+    print("\n  Or run the full pipeline at once:")
     print("    evalyn one-click --project <name>")
 
 
@@ -358,7 +367,7 @@ def cmd_quickstart(args: argparse.Namespace) -> None:
         # Step 1: Detect framework
         print()
         print(section("STEP 1/3: DETECT FRAMEWORK"))
-        framework, detected_file = _detect_framework(agent_file)
+        framework, _detected_file = _detect_framework(agent_file)
 
         # Step 2: Generate instrumentation snippet
         print()

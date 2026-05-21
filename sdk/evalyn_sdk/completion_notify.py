@@ -130,9 +130,7 @@ def format_notify_send_command(message: str, title: str = "evalyn") -> list[str]
     return ["notify-send", title, message]
 
 
-def create_notify_event(
-    command: str, duration: float, exit_code: int
-) -> NotifyEvent:
+def create_notify_event(command: str, duration: float, exit_code: int) -> NotifyEvent:
     """Factory: create a NotifyEvent with auto-generated timestamp and message."""
     message = build_notification_message(command, duration, exit_code)
     timestamp = time.strftime("%Y-%m-%dT%H:%M:%S%z")

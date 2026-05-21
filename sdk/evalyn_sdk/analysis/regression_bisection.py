@@ -159,13 +159,15 @@ def bisect_items(
             chosen = right
             chosen_rate = right_rate
 
-        steps.append(BisectionStep(
-            step_number=step_num,
-            subset_size=len(chosen),
-            pass_rate=chosen_rate,
-            direction=direction,
-            item_ids=[item.get("id", "") for item in chosen],
-        ))
+        steps.append(
+            BisectionStep(
+                step_number=step_num,
+                subset_size=len(chosen),
+                pass_rate=chosen_rate,
+                direction=direction,
+                item_ids=[item.get("id", "") for item in chosen],
+            )
+        )
 
         # If neither half shows a meaningful drop, stop
         if min(left_rate, right_rate) >= original_rate - target_drop:
@@ -177,13 +179,15 @@ def bisect_items(
     if current:
         final_rate = score_fn(current)
         step_num += 1
-        steps.append(BisectionStep(
-            step_number=step_num,
-            subset_size=len(current),
-            pass_rate=final_rate,
-            direction="found",
-            item_ids=[item.get("id", "") for item in current],
-        ))
+        steps.append(
+            BisectionStep(
+                step_number=step_num,
+                subset_size=len(current),
+                pass_rate=final_rate,
+                direction="found",
+                item_ids=[item.get("id", "") for item in current],
+            )
+        )
 
     culprit_ids = [item.get("id", "") for item in current]
     regression_mag = original_rate - score_fn(current) if current else 0.0

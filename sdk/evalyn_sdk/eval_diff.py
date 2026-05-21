@@ -148,14 +148,16 @@ def compute_score_diff(
                 direction = "unchanged"
                 unchanged += 1
 
-            diffs.append(ItemDiff(
-                item_id=item_id,
-                metric_id=metric_id,
-                score_a=sa,
-                score_b=sb,
-                delta=delta,
-                direction=direction,
-            ))
+            diffs.append(
+                ItemDiff(
+                    item_id=item_id,
+                    metric_id=metric_id,
+                    score_a=sa,
+                    score_b=sb,
+                    delta=delta,
+                    direction=direction,
+                )
+            )
 
     return RunDiff(
         run_a_id=run_a_id,
@@ -180,14 +182,16 @@ def compute_text_diff(
         added = sorted(words_b - words_a)
         removed = sorted(words_a - words_b)
         if added or removed:
-            diffs.append(TextDiff(
-                item_id=item_id,
-                field=field_name,
-                text_a=texts_a[item_id],
-                text_b=texts_b[item_id],
-                added_words=added,
-                removed_words=removed,
-            ))
+            diffs.append(
+                TextDiff(
+                    item_id=item_id,
+                    field=field_name,
+                    text_a=texts_a[item_id],
+                    text_b=texts_b[item_id],
+                    added_words=added,
+                    removed_words=removed,
+                )
+            )
     return diffs
 
 
@@ -250,7 +254,9 @@ def summarize_diff(run_diff: RunDiff) -> dict[str, Any]:
     mean_delta = sum(deltas) / len(deltas) if deltas else 0.0
 
     most_improved = max(run_diff.item_diffs, key=lambda d: d.delta) if run_diff.item_diffs else None
-    most_regressed = min(run_diff.item_diffs, key=lambda d: d.delta) if run_diff.item_diffs else None
+    most_regressed = (
+        min(run_diff.item_diffs, key=lambda d: d.delta) if run_diff.item_diffs else None
+    )
 
     return {
         "improved_count": run_diff.improved_count,

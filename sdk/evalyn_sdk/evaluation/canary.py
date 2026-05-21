@@ -95,8 +95,12 @@ def evaluate_canary(
     """
     if not results:
         return CanaryResult(
-            sample_size=0, pass_rate=0.0, passed_count=0, failed_count=0,
-            abort_threshold=abort_threshold, should_abort=True,
+            sample_size=0,
+            pass_rate=0.0,
+            passed_count=0,
+            failed_count=0,
+            abort_threshold=abort_threshold,
+            should_abort=True,
         )
 
     # Count unique items and their pass/fail status

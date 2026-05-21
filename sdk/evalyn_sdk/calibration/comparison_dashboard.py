@@ -87,9 +87,7 @@ class ComparisonDashboard:
     def from_dict(cls, data: dict[str, Any]) -> ComparisonDashboard:
         entries = []
         for e in data.get("entries", []):
-            attempts = [
-                CalibrationAttemptSummary.from_dict(a) for a in e.get("attempts", [])
-            ]
+            attempts = [CalibrationAttemptSummary.from_dict(a) for a in e.get("attempts", [])]
             entries.append(
                 ComparisonEntry(
                     metric_id=e["metric_id"],
@@ -111,9 +109,7 @@ class ComparisonDashboard:
         for entry in self.entries:
             lines.append(f"  Metric: {entry.metric_id}")
             lines.append(f"    Best: {entry.best_attempt_id}")
-            lines.append(
-                f"    Improvement over baseline: {entry.improvement_over_baseline:+.4f}"
-            )
+            lines.append(f"    Improvement over baseline: {entry.improvement_over_baseline:+.4f}")
             for a in entry.attempts:
                 marker = " *" if a.attempt_id == entry.best_attempt_id else ""
                 lines.append(

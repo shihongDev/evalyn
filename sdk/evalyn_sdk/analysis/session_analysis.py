@@ -1,6 +1,7 @@
 """
 Session-level analysis: aggregate metrics across all calls within an eval session.
 """
+
 from __future__ import annotations
 
 from collections import defaultdict
@@ -154,9 +155,7 @@ def analyze_sessions(spans: list[Span]) -> SessionReport:
     return SessionReport(sessions=summaries, total_sessions=len(summaries))
 
 
-def compare_sessions(
-    a: SessionSummary, b: SessionSummary
-) -> SessionComparisonResult:
+def compare_sessions(a: SessionSummary, b: SessionSummary) -> SessionComparisonResult:
     """Compute deltas between two session summaries (b - a)."""
     pass_rate_delta: float | None = None
     if a.pass_rate is not None and b.pass_rate is not None:

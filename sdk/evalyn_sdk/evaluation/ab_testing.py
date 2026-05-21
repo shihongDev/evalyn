@@ -17,7 +17,7 @@ class ABTestResult:
     variant_a_id: str
     variant_b_id: str
     item_count: int
-    agreement_rate: float    # fraction of items where both variants agree
+    agreement_rate: float  # fraction of items where both variants agree
     a_pass_rate: float
     b_pass_rate: float
     a_avg_score: float
@@ -89,10 +89,14 @@ def compare_variants(
 
     if not common_items:
         return ABTestResult(
-            variant_a_id=variant_a_id, variant_b_id=variant_b_id,
-            item_count=0, agreement_rate=0.0,
-            a_pass_rate=0.0, b_pass_rate=0.0,
-            a_avg_score=0.0, b_avg_score=0.0,
+            variant_a_id=variant_a_id,
+            variant_b_id=variant_b_id,
+            item_count=0,
+            agreement_rate=0.0,
+            a_pass_rate=0.0,
+            b_pass_rate=0.0,
+            a_avg_score=0.0,
+            b_avg_score=0.0,
         )
 
     agreed = 0

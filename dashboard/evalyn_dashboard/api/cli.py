@@ -51,9 +51,7 @@ def _coerce_number(value: Any) -> float | int | None:
     return None
 
 
-def _collect_validation_errors(
-    schema: CliSchema, args: dict[str, Any]
-) -> list[str]:
+def _collect_validation_errors(schema: CliSchema, args: dict[str, Any]) -> list[str]:
     """Non-raising counterpart of ``_validate_args``. Returns a list of
     human-readable error strings; empty list means valid.
 
@@ -151,9 +149,7 @@ def _param_to_argv(param: ParamSchema, value: Any) -> list[str]:
         if param.options and value not in param.options:
             raise HTTPException(
                 status_code=400,
-                detail=(
-                    f"{param.name}: {value!r} not in {param.options}"
-                ),
+                detail=(f"{param.name}: {value!r} not in {param.options}"),
             )
         return [flag, str(value)]
 
@@ -222,6 +218,7 @@ async def get_catalog(
     if q is not None:
         needle = q.strip().lower()
         if needle:
+
             def _matches(s: CliSchema) -> bool:
                 # description and blurb are documented optional fields
                 # on CliSchema; getattr keeps us robust to dataclasses
@@ -330,9 +327,7 @@ async def get_command_history(
             args = row.get("args") if isinstance(row.get("args"), dict) else {}
             duration_s = row.get("duration_s")
             duration_ms = (
-                int(round(float(duration_s) * 1000.0))
-                if isinstance(duration_s, (int, float))
-                else 0
+                round(float(duration_s) * 1000.0) if isinstance(duration_s, (int, float)) else 0
             )
             status = _persistence_status_to_run_status(
                 str(row.get("status") or ""), row.get("exit_code")

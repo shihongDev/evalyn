@@ -55,9 +55,7 @@ class GEPAOptimizer:
 
     def __init__(self, config: GEPAConfig | None = None):
         if not GEPA_AVAILABLE:
-            raise ImportError(
-                "GEPA is not installed. Install it with: pip install gepa"
-            )
+            raise ImportError("GEPA is not installed. Install it with: pip install gepa")
         self.config = config or GEPAConfig()
 
     def _build_dataset_from_annotations(
@@ -107,9 +105,7 @@ class GEPAOptimizer:
 
         return trainset, valset
 
-    def _build_seed_prompt(
-        self, metric_id: str, current_preamble: str
-    ) -> dict[str, str]:
+    def _build_seed_prompt(self, metric_id: str, current_preamble: str) -> dict[str, str]:
         """
         Build seed prompt with only the preamble (the part to be optimized).
         The rubric will be appended separately after optimization.
@@ -181,14 +177,10 @@ class GEPAOptimizer:
             )
 
             # Extract optimized preamble
-            optimized_preamble = gepa_result.best_candidate.get(
-                "preamble", seed_prompt["preamble"]
-            )
+            optimized_preamble = gepa_result.best_candidate.get("preamble", seed_prompt["preamble"])
 
             # Build the full optimized prompt (ready to use)
-            full_optimized_prompt = build_full_prompt(
-                optimized_preamble, current_rubric
-            )
+            full_optimized_prompt = build_full_prompt(optimized_preamble, current_rubric)
 
             # Return result with original rubric preserved and new preamble
             return PromptOptimizationResult(

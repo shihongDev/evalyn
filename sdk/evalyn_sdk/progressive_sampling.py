@@ -239,15 +239,11 @@ def format_progressive_report(result: ProgressiveResult) -> str:
     lines.append(f"Converged: {result.converged}")
     lines.append("")
     lines.append("Rounds:")
-    lines.append(
-        f"  {'Round':>5}  {'Size':>6}  {'CI Width':>10}  {'Sufficient':>10}"
-    )
+    lines.append(f"  {'Round':>5}  {'Size':>6}  {'CI Width':>10}  {'Sufficient':>10}")
     lines.append(f"  {'-' * 5}  {'-' * 6}  {'-' * 10}  {'-' * 10}")
     for r in result.rounds:
         suf = "yes" if r.sufficient else "no"
-        lines.append(
-            f"  {r.round_number:>5}  {r.sample_size:>6}  {r.ci_width:>10.4f}  {suf:>10}"
-        )
+        lines.append(f"  {r.round_number:>5}  {r.sample_size:>6}  {r.ci_width:>10.4f}  {suf:>10}")
     lines.append("")
     lines.append("Final sample IDs:")
     for item_id in result.final_sample_ids:

@@ -98,7 +98,7 @@ def generate_malformed_json(seed: int = 0) -> str:
         '{"score": 0.5, "label": "good"',  # missing closing brace
         '{"score": 0.5,, "label": "good"}',  # extra comma
         '{"score": 0.5, "label": "good}',  # unclosed string
-        '{score: 0.5}',  # unquoted key
+        "{score: 0.5}",  # unquoted key
         '{"score": 0.5, "label": "good",}',  # trailing comma
         '{"score": .5}',  # no leading zero
         "{'score': 0.5}",  # single quotes
@@ -174,9 +174,7 @@ def generate_fuzz_inputs(count: int = 50, seed: int = 42) -> list[FuzzInput]:
         ),
         "unicode": generate_unicode_input,
         "injection": generate_injection_input,
-        "random": lambda s: "".join(
-            chr(rng.randint(0, 127)) for _ in range(rng.randint(1, 100))
-        ),
+        "random": lambda s: "".join(chr(rng.randint(0, 127)) for _ in range(rng.randint(1, 100))),
     }
 
     for i in range(count):
@@ -188,9 +186,7 @@ def generate_fuzz_inputs(count: int = 50, seed: int = 42) -> list[FuzzInput]:
     return inputs
 
 
-def fuzz_parser(
-    parser_fn: Callable[[str], Any], inputs: list[FuzzInput]
-) -> FuzzReport:
+def fuzz_parser(parser_fn: Callable[[str], Any], inputs: list[FuzzInput]) -> FuzzReport:
     """Run parser against all inputs, catch exceptions."""
     results: list[FuzzResult] = []
     crashes = 0
@@ -233,21 +229,12 @@ def fuzz_parser(
 
 def find_crash_patterns(report: FuzzReport) -> dict[str, int]:
     """Count crashes by category."""
+    # Match result input_text back to categories via heuristic
+    # since FuzzResult does not carry the original category.
     patterns: dict[str, int] = {}
-    for result in report.results:
-        if result.crashed:
-            # Find the matching FuzzInput category by input_text
-            # Since we only have results, group by a heuristic or use a default
-            # We track category in the loop below
-            pass
-
-    # Re-derive: match result input_text back to categories
-    # Simpler approach: iterate results and classify
-    patterns = {}
     for result in report.results:
         if not result.crashed:
             continue
-        # Determine category from the input text characteristics
         cat = _classify_input(result.input_text)
         patterns[cat] = patterns.get(cat, 0) + 1
 
@@ -276,7 +263,7 @@ def _classify_input(text: str) -> str:
             return "malformed_json"
 
     # Check for truncated (very short, looks like start of JSON)
-    if len(text) < 10 and any(c in text for c in "{}[]\":"):
+    if len(text) < 10 and any(c in text for c in '{}[]":'):
         return "truncated"
 
     return "random"

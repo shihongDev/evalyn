@@ -87,14 +87,20 @@ def build_custom_objective_metric(
             score = 0.0
             passed = False
             return MetricResult(
-                metric_id=spec.id, item_id=item.id, call_id=call.id,
-                score=score, passed=passed,
+                metric_id=spec.id,
+                item_id=item.id,
+                call_id=call.id,
+                score=score,
+                passed=passed,
                 details={"error": str(e), "expression": expression},
             )
 
         return MetricResult(
-            metric_id=spec.id, item_id=item.id, call_id=call.id,
-            score=score, passed=passed,
+            metric_id=spec.id,
+            item_id=item.id,
+            call_id=call.id,
+            score=score,
+            passed=passed,
             details={"expression": expression},
         )
 
@@ -191,6 +197,7 @@ def load_custom_metrics_from_config(
 # Safe expression parser (NO eval/exec)
 # =============================================================================
 
+
 def _parse_expression(expr: str):
     """Parse a safe expression into a callable (input_text, output_text) -> result.
 
@@ -199,25 +206,25 @@ def _parse_expression(expr: str):
     expr = expr.strip()
 
     # len(output) op N
-    m = re.match(r'^len\(output\)\s*([<>=!]+)\s*(\d+)$', expr)
+    m = re.match(r"^len\(output\)\s*([<>=!]+)\s*(\d+)$", expr)
     if m:
         op, val = m.group(1), int(m.group(2))
         return lambda inp, out: _compare(len(out), op, val)
 
     # len(input) op N
-    m = re.match(r'^len\(input\)\s*([<>=!]+)\s*(\d+)$', expr)
+    m = re.match(r"^len\(input\)\s*([<>=!]+)\s*(\d+)$", expr)
     if m:
         op, val = m.group(1), int(m.group(2))
         return lambda inp, out: _compare(len(inp), op, val)
 
     # output_length op N
-    m = re.match(r'^output_length\s*([<>=!]+)\s*(\d+)$', expr)
+    m = re.match(r"^output_length\s*([<>=!]+)\s*(\d+)$", expr)
     if m:
         op, val = m.group(1), int(m.group(2))
         return lambda inp, out: _compare(len(out), op, val)
 
     # input_length op N
-    m = re.match(r'^input_length\s*([<>=!]+)\s*(\d+)$', expr)
+    m = re.match(r"^input_length\s*([<>=!]+)\s*(\d+)$", expr)
     if m:
         op, val = m.group(1), int(m.group(2))
         return lambda inp, out: _compare(len(inp), op, val)
@@ -252,8 +259,10 @@ def _parse_expression(expr: str):
         expected = m.group(1)
         return lambda inp, out: out.strip() != expected
 
-    raise ValueError(f"Cannot parse expression: {expr!r}. "
-                     f"Supported: len(output) < N, \"keyword\" in output, output == \"value\"")
+    raise ValueError(
+        f"Cannot parse expression: {expr!r}. "
+        f'Supported: len(output) < N, "keyword" in output, output == "value"'
+    )
 
 
 def _compare(actual: int, op: str, expected: int) -> bool:
@@ -278,6 +287,7 @@ def _to_text(value: Any) -> str:
     if isinstance(value, str):
         return value
     import json
+
     try:
         return json.dumps(value, ensure_ascii=False)
     except Exception:

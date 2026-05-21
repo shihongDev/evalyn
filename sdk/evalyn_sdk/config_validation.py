@@ -185,9 +185,7 @@ def _check_type(value: Any, expected_type_name: str) -> bool:
 # ---------------------------------------------------------------------------
 
 
-def validate_config(
-    config: dict, schema: ConfigSchema | None = None
-) -> ValidationResult:
+def validate_config(config: dict, schema: ConfigSchema | None = None) -> ValidationResult:
     """Validate a config dict against a schema.
 
     Checks:
@@ -271,9 +269,7 @@ def suggest_fix(error: ConfigError) -> str:
     return ""
 
 
-def validate_config_file(
-    path: str, schema: ConfigSchema | None = None
-) -> ValidationResult:
+def validate_config_file(path: str, schema: ConfigSchema | None = None) -> ValidationResult:
     """Load a YAML-like config file (simple key: value parsing) and validate.
 
     Supports simple single-line "key: value" format. Lines starting with #

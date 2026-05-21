@@ -89,9 +89,7 @@ class BoundaryResult:
     def from_dict(cls, data: dict[str, Any]) -> BoundaryResult:
         return cls(
             selected_ids=data.get("selected_ids", []),
-            scores=[
-                BoundaryScore.from_dict(s) for s in data.get("scores", [])
-            ],
+            scores=[BoundaryScore.from_dict(s) for s in data.get("scores", [])],
             boundary_count=data.get("boundary_count", 0),
             centroid_count=data.get("centroid_count", 0),
             total_pool=data.get("total_pool", 0),
@@ -108,9 +106,7 @@ def _tokenize(text: str) -> set[str]:
     return set(text.lower().split())
 
 
-def compute_centroid_distance(
-    item_words: set[str], centroid_words: set[str]
-) -> float:
+def compute_centroid_distance(item_words: set[str], centroid_words: set[str]) -> float:
     """1 - Jaccard similarity between item and centroid word sets.
 
     Returns 1.0 when there is no overlap, 0.0 for identical sets.
@@ -125,9 +121,7 @@ def compute_centroid_distance(
     return 1.0 - len(intersection) / len(union)
 
 
-def compute_boundary_distance(
-    item_words: set[str], centroids: list[set[str]]
-) -> float:
+def compute_boundary_distance(item_words: set[str], centroids: list[set[str]]) -> float:
     """Distance to nearest centroid minus distance to second-nearest.
 
     Small values mean the item sits between two clusters (boundary).
@@ -192,9 +186,7 @@ def assign_clusters(
     # Step 2: compute initial centroids
     centroids: list[set[str]] = []
     for c in range(k):
-        cluster_texts = [
-            items[iid] for iid in sorted_ids if assignment[iid] == c
-        ]
+        cluster_texts = [items[iid] for iid in sorted_ids if assignment[iid] == c]
         centroids.append(_compute_centroid(cluster_texts))
 
     # Step 3: reassign by nearest centroid
@@ -206,9 +198,7 @@ def assign_clusters(
     # Step 4: recompute centroids after reassignment
     new_centroids: list[set[str]] = []
     for c in range(k):
-        cluster_texts = [
-            items[iid] for iid in sorted_ids if assignment[iid] == c
-        ]
+        cluster_texts = [items[iid] for iid in sorted_ids if assignment[iid] == c]
         new_centroids.append(_compute_centroid(cluster_texts))
 
     return new_centroids, assignment
@@ -340,8 +330,7 @@ def format_boundary_report(result: BoundaryResult) -> str:
     for s in top:
         label = "boundary" if s.is_boundary else "centroid"
         lines.append(
-            f"  {s.item_id}: dist={s.boundary_distance:.3f} "
-            f"cluster={s.cluster_id} [{label}]"
+            f"  {s.item_id}: dist={s.boundary_distance:.3f} cluster={s.cluster_id} [{label}]"
         )
     lines.append("")
     lines.append("Selected IDs:")

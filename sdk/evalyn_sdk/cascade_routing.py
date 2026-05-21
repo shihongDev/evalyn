@@ -164,12 +164,35 @@ def default_config() -> CascadeConfig:
 
 # Question words and complexity markers
 _COMPLEX_MARKERS = [
-    "explain", "compare", "contrast", "analyze", "evaluate",
-    "justify", "critique", "synthesize", "design", "prove",
-    "derive", "optimize", "implement", "debug", "refactor",
+    "explain",
+    "compare",
+    "contrast",
+    "analyze",
+    "evaluate",
+    "justify",
+    "critique",
+    "synthesize",
+    "design",
+    "prove",
+    "derive",
+    "optimize",
+    "implement",
+    "debug",
+    "refactor",
 ]
 
-_NEGATIONS = ["not", "no", "never", "neither", "nor", "don't", "doesn't", "won't", "can't", "shouldn't"]
+_NEGATIONS = [
+    "not",
+    "no",
+    "never",
+    "neither",
+    "nor",
+    "don't",
+    "doesn't",
+    "won't",
+    "can't",
+    "shouldn't",
+]
 
 
 def estimate_difficulty(text: str) -> float:
@@ -270,8 +293,7 @@ def route_batch(
         premium_cost = max(t.cost_per_1k_tokens for t in config.tiers)
         baseline = premium_cost * len(decisions)
         actual = sum(
-            tier_map.get(d.assigned_tier, config.tiers[-1]).cost_per_1k_tokens
-            for d in decisions
+            tier_map.get(d.assigned_tier, config.tiers[-1]).cost_per_1k_tokens for d in decisions
         )
         savings = 1.0 - (actual / baseline) if baseline > 0 else 0.0
     else:

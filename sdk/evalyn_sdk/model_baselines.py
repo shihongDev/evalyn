@@ -106,16 +106,10 @@ class BaselineReport:
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> BaselineReport:
         return cls(
-            agreements=[
-                AgreementResult.from_dict(a) for a in data.get("agreements", [])
-            ],
+            agreements=[AgreementResult.from_dict(a) for a in data.get("agreements", [])],
             overall_agreement=data.get("overall_agreement", 0.0),
-            recommended_local_metrics=list(
-                data.get("recommended_local_metrics", [])
-            ),
-            not_recommended_metrics=list(
-                data.get("not_recommended_metrics", [])
-            ),
+            recommended_local_metrics=list(data.get("recommended_local_metrics", [])),
+            not_recommended_metrics=list(data.get("not_recommended_metrics", [])),
             generated_at=data.get("generated_at", ""),
         )
 
@@ -292,8 +286,7 @@ def format_baseline_report(report: BaselineReport) -> str:
     if report.agreements:
         # Header
         lines.append(
-            f"{'Metric':<20} {'Agreement':>10} {'Correlation':>12} "
-            f"{'Mean Diff':>10} {'N':>5}"
+            f"{'Metric':<20} {'Agreement':>10} {'Correlation':>12} {'Mean Diff':>10} {'N':>5}"
         )
         lines.append("-" * 60)
         for a in report.agreements:

@@ -13,8 +13,14 @@ from typing import Any
 
 from .core import RunAnalysis
 
+# Default caps used when rendering the report.
+# Tuned for readability; override via function parameters when generating reports
+# for very large runs or when embedding into a custom dashboard.
+DEFAULT_MAX_FAILED_ITEMS = 30
+DEFAULT_MAX_IO_LENGTH = 10000
 
-def _format_io_content(content: Any, max_length: int = 10000) -> str:
+
+def _format_io_content(content: Any, max_length: int = DEFAULT_MAX_IO_LENGTH) -> str:
     """Format input/output content for HTML display with escaping and truncation."""
     if content is None:
         return "No data available"
@@ -36,14 +42,17 @@ def _format_io_content(content: Any, max_length: int = 10000) -> str:
     return html.escape(text)
 
 
-def _render_failed_items(analysis: RunAnalysis, item_details: dict) -> str:
+def _render_failed_items(
+    analysis: RunAnalysis,
+    item_details: dict,
+    max_failed_items: int = DEFAULT_MAX_FAILED_ITEMS,
+    max_io_length: int = DEFAULT_MAX_IO_LENGTH,
+) -> str:
     """Render the failed items HTML section."""
     parts = []
-    for i, item_id in enumerate(analysis.failed_items[:30]):
+    for i, item_id in enumerate(analysis.failed_items[:max_failed_items]):
         item_stats = analysis.item_stats[item_id]
-        failed_count = sum(
-            1 for m, r in item_stats.metric_results.items() if r["passed"] is False
-        )
+        failed_count = sum(1 for m, r in item_stats.metric_results.items() if r["passed"] is False)
         total_with_pass_fail = sum(
             1 for m, r in item_stats.metric_results.items() if r["passed"] is not None
         )
@@ -51,10 +60,12 @@ def _render_failed_items(analysis: RunAnalysis, item_details: dict) -> str:
         # Get input/output from item_details
         item_info = item_details.get(item_id, {})
         input_content = _format_io_content(
-            item_info.get("input", "No input data available")
+            item_info.get("input", "No input data available"),
+            max_length=max_io_length,
         )
         output_content = _format_io_content(
-            item_info.get("output", "No output data available")
+            item_info.get("output", "No output data available"),
+            max_length=max_io_length,
         )
 
         # Render failed metrics with reasoning
@@ -106,7 +117,11 @@ def _render_failed_items(analysis: RunAnalysis, item_details: dict) -> str:
 
 
 def generate_html_report(
-    analysis: RunAnalysis, verbose: bool = False, item_details: dict | None = None
+    analysis: RunAnalysis,
+    verbose: bool = False,
+    item_details: dict | None = None,
+    max_failed_items: int = DEFAULT_MAX_FAILED_ITEMS,
+    max_io_length: int = DEFAULT_MAX_IO_LENGTH,
 ) -> str:
     """Generate a warm-themed evaluation dashboard.
 
@@ -117,6 +132,10 @@ def generate_html_report(
         analysis: The run analysis data
         verbose: Include additional details
         item_details: Optional dict mapping item_id -> {"input": ..., "output": ...}
+        max_failed_items: Maximum failed items to render in the failed-items section.
+            Overflow is summarized as "...and N more".
+        max_io_length: Maximum characters of input/output content to embed per
+            failed item before truncation.
     """
     item_details = item_details or {}
 
@@ -146,16 +165,12 @@ def generate_html_report(
             return "#D4A27F"  # Terracotta for warning
         return "#C97B63"  # Coral for bad
 
-    pass_rate_colors = json.dumps(
-        [get_pass_rate_color(m) for m in metrics_by_pass_rate]
-    )
+    pass_rate_colors = json.dumps([get_pass_rate_color(m) for m in metrics_by_pass_rate])
 
     # Prepare per-item data for detailed view
     item_data_rows = []
     for item_id, item in analysis.item_stats.items():
-        failed_metrics = [
-            m for m, r in item.metric_results.items() if r["passed"] is False
-        ]
+        failed_metrics = [m for m, r in item.metric_results.items() if r["passed"] is False]
         status = "pass" if item.all_passed else "fail"
         item_data_rows.append(
             {
@@ -220,9 +235,7 @@ def generate_html_report(
                 if len(x_vals) > 1:
                     x_mean = sum(x_vals) / len(x_vals)
                     y_mean = sum(y_vals) / len(y_vals)
-                    numerator = sum(
-                        (x - x_mean) * (y - y_mean) for x, y in zip(x_vals, y_vals)
-                    )
+                    numerator = sum((x - x_mean) * (y - y_mean) for x, y in zip(x_vals, y_vals))
                     denom_x = sum((x - x_mean) ** 2 for x in x_vals) ** 0.5
                     denom_y = sum((y - y_mean) ** 2 for y in y_vals) ** 0.5
                     if denom_x > 0 and denom_y > 0:
@@ -235,9 +248,7 @@ def generate_html_report(
                 correlations[j][i] = corr
         correlation_data = {"labels": metric_ids, "matrix": correlations}
 
-    all_passed_count = sum(
-        1 for item in analysis.item_stats.values() if item.all_passed
-    )
+    all_passed_count = sum(1 for item in analysis.item_stats.values() if item.all_passed)
 
     # Import the HTML template
     return _generate_html_content(
@@ -252,6 +263,8 @@ def generate_html_report(
         correlation_data=correlation_data,
         all_passed_count=all_passed_count,
         item_details=item_details,
+        max_failed_items=max_failed_items,
+        max_io_length=max_io_length,
     )
 
 
@@ -267,6 +280,8 @@ def _generate_html_content(
     correlation_data: dict | None,
     all_passed_count: int,
     item_details: dict,
+    max_failed_items: int = DEFAULT_MAX_FAILED_ITEMS,
+    max_io_length: int = DEFAULT_MAX_IO_LENGTH,
 ) -> str:
     """Generate the actual HTML content. Split out for readability."""
 
@@ -288,7 +303,7 @@ def _generate_html_content(
         {_render_kpi_bar(analysis, metrics_by_pass_rate, all_passed_count)}
         {_render_charts_section(metric_labels, pass_rates, pass_rate_colors, score_dist_data)}
         {_render_metrics_table(analysis, metrics_by_pass_rate)}
-        {_render_failed_items_section(analysis, item_details)}
+        {_render_failed_items_section(analysis, item_details, max_failed_items=max_failed_items, max_io_length=max_io_length)}
         {_render_footer(analysis, all_passed_count)}
     </div>
     {_get_javascript(metric_labels, pass_rates, pass_rate_colors, score_dist_data, passed_counts, failed_counts, correlation_data)}
@@ -947,13 +962,7 @@ def _render_metrics_table(analysis: RunAnalysis, metrics_by_pass_rate: list) -> 
     for ms in metrics_by_pass_rate:
         type_class = "status-pass" if ms.metric_type == "objective" else "status-warn"
         if ms.pass_rate is not None:
-            bar_class = (
-                "high"
-                if ms.pass_rate >= 0.8
-                else "mid"
-                if ms.pass_rate >= 0.5
-                else "low"
-            )
+            bar_class = "high" if ms.pass_rate >= 0.8 else "mid" if ms.pass_rate >= 0.5 else "low"
             status_class = (
                 "status-pass"
                 if ms.pass_rate >= 0.8
@@ -1020,14 +1029,20 @@ def _render_metrics_table(analysis: RunAnalysis, metrics_by_pass_rate: list) -> 
         </div>"""
 
 
-def _render_failed_items_section(analysis: RunAnalysis, item_details: dict) -> str:
+def _render_failed_items_section(
+    analysis: RunAnalysis,
+    item_details: dict,
+    max_failed_items: int = DEFAULT_MAX_FAILED_ITEMS,
+    max_io_length: int = DEFAULT_MAX_IO_LENGTH,
+) -> str:
     """Render the failed items section."""
     if not analysis.failed_items:
         return ""
 
+    overflow = len(analysis.failed_items) - max_failed_items
     more_text = (
-        f'<div class="failed-item" style="color: var(--text-muted); text-align: center;">...and {len(analysis.failed_items) - 30} more</div>'
-        if len(analysis.failed_items) > 30
+        f'<div class="failed-item" style="color: var(--text-muted); text-align: center;">...and {overflow} more</div>'
+        if overflow > 0
         else ""
     )
 
@@ -1040,7 +1055,7 @@ def _render_failed_items_section(analysis: RunAnalysis, item_details: dict) -> s
                     <span class="failed-count">{len(analysis.failed_items)} items</span>
                 </div>
                 <div class="failed-list">
-                    {_render_failed_items(analysis, item_details)}
+                    {_render_failed_items(analysis, item_details, max_failed_items=max_failed_items, max_io_length=max_io_length)}
                     {more_text}
                 </div>
             </div>
@@ -1337,9 +1352,7 @@ def _render_cluster_scatter(clustering_result: Any, metric_id: str) -> str:
         case_type = case_types[i] if case_types else "unknown"
         reason = case_reasons[i] if case_reasons else ""
         reason_short = reason[:120] + "..." if len(reason) > 120 else reason
-        type_label = (
-            "FP (too lenient)" if case_type == "false_positive" else "FN (too strict)"
-        )
+        type_label = "FP (too lenient)" if case_type == "false_positive" else "FN (too strict)"
         hover_texts.append(f"<b>{label}</b><br>Type: {type_label}<br>{reason_short}")
 
     fig = go.Figure()
@@ -1392,12 +1405,8 @@ def _render_cluster_scatter(clustering_result: Any, metric_id: str) -> str:
         paper_bgcolor="#0f1a16",
         plot_bgcolor="#152420",
         font=dict(color="#e5e7eb", size=11),
-        xaxis=dict(
-            showgrid=True, gridcolor="#1f2d28", zeroline=False, showticklabels=False
-        ),
-        yaxis=dict(
-            showgrid=True, gridcolor="#1f2d28", zeroline=False, showticklabels=False
-        ),
+        xaxis=dict(showgrid=True, gridcolor="#1f2d28", zeroline=False, showticklabels=False),
+        yaxis=dict(showgrid=True, gridcolor="#1f2d28", zeroline=False, showticklabels=False),
         legend=dict(bgcolor="#0f1a16", bordercolor="#1f2d28", borderwidth=1),
         height=350,
         margin=dict(l=20, r=20, t=40, b=20),
@@ -1425,7 +1434,11 @@ def _render_cluster_scatter(clustering_result: Any, metric_id: str) -> str:
 
 
 def generate_report(
-    analysis: RunAnalysis, output_path: Path, format: str = "html"
+    analysis: RunAnalysis,
+    output_path: Path,
+    format: str = "html",
+    max_failed_items: int = DEFAULT_MAX_FAILED_ITEMS,
+    max_io_length: int = DEFAULT_MAX_IO_LENGTH,
 ) -> Path:
     """Generate a report file.
 
@@ -1433,6 +1446,8 @@ def generate_report(
         analysis: The run analysis data
         output_path: Path to save the report
         format: "html" or "text"
+        max_failed_items: Cap on failed items rendered in the HTML report.
+        max_io_length: Cap on per-item input/output characters in the HTML report.
 
     Returns:
         Path to the generated report
@@ -1443,7 +1458,11 @@ def generate_report(
     output_path.parent.mkdir(parents=True, exist_ok=True)
 
     if format == "html":
-        content = generate_html_report(analysis)
+        content = generate_html_report(
+            analysis,
+            max_failed_items=max_failed_items,
+            max_io_length=max_io_length,
+        )
         if not output_path.suffix:
             output_path = output_path.with_suffix(".html")
     else:

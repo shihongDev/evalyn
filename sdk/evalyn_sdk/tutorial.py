@@ -116,11 +116,7 @@ _STEPS = [
             "traces, manual JSONL files, or synthetic generation."
         ),
         command_hint="evalyn dataset create --from-traces .evalyn/traces/ --output my_dataset/",
-        sample_output=(
-            "Dataset created: my_dataset/\n"
-            "Items: 12\n"
-            "Source: 12 traces"
-        ),
+        sample_output=("Dataset created: my_dataset/\nItems: 12\nSource: 12 traces"),
         next_step="select_metrics",
     ),
     TutorialStep(

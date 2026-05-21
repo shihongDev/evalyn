@@ -58,9 +58,7 @@ async def heartbeat_loop(
                 return
             async with send_lock:
                 try:
-                    await websocket.send_text(
-                        json.dumps({"type": "ping", "ts": time.time()})
-                    )
+                    await websocket.send_text(json.dumps({"type": "ping", "ts": time.time()}))
                 except Exception:  # noqa: BLE001 - peer gone
                     disconnected.set()
                     return

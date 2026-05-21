@@ -93,11 +93,15 @@ class SemanticCache:
 
     @staticmethod
     def _make_key(prompt: str, input_text: str, output_text: str) -> str:
-        content = json.dumps({
-            "prompt": prompt,
-            "input": input_text,
-            "output": output_text,
-        }, sort_keys=True, default=str)
+        content = json.dumps(
+            {
+                "prompt": prompt,
+                "input": input_text,
+                "output": output_text,
+            },
+            sort_keys=True,
+            default=str,
+        )
         return hashlib.sha256(content.encode()).hexdigest()[:32]
 
     def get(

@@ -68,7 +68,7 @@ class SelectionResult:
         return "\n".join(lines)
 
 
-def _word_set(example: Example) -> set:
+def _word_set(example: Example) -> set[str]:
     """Extract unique lowercase words from an example."""
     text = f"{example.input_text} {example.output_text}"
     return set(text.lower().split())
@@ -78,15 +78,13 @@ def _coverage_score(selected: list[Example]) -> float:
     """Compute word diversity as coverage score."""
     if not selected:
         return 0.0
-    all_words: set = set()
+    all_words: set[str] = set()
     for ex in selected:
         all_words |= _word_set(ex)
     return float(len(all_words))
 
 
-def select_diverse(
-    examples: list[Example], k: int = 5, seed: int | None = None
-) -> SelectionResult:
+def select_diverse(examples: list[Example], k: int = 5, seed: int | None = None) -> SelectionResult:
     """Select k examples covering different failure modes.
 
     Groups by label, samples proportionally. Breaks ties by score diversity -
@@ -157,9 +155,7 @@ def select_diverse(
     )
 
 
-def select_informative(
-    examples: list[Example], k: int = 5
-) -> SelectionResult:
+def select_informative(examples: list[Example], k: int = 5) -> SelectionResult:
     """Select examples with scores near the decision boundary.
 
     Prioritizes scores in the 0.4-0.6 range, then expands outward.
@@ -183,9 +179,7 @@ def select_informative(
     )
 
 
-def select_by_coverage(
-    examples: list[Example], k: int = 5
-) -> SelectionResult:
+def select_by_coverage(examples: list[Example], k: int = 5) -> SelectionResult:
     """Maximize word diversity across selected examples.
 
     Greedy: pick the example that adds the most new words each step.
@@ -199,23 +193,24 @@ def select_by_coverage(
             coverage_score=_coverage_score(examples),
         )
 
-    covered: set = set()
+    covered: set[str] = set()
     selected: list[Example] = []
-    remaining = list(examples)
+    # Precompute word sets once - avoid recomputing inside the greedy loop.
+    remaining: list[tuple[Example, set[str]]] = [(ex, _word_set(ex)) for ex in examples]
 
     for _ in range(k):
         if not remaining:
             break
         best_idx = 0
         best_new = 0
-        for i, ex in enumerate(remaining):
-            new_words = len(_word_set(ex) - covered)
+        for i, (_ex, words) in enumerate(remaining):
+            new_words = len(words - covered)
             if new_words > best_new:
                 best_new = new_words
                 best_idx = i
-        chosen = remaining.pop(best_idx)
-        covered |= _word_set(chosen)
-        selected.append(chosen)
+        chosen_ex, chosen_words = remaining.pop(best_idx)
+        covered |= chosen_words
+        selected.append(chosen_ex)
 
     return SelectionResult(
         selected=selected,

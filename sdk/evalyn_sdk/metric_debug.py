@@ -101,9 +101,7 @@ class DebugLog:
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> DebugLog:
         return cls(
-            entries=[
-                DebugEntry.from_dict(e) for e in data.get("entries", [])
-            ],
+            entries=[DebugEntry.from_dict(e) for e in data.get("entries", [])],
             config=DebugConfig.from_dict(data.get("config", {})),
         )
 

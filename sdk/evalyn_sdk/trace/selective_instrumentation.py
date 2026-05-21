@@ -73,13 +73,8 @@ def match_target(path: str, target: InstrumentationTarget) -> bool:
         return False
 
     target_path = target.full_path
-    # Exact match
-    if path == target_path:
-        return True
-    # Partial/prefix match: target is a prefix of the path (at a dot boundary)
-    if path.startswith(target_path + "."):
-        return True
-    return False
+    # Exact match, or partial/prefix match at a dot boundary.
+    return path == target_path or path.startswith(target_path + ".")
 
 
 def should_instrument(target_path: str, config: InstrumentationConfig) -> bool:
@@ -135,8 +130,6 @@ def create_exclude_config(targets: list[str]) -> InstrumentationConfig:
     )
 
 
-def list_instrumented_targets(
-    config: InstrumentationConfig, all_targets: list[str]
-) -> list[str]:
+def list_instrumented_targets(config: InstrumentationConfig, all_targets: list[str]) -> list[str]:
     """Return which targets from all_targets would be instrumented."""
     return [t for t in all_targets if should_instrument(t, config)]
