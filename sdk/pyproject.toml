@@ -68,6 +68,9 @@ clustering = [
 [project.scripts]
 evalyn = "evalyn_sdk.cli:main"
 
+[project.entry-points.pytest11]
+evalyn = "evalyn_sdk.pytest_plugin"
+
 [tool.pytest.ini_options]
 markers = [
   "slow: marks tests as slow (deselect with '-m \"not slow\"')",

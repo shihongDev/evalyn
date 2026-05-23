@@ -16,11 +16,16 @@ from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from ..models import DatasetItem, FunctionCall, Metric, MetricResult
+from .guards import BudgetExceededError
 
 logger = logging.getLogger(__name__)
 
 # Progress callback type: (current_item, total_items, metric_id, metric_type)
 ProgressCallback = Callable[[int, int, str, str], None]
+
+# Result hook: called once per MetricResult produced. May raise
+# BudgetExceededError to abort the run early. Returning None is fine.
+ResultHook = Callable[[MetricResult], None]
 
 
 class ExecutionStrategy(ABC):
@@ -31,6 +36,7 @@ class ExecutionStrategy(ABC):
         evaluate_fn: Callable[[Metric, FunctionCall, DatasetItem], MetricResult],
         checkpoint_fn: Callable[[list[MetricResult], set, str], bool] | None = None,
         checkpoint_interval: int = 5,
+        result_hook: ResultHook | None = None,
     ):
         """Initialize strategy.
 
@@ -38,10 +44,14 @@ class ExecutionStrategy(ABC):
             evaluate_fn: Function to evaluate a single metric
             checkpoint_fn: Optional function to save checkpoint
             checkpoint_interval: Items between checkpoints (sequential only)
+            result_hook: Optional per-result callback. May raise
+                BudgetExceededError to abort the run; the strategy will
+                checkpoint partial results before re-raising.
         """
         self._evaluate = evaluate_fn
         self._checkpoint = checkpoint_fn
         self._checkpoint_interval = checkpoint_interval
+        self._result_hook = result_hook
 
     @abstractmethod
     def execute(
@@ -94,7 +104,18 @@ class SequentialStrategy(ExecutionStrategy):
                             metric.spec.id,
                             metric.spec.type,
                         )
-                    results.append(self._evaluate(metric, call, item))
+                    result = self._evaluate(metric, call, item)
+                    results.append(result)
+                    if self._result_hook is not None:
+                        try:
+                            self._result_hook(result)
+                        except BudgetExceededError as exc:
+                            # Persist partial work before bubbling up.
+                            if self._checkpoint and results:
+                                logger.info("Budget exceeded - saving checkpoint...")
+                                self._checkpoint(results, completed_items, run_id)
+                            exc.partial_results = list(results)
+                            raise
 
                 # Mark item as completed and checkpoint
                 completed_items.add(item.id)
@@ -127,8 +148,9 @@ class ParallelStrategy(ExecutionStrategy):
         checkpoint_fn: Callable[[list[MetricResult], set, str], bool] | None = None,
         checkpoint_interval: int = 5,
         max_workers: int = 4,
+        result_hook: ResultHook | None = None,
     ):
-        super().__init__(evaluate_fn, checkpoint_fn, checkpoint_interval)
+        super().__init__(evaluate_fn, checkpoint_fn, checkpoint_interval, result_hook)
         self._max_workers = max(1, min(max_workers, 16))
 
     def execute(
@@ -159,6 +181,7 @@ class ParallelStrategy(ExecutionStrategy):
 
         results_by_item: dict[str, list[MetricResult]] = defaultdict(list)
         interrupted = False
+        budget_error: BudgetExceededError | None = None
 
         # Phase 1: objective metrics - sequential, no threading overhead
         if objective_metrics:
@@ -166,16 +189,28 @@ class ParallelStrategy(ExecutionStrategy):
                 for metric in objective_metrics:
                     result = self._evaluate(metric, call, item)
                     results_by_item[item.id].append(result)
+                    if self._result_hook is not None:
+                        try:
+                            self._result_hook(result)
+                        except BudgetExceededError as exc:
+                            budget_error = exc
+                            break
                     if progress_callback:
                         with progress_lock:
                             current = next(eval_counter)
                             progress_callback(
                                 current, total_evals, metric.spec.id, metric.spec.type
                             )
+                if budget_error is not None:
+                    break
 
         # Phase 2: subjective metrics - parallel via thread pool
+        if budget_error is not None:
+            # Skip the subjective phase entirely; fall through to checkpoint+raise.
+            subjective_metrics = []
+
         if not subjective_metrics:
-            # All objective - skip thread pool entirely
+            # All objective (or budget exceeded mid-objective) - skip thread pool.
             num_metrics = len(metrics)
             results: list[MetricResult] = []
             for item, _call in prepared:
@@ -185,6 +220,9 @@ class ParallelStrategy(ExecutionStrategy):
                     completed_items.add(item.id)
             if self._checkpoint and results:
                 self._checkpoint(results, completed_items, run_id)
+            if budget_error is not None:
+                budget_error.partial_results = list(results)
+                raise budget_error
             return results
 
         tasks = [(metric, call, item) for item, call in prepared for metric in subjective_metrics]
@@ -214,6 +252,15 @@ class ParallelStrategy(ExecutionStrategy):
                         )
                         results_by_item[item_id_hint].append(result)
 
+                    # Run result hook (e.g. budget tracker). Once the budget
+                    # is blown, stop processing further futures. In-flight
+                    # futures still finish but we ignore their results.
+                    if self._result_hook is not None and budget_error is None:
+                        try:
+                            self._result_hook(result)
+                        except BudgetExceededError as exc:
+                            budget_error = exc
+
                     # Update progress (thread-safe)
                     if progress_callback:
                         with progress_lock:
@@ -224,6 +271,12 @@ class ParallelStrategy(ExecutionStrategy):
                                 result.metric_id,
                                 metric_type,
                             )
+
+                    if budget_error is not None:
+                        # Cancel any not-yet-started futures.
+                        for f in futures:
+                            f.cancel()
+                        break
 
         except KeyboardInterrupt:
             interrupted = True
@@ -249,6 +302,9 @@ class ParallelStrategy(ExecutionStrategy):
 
         if interrupted:
             raise KeyboardInterrupt
+        if budget_error is not None:
+            budget_error.partial_results = list(results)
+            raise budget_error
 
         return results
 
@@ -258,6 +314,7 @@ def create_strategy(
     evaluate_fn: Callable[[Metric, FunctionCall, DatasetItem], MetricResult],
     checkpoint_fn: Callable[[list[MetricResult], set, str], bool] | None = None,
     checkpoint_interval: int = 5,
+    result_hook: ResultHook | None = None,
 ) -> ExecutionStrategy:
     """Factory function to create appropriate strategy.
 
@@ -266,13 +323,22 @@ def create_strategy(
         evaluate_fn: Function to evaluate a single metric
         checkpoint_fn: Optional checkpoint save function
         checkpoint_interval: Items between checkpoints
+        result_hook: Optional per-result callback (e.g. budget tracker)
 
     Returns:
         SequentialStrategy if max_workers <= 1, else ParallelStrategy
     """
     if max_workers <= 1:
-        return SequentialStrategy(evaluate_fn, checkpoint_fn, checkpoint_interval)
-    return ParallelStrategy(evaluate_fn, checkpoint_fn, checkpoint_interval, max_workers)
+        return SequentialStrategy(
+            evaluate_fn, checkpoint_fn, checkpoint_interval, result_hook
+        )
+    return ParallelStrategy(
+        evaluate_fn,
+        checkpoint_fn,
+        checkpoint_interval,
+        max_workers,
+        result_hook=result_hook,
+    )
 
 
 __all__ = [
@@ -281,4 +347,5 @@ __all__ = [
     "ParallelStrategy",
     "create_strategy",
     "ProgressCallback",
+    "ResultHook",
 ]

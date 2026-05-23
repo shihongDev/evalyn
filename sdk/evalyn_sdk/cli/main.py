@@ -117,6 +117,16 @@ _COMMAND_MODULE_MAP: dict[str, str] = {
     "dashboard": "dashboard_alias",
     # quickstart
     "quickstart": "quickstart",
+    # diagnostics
+    "doctor": "doctor",
+    # trace inspection and import
+    "watch": "watch",
+    "search": "search",
+    "import-traces": "import_traces",
+    # dataset
+    "dataset-diff": "dataset_diff",
+    # adversarial dataset generation
+    "redteam": "redteam",
 }
 
 
@@ -188,6 +198,7 @@ QUICK START
   workflow         Show evaluation workflow and next steps
   one-click        Run complete pipeline in one command
   init             Initialize configuration file
+  doctor           Environment + config diagnostics
 
 TRACING
   list-calls       List captured function calls
@@ -196,11 +207,15 @@ TRACING
   show-span        Show details of a specific span
   show-projects    Show project summary
   delete-traces    Delete traces from storage
+  watch            Real-time tail of incoming traces
+  search           Query traces with a filter DSL
+  import-traces    Import external logs (OpenAI/Anthropic/JSONL) into evalyn
 
 DATASET
   build-dataset    Build dataset from stored traces
   validate         Validate dataset format
   status           Show dataset status
+  dataset-diff     Diff two datasets (added/removed/modified items)
 
 METRICS
   suggest-metrics  Suggest metrics for evaluation
@@ -230,6 +245,7 @@ EXPORT & SIMULATION
   export           Export results (json/csv/markdown/html)
   export-for-annotation  Export for external annotation
   simulate         Generate synthetic test data
+  redteam          Generate adversarial dataset variants
 
 OPTIONS
   -h, --help       Show this help
