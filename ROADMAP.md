@@ -16,7 +16,7 @@ If you add a planned-but-unbuilt feature, use `- [ ]` and put it under
 
 ## Shipped
 
-### CLI Surface (41 commands)
+### CLI Surface (50 commands)
 
 Run `evalyn help` to see the live list. Source of truth:
 `sdk/evalyn_sdk/cli/main.py:_COMMAND_MODULE_MAP`.
@@ -76,6 +76,42 @@ Run `evalyn help` to see the live list. Source of truth:
       test with a per-metric breach breakdown; registered via the
       `pytest11` entry point
       (`sdk/evalyn_sdk/pytest_plugin.py`)
+
+### Production Monitoring & Workflow (shipped 2026-05-23 round 2)
+
+- [x] **`evalyn replay`** - re-run a captured trace's prompts against
+      a different model; reports cost / latency / output deltas
+      (`sdk/evalyn_sdk/cli/commands/replay.py`,
+      `sdk/evalyn_sdk/evaluation/replay.py`)
+- [x] **`evalyn baseline`** - pin an eval run as the canonical
+      reference; supports multiple named baselines
+      (`sdk/evalyn_sdk/cli/commands/baseline.py`,
+      `sdk/evalyn_sdk/analysis/baseline.py`)
+- [x] **`evalyn drift`** - compare current run to baseline; per-metric
+      delta with regression flagging; exit 1 on threshold breach
+      (`sdk/evalyn_sdk/cli/commands/drift.py`)
+- [x] **`evalyn notify`** - Slack / Discord / generic webhook alerts
+      on `--fail-on`-style threshold breaches; auto-detects format from
+      URL host; retries on 5xx; reads from `notify:` block in
+      `evalyn.yaml`
+      (`sdk/evalyn_sdk/cli/commands/notify.py`,
+      `sdk/evalyn_sdk/integration/notifiers.py`)
+- [x] **`evalyn auto-rubric`** - synthesize an LLM-judge rubric from
+      labeled examples; writes a JSON spec immediately consumable by
+      `run-eval --metrics`
+      (`sdk/evalyn_sdk/cli/commands/auto_rubric.py`,
+      `sdk/evalyn_sdk/calibration/rubric_generator.py`)
+- [x] **`evalyn export-otlp`** - verify an external OTLP collector
+      and emit the env-var / `evalyn.yaml` snippet to route traces to
+      it (`sdk/evalyn_sdk/cli/commands/export_otlp.py`)
+- [x] **`evalyn list-bundles` / `evalyn show-bundle`** - discover and
+      inspect the 17 curated metric bundles (previously only
+      discoverable by reading the source)
+      (`sdk/evalyn_sdk/cli/commands/bundles.py`)
+- [x] **`evalyn dataset-stats`** - quick summary over a dataset
+      (item count, input/output length distribution, label coverage,
+      metadata-key frequency)
+      (`sdk/evalyn_sdk/cli/commands/dataset_stats.py`)
 
 ### Tracing & Instrumentation
 
