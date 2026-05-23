@@ -41,6 +41,7 @@ import argparse
 import json
 import os
 import re
+import sys
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
@@ -436,9 +437,11 @@ def _execute_run_eval(
     metrics: list[Any],
     subjective_count: int,
     unit_types: list[str] | None,
+    budget_tracker: Any | None = None,
 ):
-    """Execute evaluation in standard or batch mode."""
+    """Run the evaluation in standard or batch mode."""
     from ...decorators import get_default_tracer
+    from ...evaluation.guards import BudgetExceededError
 
     tracer = get_default_tracer()
     if not tracer.storage:
@@ -557,6 +560,24 @@ def _execute_run_eval(
     if checkpoint_path.exists() and output_format != "json":
         print("  Resuming from checkpoint...")
 
+    result_hook = None
+    if budget_tracker is not None and budget_tracker.enabled:
+        def result_hook(result):
+            status = budget_tracker.record_result(result)
+            if status.warning_triggered:
+                print(
+                    f"WARNING: cost budget at "
+                    f"{status.fraction_used * 100:.0f}% "
+                    f"(${status.cumulative_cost:.4f} / "
+                    f"${budget_tracker.max_cost:.4f})",
+                    file=sys.stderr,
+                    flush=True,
+                )
+            if status.exceeded:
+                raise BudgetExceededError(
+                    status.cumulative_cost, budget_tracker.max_cost
+                )
+
     runner = EvalRunner(
         target_fn=lambda: None,
         metrics=metrics,
@@ -568,6 +589,7 @@ def _execute_run_eval(
         checkpoint_interval=5,
         max_workers=getattr(args, "workers", 1),
         unit_types=unit_types,
+        result_hook=result_hook,
     )
 
     try:
@@ -580,6 +602,22 @@ def _execute_run_eval(
             print(f"Progress saved to: {checkpoint_path}")
             print(f"Resume with: evalyn run-eval --dataset {dataset_dir}")
         return None
+    except BudgetExceededError as exc:
+        if progress:
+            progress.finish()
+        partial_run = getattr(exc, "partial_run", None)
+        if partial_run is None:
+            return None
+        print(
+            f"ERROR: cost budget exceeded "
+            f"(${exc.current_cost:.4f} >= ${exc.max_cost:.4f}); "
+            f"writing partial results and aborting.",
+            file=sys.stderr,
+            flush=True,
+        )
+        # Mark the run so the CLI exits with code 2 after persisting.
+        partial_run._budget_aborted = True  # type: ignore[attr-defined]
+        return partial_run
 
     if progress:
         progress.finish()
@@ -886,6 +924,48 @@ def _run_auto_insights(
     print("=" * 80)
 
 
+def _build_budget_tracker(args: argparse.Namespace) -> Any | None:
+    """Build a BudgetTracker from --max-cost, or None if unset."""
+    from ...evaluation.guards import BudgetTracker
+
+    max_cost = getattr(args, "max_cost", None)
+    if max_cost is None:
+        return None
+    try:
+        return BudgetTracker(max_cost=float(max_cost))
+    except ValueError as exc:
+        fatal_error(f"Invalid --max-cost value: {exc}")
+        return None  # unreachable; fatal_error exits
+
+
+def _parse_fail_on_expressions(args: argparse.Namespace) -> list[Any]:
+    """Parse all --fail-on expressions, fatal on invalid syntax."""
+    from ...evaluation.guards import parse_threshold_expression
+
+    raw_exprs = getattr(args, "fail_on", None) or []
+    parsed: list[Any] = []
+    for expr in raw_exprs:
+        try:
+            parsed.append(parse_threshold_expression(expr))
+        except ValueError as exc:
+            fatal_error(f"Invalid --fail-on expression: {exc}")
+    return parsed
+
+
+def _apply_fail_on_gates(fail_on_exprs: list[Any], run: Any) -> int:
+    """Apply --fail-on gates against the run. Returns exit code (0 or 3)."""
+    if not fail_on_exprs:
+        return 0
+    from ...evaluation.guards import evaluate_thresholds
+
+    report = evaluate_thresholds(fail_on_exprs, run)
+    for warning in report.missing:
+        print(warning.format(), file=sys.stderr, flush=True)
+    for breach in report.breaches:
+        print(breach.format(), file=sys.stderr, flush=True)
+    return 3 if report.any_breached else 0
+
+
 def cmd_run_eval(args: argparse.Namespace) -> None:
     """Run evaluation using pre-computed traces from dataset and metrics from JSON file(s).
 
@@ -899,9 +979,19 @@ def cmd_run_eval(args: argparse.Namespace) -> None:
 
     For subjective metrics, an API key (GEMINI_API_KEY or OPENAI_API_KEY) is required.
     Use --use-calibrated to apply optimized prompts from previous calibration.
+
+    Production guards:
+    - --max-cost <usd>: abort when cumulative LLM-judge spend hits the budget.
+      Prints a warning at 80% and exits with code 2 once exceeded.
+    - --fail-on <metric><op><number>: post-run quality gate. Exits with code 3
+      if any metric's mean score breaches the threshold.
     """
     output_format = getattr(args, "format", "table")
     config = load_config()
+
+    # Parse guards first so bad syntax fails fast before any work.
+    budget_tracker = _build_budget_tracker(args)
+    fail_on_exprs = _parse_fail_on_expressions(args)
 
     dataset_file, dataset_list, all_metrics_data, _ = _resolve_run_eval_inputs(
         args, output_format, config
@@ -920,6 +1010,10 @@ def cmd_run_eval(args: argparse.Namespace) -> None:
         print(f"Dataset: {len(dataset_list)} items")
         if eval_config.unit_types and eval_config.unit_types != ["outcome"]:
             print(f"Unit types: {', '.join(eval_config.unit_types)} (span-level evaluation)")
+        if budget_tracker is not None and budget_tracker.enabled:
+            print(f"Cost budget: ${budget_tracker.max_cost:.4f} (warning at 80%)")
+        if fail_on_exprs:
+            print(f"Quality gates: {len(fail_on_exprs)} --fail-on expression(s)")
         if eval_config.subjective_count > 0:
             check_llm_api_keys(quiet=False)
         print()
@@ -933,6 +1027,7 @@ def cmd_run_eval(args: argparse.Namespace) -> None:
         eval_config.metrics,
         eval_config.subjective_count,
         eval_config.unit_types,
+        budget_tracker=budget_tracker,
     )
     if run is None:
         return
@@ -958,6 +1053,13 @@ def cmd_run_eval(args: argparse.Namespace) -> None:
             dataset_list=dataset_list,
             results_path=results_path,
         )
+
+    # Exit-code policy: budget abort wins over threshold breach.
+    if getattr(run, "_budget_aborted", False):
+        sys.exit(2)
+    gate_exit = _apply_fail_on_gates(fail_on_exprs, run)
+    if gate_exit:
+        sys.exit(gate_exit)
 
 
 def cmd_suggest_metrics(args: argparse.Namespace) -> None:
@@ -1568,6 +1670,41 @@ def register_commands(subparsers) -> None:
         "-v",
         action="store_true",
         help="Show detailed cost breakdown by metric",
+    )
+
+    def _positive_float(value):
+        try:
+            fval = float(value)
+        except (TypeError, ValueError) as exc:
+            raise argparse.ArgumentTypeError(
+                f"--max-cost must be a number, got {value!r}"
+            ) from exc
+        if fval <= 0:
+            raise argparse.ArgumentTypeError(
+                f"--max-cost must be > 0, got {fval}"
+            )
+        return fval
+
+    run_parser.add_argument(
+        "--max-cost",
+        type=_positive_float,
+        default=None,
+        help=(
+            "Maximum cumulative LLM-judge cost in USD. Prints a warning at "
+            "80%% of the budget and aborts with exit code 2 once reached. "
+            "Partial results are still saved."
+        ),
+    )
+    run_parser.add_argument(
+        "--fail-on",
+        action="append",
+        default=None,
+        metavar="EXPR",
+        help=(
+            "Quality gate expression like 'helpfulness_accuracy<0.8' "
+            "(operators: <, <=, >, >=, ==, !=). Repeatable. Exits with "
+            "code 3 if any threshold is breached after the run completes."
+        ),
     )
     run_parser.set_defaults(func=cmd_run_eval)
 

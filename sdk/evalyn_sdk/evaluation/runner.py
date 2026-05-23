@@ -23,7 +23,8 @@ from ..models import (
 )
 from ..storage.base import StorageBackend
 from ..trace.tracer import EvalTracer
-from .execution import ProgressCallback, create_strategy
+from .execution import ProgressCallback, ResultHook, create_strategy
+from .guards import BudgetExceededError
 from .units import EvalUnitBuilder, get_builders_for_types, get_default_builders
 from .units.views import project_unit
 
@@ -90,6 +91,7 @@ class EvalRunner:
         max_workers: int = 1,
         unit_builders: list[EvalUnitBuilder] | None = None,
         unit_types: list[str] | None = None,
+        result_hook: ResultHook | None = None,
     ):
         self.tracer = tracer or get_default_tracer()
         if storage:
@@ -107,6 +109,7 @@ class EvalRunner:
         self.checkpoint_interval = checkpoint_interval
         self.max_workers = max(1, min(max_workers, 16))  # Clamp 1-16
         self._checkpoint_count: int = 0  # results already written to checkpoint JSONL
+        self.result_hook = result_hook
 
         # Unit-based evaluation configuration
         # Priority: explicit builders > unit_types > default (OutcomeBuilder)
@@ -436,15 +439,41 @@ class EvalRunner:
                 evaluate_fn=self._evaluate_metric,
                 checkpoint_fn=checkpoint_fn,
                 checkpoint_interval=self.checkpoint_interval,
+                result_hook=self.result_hook,
             )
 
-            new_results = strategy.execute(
-                prepared=prepared,
-                metrics=self.metrics,
-                progress_callback=self._progress_callback,
-                run_id=run_id,
-                completed_items=completed_items,
-            )
+            try:
+                new_results = strategy.execute(
+                    prepared=prepared,
+                    metrics=self.metrics,
+                    progress_callback=self._progress_callback,
+                    run_id=run_id,
+                    completed_items=completed_items,
+                )
+            except BudgetExceededError as exc:
+                # Build a partial EvalRun from the in-memory results the
+                # strategy attached, then re-raise so the CLI layer can
+                # surface the abort with exit code 2.
+                partial_new = list(exc.partial_results)
+                full_results = list(metric_results) + partial_new
+                summary = self._summarize(full_results, failures)
+                usage_summary = self._compute_usage_summary(full_results)
+                run = EvalRun(
+                    id=run_id,
+                    dataset_name=self.dataset_name,
+                    created_at=now_utc(),
+                    metric_results=full_results,
+                    metrics=[m.spec for m in self.metrics],
+                    summary=summary,
+                    usage_summary=usage_summary,
+                )
+                if self.tracer.storage:
+                    try:
+                        self.tracer.storage.store_eval_run(run)
+                    except Exception:
+                        pass
+                exc.partial_run = run  # type: ignore[attr-defined]
+                raise
         else:
             # Unit-based mode: discover units and evaluate per-unit
             # Note: unit evaluation runs sequentially without checkpointing

@@ -16,24 +16,66 @@ If you add a planned-but-unbuilt feature, use `- [ ]` and put it under
 
 ## Shipped
 
-### CLI Surface (35 commands)
+### CLI Surface (41 commands)
 
 Run `evalyn help` to see the live list. Source of truth:
 `sdk/evalyn_sdk/cli/main.py:_COMMAND_MODULE_MAP`.
 
-- [x] **Quick start** - `quickstart`, `workflow`, `one-click`, `init`
+- [x] **Quick start** - `quickstart`, `workflow`, `one-click`, `init`,
+      `doctor`
 - [x] **Tracing** - `list-calls`, `show-call`, `show-trace`, `show-span`,
-      `show-projects`, `delete-traces`
-- [x] **Dataset** - `build-dataset`, `validate`, `status`
+      `show-projects`, `delete-traces`, `watch`, `search`, `import-traces`
+- [x] **Dataset** - `build-dataset`, `validate`, `status`, `dataset-diff`
 - [x] **Metrics** - `suggest-metrics`, `select-metrics`, `list-metrics`
-- [x] **Evaluation** - `run-eval`, `list-runs`, `show-run`
+- [x] **Evaluation** - `run-eval` (with `--max-cost` budget guard and
+      `--fail-on` quality gate flags), `list-runs`, `show-run`
 - [x] **Analysis** - `analyze`, `compare`, `trend`, `insights`, `report`
 - [x] **Annotation** - `annotate`, `annotation-stats`, `import-annotations`
 - [x] **Calibration** - `calibrate`, `list-calibrations`
 - [x] **Clustering** - `cluster-failures`, `cluster-misalignments`
-- [x] **Export & simulation** - `export`, `export-for-annotation`, `simulate`
+- [x] **Export & simulation** - `export`, `export-for-annotation`,
+      `simulate`, `redteam`
 - [x] **Dashboard plugin alias** - `dashboard` (forwards to `report` when the
       `evalyn-dashboard` plugin is not installed)
+
+### Production & CI Integration
+
+- [x] **`evalyn doctor`** - environment, dependency, API-key, config, and
+      storage diagnostics; exit 1 on any FAIL
+      (`sdk/evalyn_sdk/cli/commands/doctor.py`)
+- [x] **`evalyn watch`** - real-time trace tail (`tail -f` for evalyn);
+      polls SQLite for new calls and prints them as they arrive
+      (`sdk/evalyn_sdk/cli/commands/watch.py`)
+- [x] **`evalyn search`** - query DSL over traces; reuses the
+      `datasets/filter.py` parser; supports nested `metadata.X` paths,
+      `and`/`or` compound expressions, all standard operators
+      (`sdk/evalyn_sdk/cli/commands/search.py`)
+- [x] **`evalyn import-traces`** - bring external OpenAI / Anthropic /
+      generic-JSONL logs into evalyn storage so `list-calls`, `analyze`,
+      etc. see them as native calls
+      (`sdk/evalyn_sdk/cli/commands/import_traces.py`,
+      `sdk/evalyn_sdk/integration/trace_importers.py`)
+- [x] **`evalyn dataset-diff`** - CLI front-end for the existing
+      `diff_datasets()` library function; reports added / removed /
+      modified items with table or JSON output
+      (`sdk/evalyn_sdk/cli/commands/dataset_diff.py`)
+- [x] **`evalyn redteam`** - generate adversarial dataset variants
+      (prompt injection, jailbreak phrasing, edge cases); LLM-driven
+      where useful, procedural for edge cases
+      (`sdk/evalyn_sdk/cli/commands/redteam.py`,
+      `sdk/evalyn_sdk/simulation/redteam.py`)
+- [x] **`run-eval` cost budget** - `--max-cost USD`; warns at 80%,
+      aborts cleanly with exit 2 at 100%, persists partial results
+      (`sdk/evalyn_sdk/evaluation/guards.py:BudgetTracker`)
+- [x] **`run-eval` quality gates** - `--fail-on metric<threshold`
+      (repeatable); exits 3 if any threshold is breached; catches
+      typoed metric IDs preflight where possible
+      (`sdk/evalyn_sdk/evaluation/guards.py:ThresholdExpression`)
+- [x] **pytest plugin** - `@pytest.mark.evalyn(dataset=..., metrics=...,
+      thresholds={...})` runs an eval as part of pytest and fails the
+      test with a per-metric breach breakdown; registered via the
+      `pytest11` entry point
+      (`sdk/evalyn_sdk/pytest_plugin.py`)
 
 ### Tracing & Instrumentation
 
@@ -244,7 +286,8 @@ candidates. Re-add to the shipped list (with file path) once built.
 
 ### Cost Intelligence
 
-- [ ] Cost budget alerts (`--max-cost` flag, 80% / 100% thresholds)
+- [x] **Cost budget alerts** - `--max-cost` flag with 80% warning / 100%
+      abort, partial results persisted (shipped 2026-05-23)
 - [ ] Per-session budget limits in `evalyn.yaml`
 - [ ] Per-phase cost attribution
 - [ ] Cost comparison for trace replay
@@ -259,8 +302,8 @@ candidates. Re-add to the shipped list (with file path) once built.
 
 ### Dataset Expansions
 
-- [ ] `dataset-diff` CLI front-end (programmatic API exists in
-      `datasets/merge.py`, but no subcommand)
+- [x] **`dataset-diff` CLI** - wraps existing `diff_datasets()`
+      (shipped 2026-05-23)
 - [ ] `dataset-drift`, `dataset-decontaminate`, `dataset-xcontam`
 - [ ] `dataset-health`, `dataset-audit`, `dataset-changelog`
 - [ ] Cross-run A/B split, interleave, golden-set tooling
@@ -317,7 +360,8 @@ candidates. Re-add to the shipped list (with file path) once built.
 
 ### Diagnostics
 
-- [ ] `doctor`, `timing-stats`, `check-context`,
+- [x] **`doctor`** (shipped 2026-05-23)
+- [ ] `timing-stats`, `check-context`,
       `check-instrumentation`, `check-compat`
 
 ---
