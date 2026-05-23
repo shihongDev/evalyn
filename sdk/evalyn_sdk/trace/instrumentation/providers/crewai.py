@@ -700,8 +700,10 @@ class _SpanTracker:
         if attributes:
             span.attributes.update({k: v for k, v in attributes.items() if v is not None})
 
-        # Push onto span stack so child events become children
-        stack = span_context._span_stack.get()
+        # Push onto span stack so child events become children.
+        # ContextVar default is None (avoids cross-context list sharing); use
+        # `or []` so threads with no inherited context don't crash on `None + [...]`.
+        stack = span_context._span_stack.get() or []
         new_stack = stack + [span.id]
         span_context._span_stack.set(new_stack)
 
