@@ -127,6 +127,22 @@ _COMMAND_MODULE_MAP: dict[str, str] = {
     "dataset-diff": "dataset_diff",
     # adversarial dataset generation
     "redteam": "redteam",
+    # observability export
+    "export-otlp": "export_otlp",
+    # metric bundle discovery
+    "list-bundles": "bundles",
+    "show-bundle": "bundles",
+    # dataset utilities
+    "dataset-stats": "dataset_stats",
+    # notification
+    "notify": "notify",
+    # trace replay
+    "replay": "replay",
+    # production monitoring
+    "baseline": "baseline",
+    "drift": "drift",
+    # rubric synthesis
+    "auto-rubric": "auto_rubric",
 }
 
 
@@ -210,17 +226,23 @@ TRACING
   watch            Real-time tail of incoming traces
   search           Query traces with a filter DSL
   import-traces    Import external logs (OpenAI/Anthropic/JSONL) into evalyn
+  replay           Re-run a captured trace against a different model
+  export-otlp      Verify an OTLP collector and emit config for export
 
 DATASET
   build-dataset    Build dataset from stored traces
   validate         Validate dataset format
   status           Show dataset status
   dataset-diff     Diff two datasets (added/removed/modified items)
+  dataset-stats    Summary statistics over a dataset
 
 METRICS
   suggest-metrics  Suggest metrics for evaluation
   select-metrics   LLM-guided metric selection
   list-metrics     List available metric templates
+  list-bundles     List curated metric bundles
+  show-bundle      Show all metrics in a specific bundle
+  auto-rubric      Generate an LLM-judge rubric from labeled examples
 
 EVALUATION
   run-eval         Run evaluation on dataset
@@ -231,6 +253,9 @@ EVALUATION
   trend            Show evaluation trends over time
   insights         Comprehensive diagnostic and prescriptive analysis
   report           Generate and open interactive HTML insights report
+  baseline         Pin an eval run as the reference baseline
+  drift            Report drift of a run against its baseline
+  notify           Send Slack/Discord/webhook alerts on threshold breach
 
 ANNOTATION & CALIBRATION
   annotate         Interactive annotation interface
