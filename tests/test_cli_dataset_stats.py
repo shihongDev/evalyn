@@ -85,6 +85,15 @@ def test_length_stats_p95_calculation():
     assert stats["p95"] == 95
 
 
+def test_length_stats_p95_small_n():
+    # Regression for review finding: previous off-by-one returned p67 for
+    # n=3. Nearest-rank should give the max for tiny samples.
+    assert dataset_stats._length_stats([10])["p95"] == 10
+    assert dataset_stats._length_stats([10, 20])["p95"] == 20
+    assert dataset_stats._length_stats([10, 20, 30])["p95"] == 30
+    assert dataset_stats._length_stats([1, 2, 3, 4, 5])["p95"] == 5
+
+
 # ----------------------------------------------------------------------
 # CLI behavior
 # ----------------------------------------------------------------------

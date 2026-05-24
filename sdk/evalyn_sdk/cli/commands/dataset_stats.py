@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
 import statistics
 from collections import Counter
 from typing import Any
@@ -31,11 +32,16 @@ def _to_text(value: Any) -> str:
 
 
 def _length_stats(lengths: list[int]) -> dict[str, float]:
-    """Compute min/max/mean/median/p95 for a list of lengths."""
+    """Compute min/max/mean/median/p95 for a list of lengths.
+
+    p95 uses the nearest-rank method (NIST-recommended): the smallest value
+    such that at least 95% of observations are <= it. Correct for all n>=1,
+    unlike `int(n*0.95)-1` which under-reports p95 for n<20.
+    """
     if not lengths:
         return {"min": 0, "max": 0, "mean": 0, "median": 0, "p95": 0}
     sorted_lengths = sorted(lengths)
-    p95_idx = max(0, int(len(sorted_lengths) * 0.95) - 1)
+    p95_idx = min(len(sorted_lengths) - 1, max(0, math.ceil(len(sorted_lengths) * 0.95) - 1))
     return {
         "min": min(lengths),
         "max": max(lengths),

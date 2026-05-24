@@ -44,7 +44,9 @@ def cmd_list_bundles(args: argparse.Namespace) -> None:
 
 def cmd_show_bundle(args: argparse.Namespace) -> None:
     """Show all metrics in a specific bundle."""
-    name = args.name
+    # Bundle names are lowercase-with-hyphens; normalize user input so
+    # `evalyn show-bundle RAG-QA` works.
+    name = args.name.lower()
     if name not in BUNDLES:
         print(f"Error: bundle '{name}' not found.")
         print(f"\nAvailable bundles: {', '.join(sorted(BUNDLES.keys()))}")

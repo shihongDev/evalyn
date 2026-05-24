@@ -131,10 +131,14 @@ def _baselines_path(state_dir: Path | str | None = None) -> Path:
 def _read_catalog(path: Path) -> dict[str, dict[str, Any]]:
     if not path.exists():
         return {}
+    # OSError is intentionally NOT swallowed here - a permissions or disk
+    # issue should surface, not silently look like an empty catalog.
+    # JSONDecodeError is treated as "corrupt, start fresh" because that is
+    # recoverable; the next write will overwrite.
     try:
         with open(path, encoding="utf-8") as f:
             data = json.load(f)
-    except (json.JSONDecodeError, OSError):
+    except json.JSONDecodeError:
         return {}
     if not isinstance(data, dict):
         return {}
@@ -142,10 +146,33 @@ def _read_catalog(path: Path) -> dict[str, dict[str, Any]]:
 
 
 def _write_catalog(path: Path, catalog: dict[str, dict[str, Any]]) -> None:
+    """Atomically write the baseline catalog.
+
+    Uses temp-file + os.replace() so a concurrent write or mid-write crash
+    cannot leave the catalog truncated or partially-serialized. os.replace
+    is atomic on POSIX and on the same volume on Windows.
+    """
+    import os
+    import tempfile
+
     path.parent.mkdir(parents=True, exist_ok=True)
-    with open(path, "w", encoding="utf-8") as f:
-        json.dump(catalog, f, indent=2, sort_keys=True)
-        f.write("\n")
+    fd, tmp_name = tempfile.mkstemp(
+        prefix=path.name + ".",
+        suffix=".tmp",
+        dir=str(path.parent),
+    )
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as f:
+            json.dump(catalog, f, indent=2, sort_keys=True)
+            f.write("\n")
+        os.replace(tmp_name, path)
+    except Exception:
+        # Clean up the temp file if anything went wrong before the replace.
+        try:
+            os.unlink(tmp_name)
+        except OSError:
+            pass
+        raise
 
 
 def save_baseline(

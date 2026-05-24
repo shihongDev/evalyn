@@ -138,19 +138,22 @@ def parse_filter(query: str) -> CompoundFilter:
     if not query:
         return CompoundFilter([])
 
-    # Detect logic operator (AND takes precedence - split on OR first)
-    logic = "and"
-    parts = []
+    # Reject queries that mix `and` and `or` connectives. The parser is flat
+    # (no precedence tree), so mixed queries would silently produce wrong
+    # results. Force the user to use one connective per query. To combine,
+    # users can call filter_items twice and merge.
+    has_or = re.search(r"\s+or\s+", query, flags=re.IGNORECASE) is not None
+    has_and = re.search(r"\s+and\s+", query, flags=re.IGNORECASE) is not None
+    if has_or and has_and:
+        raise ValueError(
+            "Filter parser does not support mixed `and`/`or` in one query. "
+            "Use only one connective per query (precedence is not yet implemented). "
+            f"Query: {query!r}"
+        )
 
-    # Split on " or " (case insensitive)
-    or_parts = re.split(r"\s+or\s+", query, flags=re.IGNORECASE)
-    if len(or_parts) > 1:
-        logic = "or"
-        parts = or_parts
-    else:
-        # Split on " and " (case insensitive)
-        and_parts = re.split(r"\s+and\s+", query, flags=re.IGNORECASE)
-        parts = and_parts
+    logic = "or" if has_or else "and"
+    splitter = r"\s+or\s+" if has_or else r"\s+and\s+"
+    parts = re.split(splitter, query, flags=re.IGNORECASE)
 
     expressions = []
     for part in parts:

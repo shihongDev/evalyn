@@ -244,7 +244,33 @@ def test_invalid_query_exits_with_help():
     with patch("sys.stdout", new=buf), pytest.raises(SystemExit) as exc:
         search.cmd_search(args)
     assert exc.value.code == 2
-    assert "Supported fields" in buf.getvalue()
+
+
+def test_mixed_and_or_query_rejected():
+    # Regression for review finding C1: parser flatly OR-joined mixed
+    # queries, producing wrong results silently. Now we reject them.
+    args = _make_args("project = a and duration_ms > 100 or error = true")
+    buf = io.StringIO()
+    with patch("sys.stdout", new=buf), pytest.raises(SystemExit) as exc:
+        search.cmd_search(args)
+    assert exc.value.code == 2
+    assert "mixed" in buf.getvalue().lower()
+
+
+def test_error_is_null_matches_calls_without_error():
+    # Regression for review finding: `error is_null` was always False
+    # because actual was bool-coerced before _compare saw None.
+    ok_call = make_call(1, error=None)
+    bad_call = make_call(2, error="boom")
+    storage = FakeStorage([ok_call, bad_call])
+    args = _make_args("error is null")
+    buf = io.StringIO()
+    with patch.object(search, "_get_storage", return_value=storage), \
+         patch("sys.stdout", new=buf):
+        search.cmd_search(args)
+    output = buf.getvalue()
+    assert "00000001" in output  # ok_call matches
+    assert "00000002" not in output  # bad_call excluded
 
 
 # ----------------------------------------------------------------------

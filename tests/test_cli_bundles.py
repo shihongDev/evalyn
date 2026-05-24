@@ -108,6 +108,17 @@ def test_show_bundle_unknown_name_exits_nonzero():
     assert "Available bundles" in output
 
 
+def test_show_bundle_case_insensitive():
+    # Regression for review finding: `evalyn show-bundle RAG-QA` used to
+    # fail because lookup was case-sensitive on lowercase-with-hyphens keys.
+    args = _make_args(name="RAG-QA")
+    buf = io.StringIO()
+    with patch("sys.stdout", new=buf):
+        bundles.cmd_show_bundle(args)
+    output = buf.getvalue()
+    assert "rag-qa" in output  # printed using the canonical lowercase name
+
+
 # ----------------------------------------------------------------------
 # Argparse wiring
 # ----------------------------------------------------------------------
