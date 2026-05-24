@@ -332,6 +332,8 @@ class EvalRunner:
         completed_items: set,
     ) -> list[MetricResult]:
         """Run unit-based evaluation (for non-default unit types)."""
+        from .guards import BudgetExceededError
+
         results: list[MetricResult] = []
 
         for item, call in prepared:
@@ -347,6 +349,15 @@ class EvalRunner:
                     if metric.supports_unit_type(unit.unit_type):
                         result = self._evaluate_metric_unit(metric, unit, view, item)
                         results.append(result)
+                        # Invoke result_hook so the budget guard fires for
+                        # unit-based runs too. Without this, --max-cost is
+                        # silently inert when unit_types are configured.
+                        if self.result_hook is not None:
+                            try:
+                                self.result_hook(result)
+                            except BudgetExceededError as exc:
+                                exc.partial_results = list(results)  # type: ignore[attr-defined]
+                                raise
 
             completed_items.add(item.id)
 

@@ -169,7 +169,7 @@ class TestBuildRubricPrompt:
         prompt = build_rubric_prompt(examples, scale="0-1", metric_id="m1")
 
         for i, ex in enumerate(examples, start=1):
-            assert f"Example {i}:" in prompt
+            assert f'<example index="{i}">' in prompt
             assert f"answer {i - 1}" in prompt or "I don't know" in prompt
             # Labels should also appear
             assert f"LABEL: {ex['label']}" in prompt
@@ -298,7 +298,7 @@ class TestGenerateRubric:
         )
 
         assert len(calls) == 1
-        assert "Example 1:" in calls[0]
+        assert '<example index="1">' in calls[0]
         assert "helpfulness" in calls[0]
         assert result["id"] == "helpfulness"
         assert result["config"]["scale"] == "0-1"

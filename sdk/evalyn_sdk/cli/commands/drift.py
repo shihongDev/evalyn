@@ -166,6 +166,15 @@ def _print_table(report: DriftReport, baseline_name: str) -> None:
 
 def cmd_drift(args: argparse.Namespace) -> None:
     """Compare the current run against a pinned baseline."""
+    # --threshold is a FRACTION (0.05 = 5%), not a percent. Reject obvious
+    # mis-units with a clear hint - silently treating `--threshold 5` as
+    # "flag deltas exceeding 500%" makes the gate inert.
+    if args.threshold > 1.0:
+        fatal_error(
+            f"--threshold is a fraction (0.05 = 5%); got {args.threshold}",
+            f"Did you mean --threshold {args.threshold / 100}?",
+        )
+
     baseline_name = args.baseline or DEFAULT_BASELINE_NAME
     pointer = load_baseline(baseline_name, state_dir=args.state_dir)
     if pointer is None:
@@ -176,6 +185,15 @@ def cmd_drift(args: argparse.Namespace) -> None:
 
     baseline_run = _resolve_baseline_run(pointer)
     current_run = _resolve_current_run(args, baseline_run.dataset_name)
+    # Warn (but don't fail) when comparing runs from different datasets -
+    # the comparison is technically valid but rarely what the user wants.
+    if baseline_run.dataset_name != current_run.dataset_name:
+        print(
+            f"Warning: baseline dataset '{baseline_run.dataset_name}' differs "
+            f"from current run dataset '{current_run.dataset_name}'. "
+            "Drift report may be misleading.",
+            file=sys.stderr,
+        )
 
     baseline_analysis: RunAnalysis = analyze_run(baseline_run.as_dict())
     current_analysis: RunAnalysis = analyze_run(current_run.as_dict())

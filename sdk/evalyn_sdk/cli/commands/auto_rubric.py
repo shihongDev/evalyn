@@ -102,6 +102,13 @@ def cmd_auto_rubric(args: argparse.Namespace) -> None:
         else Path("data") / "metrics" / f"{_safe_filename(metric_id)}.json"
     )
     output_path.parent.mkdir(parents=True, exist_ok=True)
+    # Refuse to silently clobber an existing rubric - a user re-running
+    # this command may have hand-tuned the previous file.
+    if output_path.exists() and not getattr(args, "force", False):
+        fatal_error(
+            f"Output file already exists: {output_path}",
+            "Pass --force to overwrite, or --output <path> for a new location.",
+        )
     # The file format used by --metrics is a JSON array of specs.
     output_path.write_text(
         json.dumps([rubric], indent=2, ensure_ascii=False),
@@ -176,6 +183,11 @@ def register_commands(subparsers: argparse._SubParsersAction) -> None:
     parser.add_argument(
         "--api-key",
         help="API key for the chosen provider (default: from env / evalyn.yaml)",
+    )
+    parser.add_argument(
+        "--force",
+        action="store_true",
+        help="Overwrite an existing rubric file at the output path.",
     )
     parser.set_defaults(func=cmd_auto_rubric)
 

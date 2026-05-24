@@ -79,9 +79,14 @@ def _resolve_call_field(call, field: str) -> Any:
 def _evaluate_expression(expr: FilterExpression, call) -> bool:
     """Evaluate a single parsed expression against a FunctionCall."""
     actual = _resolve_call_field(call, expr.field)
-    # Booleans need string coercion to match the existing FilterExpression
-    # comparator, which compares string equality for `=` / `!=`.
-    if isinstance(actual, bool):
+    # Special-case `error`: the resolver coerces it to bool, but users
+    # may want `error is_null` to mean "no error recorded". Pass through
+    # the raw call.error (which is None / str) to honor is_null semantics.
+    if expr.field == "error" and expr.operator in ("is_null", "is_not_null"):
+        actual = call.error
+    elif isinstance(actual, bool):
+        # For =/!= operators, coerce bool to canonical strings so the
+        # existing string-equality comparator works.
         actual = "true" if actual else "false"
     return FilterExpression._compare(actual, expr.operator, expr.value)
 

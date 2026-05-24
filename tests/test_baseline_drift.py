@@ -196,6 +196,21 @@ class TestBaselinePersistence:
     def test_load_missing_returns_none(self, temp_dir: Path) -> None:
         assert load_baseline("missing", state_dir=temp_dir) is None
 
+    def test_write_is_atomic_via_temp_file(self, temp_dir: Path) -> None:
+        # Regression for review finding C2: writes were non-atomic, so a
+        # mid-write crash silently corrupted the catalog. Verify no temp
+        # files leak after a clean save.
+        save_baseline(
+            BaselinePointer("a", "run-a", "", "ds", "2026-01-01T00:00:00+00:00"),
+            state_dir=temp_dir,
+        )
+        # No `*.tmp` should remain after a clean write.
+        tmp_leftovers = list(temp_dir.glob(f"{BASELINES_FILENAME}.*.tmp"))
+        assert tmp_leftovers == []
+        # And the file is intact and parseable.
+        loaded = load_baseline("a", state_dir=temp_dir)
+        assert loaded is not None and loaded.run_id == "run-a"
+
 
 # ---------------------------------------------------------------------------
 # Drift computation

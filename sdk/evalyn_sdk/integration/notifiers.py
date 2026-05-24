@@ -150,24 +150,34 @@ def format_slack_message(
     breach_lines = _breach_lines(breaches)
     if breach_lines:
         body = "\n".join(f"- `{line}`" for line in breach_lines)
+        # Slack enforces a 3000-char hard cap per `text` field
+        # (https://api.slack.com/reference/block-kit/blocks#section).
+        body = _truncate_slack_text(f"*Breaches*\n{body}")
         blocks.append(
-            {
-                "type": "section",
-                "text": {"type": "mrkdwn", "text": f"*Breaches*\n{body}"},
-            }
+            {"type": "section", "text": {"type": "mrkdwn", "text": body}}
         )
 
     metric_lines = _metric_lines(metrics)
     if metric_lines:
         body = "\n".join(f"- {line}" for line in metric_lines)
+        body = _truncate_slack_text(f"*Metrics*\n{body}")
         blocks.append(
-            {
-                "type": "section",
-                "text": {"type": "mrkdwn", "text": f"*Metrics*\n{body}"},
-            }
+            {"type": "section", "text": {"type": "mrkdwn", "text": body}}
         )
 
     return {"text": fallback, "blocks": blocks}
+
+
+# Slack docs: section block `text` field hard caps at 3000 chars and
+# rejects the whole payload (HTTP 400) when exceeded. Cap at 2900 to
+# leave headroom for the prefix label ("*Breaches*\n", etc).
+_SLACK_TEXT_MAX = 2900
+
+
+def _truncate_slack_text(text: str) -> str:
+    if len(text) <= _SLACK_TEXT_MAX:
+        return text
+    return text[:_SLACK_TEXT_MAX - 3] + "..."
 
 
 def format_discord_message(
@@ -364,11 +374,15 @@ def send_webhook(
             # 4xx or last attempt: stop.
             return last
         except urllib.error.URLError as exc:
+            # Do NOT format `exc.reason` directly: Python sometimes embeds the
+            # full URL in DNS-failure reasons, leaking the webhook URL (a
+            # secret for Slack/Discord) into stderr / CI logs.
+            reason_class = type(exc.reason).__name__ if hasattr(exc, "reason") else "URLError"
             last = WebhookResponse(
                 status=None,
                 body="",
                 attempts=attempt,
-                error=f"URLError: {exc.reason}",
+                error=f"URLError ({reason_class}): connection failed",
             )
             if attempt < max_attempts:
                 time.sleep(backoff * (2 ** (attempt - 1)))
