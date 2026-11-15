@@ -12,8 +12,14 @@ References:
 from __future__ import annotations
 
 import math
+from typing import Any
 
 from .base import ConfidenceEstimator, ConfidenceResult
+
+try:  # optional: pip install "evalyn-sdk[spans]"
+    import llm_token_visualizer as _ltv
+except ImportError:
+    _ltv = None
 
 
 class LogprobsConfidence(ConfidenceEstimator):
@@ -24,9 +30,17 @@ class LogprobsConfidence(ConfidenceEstimator):
     This converts average log probability to a probability in [0, 1].
     Higher logprobs (closer to 0) = higher confidence.
 
+    When the token strings are passed too and llm-token-visualizer is
+    installed (the "spans" extra), details also carry the low-confidence
+    spans of the text: which words in the verdict or rationale fell below
+    span_threshold. The score itself does not change.
+
     Args:
         aggregation: How to aggregate token logprobs - "mean", "min", "sum"
         normalize: Whether to apply sigmoid normalization for better calibration
+        span_threshold: Token probability below which a word is flagged as a
+            low-confidence span (only used when tokens are passed; 0.5 is
+            llm-token-visualizer's DEFAULT_THRESHOLD)
 
     Usage:
         estimator = LogprobsConfidence()
@@ -34,9 +48,16 @@ class LogprobsConfidence(ConfidenceEstimator):
         # result.score ~ 0.82
     """
 
-    def __init__(self, aggregation: str = "mean", normalize: bool = False):
+    def __init__(
+        self, aggregation: str = "mean", normalize: bool = False, span_threshold: float = 0.5
+    ):
+        if not 0.0 <= span_threshold <= 1.0:
+            raise ValueError(
+                f"span_threshold is a token probability in [0, 1], got {span_threshold}"
+            )
         self.aggregation = aggregation
         self.normalize = normalize
+        self.span_threshold = span_threshold
 
     @property
     def name(self) -> str:
@@ -45,14 +66,20 @@ class LogprobsConfidence(ConfidenceEstimator):
     def estimate(
         self,
         logprobs: list[float],
-        top_logprobs: list[list[float]] | None = None,
+        top_logprobs: list[list[float] | dict[str, float]] | None = None,
+        tokens: list[str] | None = None,
         **kwargs,
     ) -> ConfidenceResult:
         """Estimate confidence from logprobs.
 
         Args:
             logprobs: List of log probabilities for each token
-            top_logprobs: Optional list of top-k logprobs per token (for entropy)
+            top_logprobs: Optional list of top-k logprobs per token (for entropy).
+                Entries given as {token: logprob} dicts also name the
+                alternatives in the low-confidence spans.
+            tokens: Optional token strings aligned with logprobs. With
+                llm-token-visualizer installed, adds "low_confidence_spans"
+                and "flagged" to details.
 
         Returns:
             ConfidenceResult with confidence score
@@ -83,17 +110,46 @@ class LogprobsConfidence(ConfidenceEstimator):
             # For mean aggregation, this is geometric mean of probabilities
             confidence = math.exp(agg_logprob)
 
-        return ConfidenceResult(
-            score=confidence,
-            method=self.name,
-            details={
-                "aggregation": self.aggregation,
-                "agg_logprob": agg_logprob,
-                "num_tokens": len(valid_logprobs),
-                "min_logprob": min(valid_logprobs),
-                "max_logprob": max(valid_logprobs),
-            },
-        )
+        details: dict[str, Any] = {
+            "aggregation": self.aggregation,
+            "agg_logprob": agg_logprob,
+            "num_tokens": len(valid_logprobs),
+            "min_logprob": min(valid_logprobs),
+            "max_logprob": max(valid_logprobs),
+        }
+        details.update(self._low_confidence_spans(tokens, logprobs, top_logprobs))
+
+        return ConfidenceResult(score=confidence, method=self.name, details=details)
+
+    def _low_confidence_spans(
+        self,
+        tokens: list[str] | None,
+        logprobs: list[float],
+        top_logprobs: list[Any] | None,
+    ) -> dict[str, Any]:
+        """Locate the low-confidence words in the text with llm-token-visualizer."""
+        if not tokens:
+            return {}
+        if _ltv is None:
+            return {
+                "spans_error": 'llm-token-visualizer not installed: pip install "evalyn-sdk[spans]"'
+            }
+        if len(tokens) != len(logprobs):
+            return {
+                "spans_error": f"got {len(tokens)} tokens for {len(logprobs)} logprobs",
+            }
+        block: dict[str, Any] = {"tokens": list(tokens), "token_logprobs": list(logprobs)}
+        if top_logprobs and len(top_logprobs) == len(tokens):
+            # Only the {token: logprob} form names alternatives; bare floats do not.
+            block["top_logprobs"] = [t if isinstance(t, dict) else None for t in top_logprobs]
+        try:
+            scored = _ltv.score(block, self.span_threshold)
+        except ValueError as e:  # LogprobsError: malformed token block
+            return {"spans_error": str(e)}
+        return {
+            "flagged": scored.flagged,
+            "low_confidence_spans": [span.to_dict() for span in scored.spans()],
+        }
 
 
 class PerplexityConfidence(ConfidenceEstimator):
